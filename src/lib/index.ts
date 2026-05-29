@@ -1,0 +1,29 @@
+// === ApartX UI Kit — main barrel ===
+// Components are also available via category subpaths:
+//   apartx-ui/structure · apartx-ui/display · apartx-ui/data
+//   apartx-ui/forms · apartx-ui/overlays · apartx-ui/hooks · apartx-ui/theme
+
+// Structure
+export * from './ui/structure';
+
+// Display (incl. Link + setLinkNavigate/getLinkNavigate)
+export * from './ui/display';
+
+// Data
+export * from './ui/data';
+
+// Forms (incl. createForm)
+export * from './ui/forms';
+
+// Overlays (incl. confirm service + ToasterMount)
+export * from './ui/overlays';
+
+// Hooks
+export * from './hooks';
+
+// Theme utilities
+export * from './theme';
+
+// Utils
+export { cn } from './ui/utils/cn';
+export * from './ui/utils/date';

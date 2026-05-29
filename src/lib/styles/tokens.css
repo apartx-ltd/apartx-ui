@@ -1,0 +1,99 @@
+/*
+ * ApartX UI Kit — Material Design 3 design tokens.
+ *
+ * Maps M3 token names onto Tailwind v4 theme variables. The `--m3-*` runtime
+ * variables are produced by `theme/apply-theme.ts` from a seed colour; the
+ * fallback literals below match the ApartX brand seed (#1976d2) so the kit is
+ * usable even when a consumer never calls `applyTheme()`.
+ *
+ * Consumers import this via `apartx-ui/styles/tokens.css` (after `@import
+ * "tailwindcss"`) and may override any `--m3-*` variable to rebrand.
+ */
+@theme {
+  /* --- M3 Color Tokens --- */
+  --color-primary: var(--m3-primary, #1976d2);
+  --color-on-primary: var(--m3-on-primary, #ffffff);
+  --color-primary-container: var(--m3-primary-container, #d1e4ff);
+  --color-on-primary-container: var(--m3-on-primary-container, #001d36);
+
+  --color-secondary: var(--m3-secondary, #535f70);
+  --color-on-secondary: var(--m3-on-secondary, #ffffff);
+  --color-secondary-container: var(--m3-secondary-container, #d7e3f7);
+  --color-on-secondary-container: var(--m3-on-secondary-container, #101c2b);
+
+  --color-tertiary: var(--m3-tertiary, #6b5778);
+  --color-on-tertiary: var(--m3-on-tertiary, #ffffff);
+  --color-tertiary-container: var(--m3-tertiary-container, #f2daff);
+  --color-on-tertiary-container: var(--m3-on-tertiary-container, #251431);
+
+  --color-error: var(--m3-error, #ba1a1a);
+  --color-on-error: var(--m3-on-error, #ffffff);
+  --color-error-container: var(--m3-error-container, #ffdad6);
+  --color-on-error-container: var(--m3-on-error-container, #410002);
+
+  --color-background: var(--m3-background, #fdfcff);
+  --color-on-background: var(--m3-on-background, #1a1c1e);
+  --color-surface: var(--m3-surface, #fdfcff);
+  --color-on-surface: var(--m3-on-surface, #1a1c1e);
+  --color-surface-variant: var(--m3-surface-variant, #dfe2eb);
+  --color-on-surface-variant: var(--m3-on-surface-variant, #43474e);
+
+  --color-outline: var(--m3-outline, #73777f);
+  --color-outline-variant: var(--m3-outline-variant, #c3c7cf);
+  --color-shadow: var(--m3-shadow, #000000);
+  --color-scrim: var(--m3-scrim, #000000);
+
+  --color-inverse-surface: var(--m3-inverse-surface, #2f3033);
+  --color-inverse-on-surface: var(--m3-inverse-on-surface, #f1f0f4);
+  --color-inverse-primary: var(--m3-inverse-primary, #a0cafd);
+
+  /* Custom semantic */
+  --color-success: var(--m3-success, #2e7d32);
+  --color-on-success: var(--m3-on-success, #ffffff);
+  --color-warning: var(--m3-warning, #ed6c02);
+  --color-on-warning: var(--m3-on-warning, #ffffff);
+  --color-info: var(--m3-info, #0288d1);
+  --color-on-info: var(--m3-on-info, #ffffff);
+
+  /* --- M3 Shape Scale --- */
+  --radius-none: 0px;
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 28px;
+  --radius-full: 9999px;
+
+  /* --- M3 Elevation (as box-shadow) --- */
+  --shadow-level-0: none;
+  --shadow-level-1: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 1px 3px 1px rgb(0 0 0 / 0.15);
+  --shadow-level-2: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15);
+  --shadow-level-3: 0 4px 8px 3px rgb(0 0 0 / 0.15), 0 1px 3px 0 rgb(0 0 0 / 0.3);
+  --shadow-level-4: 0 6px 10px 4px rgb(0 0 0 / 0.15), 0 2px 3px 0 rgb(0 0 0 / 0.3);
+  --shadow-level-5: 0 8px 12px 6px rgb(0 0 0 / 0.15), 0 4px 4px 0 rgb(0 0 0 / 0.3);
+
+  /* --- M3 Motion --- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-standard-decelerate: cubic-bezier(0, 0, 0, 1);
+  --ease-standard-accelerate: cubic-bezier(0.3, 0, 1, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+
+  --duration-short-1: 50ms;
+  --duration-short-2: 100ms;
+  --duration-short-3: 150ms;
+  --duration-short-4: 200ms;
+  --duration-medium-1: 250ms;
+  --duration-medium-2: 300ms;
+  --duration-medium-3: 350ms;
+  --duration-medium-4: 400ms;
+  --duration-long-1: 450ms;
+  --duration-long-2: 500ms;
+  --duration-long-3: 550ms;
+  --duration-long-4: 600ms;
+  --duration-extra-long-1: 700ms;
+  --duration-extra-long-2: 800ms;
+  --duration-extra-long-3: 900ms;
+  --duration-extra-long-4: 1000ms;
+}

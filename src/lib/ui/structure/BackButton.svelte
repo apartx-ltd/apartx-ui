@@ -1,0 +1,28 @@
+<script>
+  import { cn } from '../utils/cn';
+  import Icon from '../display/Icon.svelte';
+
+  let { onclick, class: className, ...restProps } = $props();
+
+  function handleClick(e) {
+    if (onclick) {
+      onclick(e);
+    } else {
+      history.back();
+    }
+  }
+</script>
+
+<button
+  type="button"
+  class={cn(
+    'inline-flex items-center justify-center w-10 h-10 rounded-full',
+    'text-on-surface hover:bg-on-surface/8 active:bg-on-surface/12',
+    'transition-colors cursor-pointer',
+    className
+  )}
+  onclick={handleClick}
+  {...restProps}
+>
+  <Icon name="arrow-left" />
+</button>

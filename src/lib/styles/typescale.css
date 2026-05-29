@@ -1,0 +1,117 @@
+/*
+ * M3 Typescale — 15 styles mapped to Tailwind @utility classes.
+ * Usage: class="text-body-md", class="text-headline-sm", etc.
+ *
+ * Font: Roboto (M3 default), fallback to system sans-serif.
+ * Each style sets: font-family, font-size, line-height, letter-spacing, font-weight.
+ */
+
+/* --- Display --- */
+@utility text-display-lg {
+  font-size: 3.5625rem; /* 57px */
+  line-height: 4rem; /* 64px */
+  letter-spacing: -0.015625rem;
+  font-weight: 400;
+}
+
+@utility text-display-md {
+  font-size: 2.8125rem; /* 45px */
+  line-height: 3.25rem; /* 52px */
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+@utility text-display-sm {
+  font-size: 2.25rem; /* 36px */
+  line-height: 2.75rem; /* 44px */
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+/* --- Headline --- */
+@utility text-headline-lg {
+  font-size: 2rem; /* 32px */
+  line-height: 2.5rem; /* 40px */
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+@utility text-headline-md {
+  font-size: 1.75rem; /* 28px */
+  line-height: 2.25rem; /* 36px */
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+@utility text-headline-sm {
+  font-size: 1.5rem; /* 24px */
+  line-height: 2rem; /* 32px */
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+/* --- Title --- */
+@utility text-title-lg {
+  font-size: 1.375rem; /* 22px */
+  line-height: 1.75rem; /* 28px */
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+@utility text-title-md {
+  font-size: 1rem; /* 16px */
+  line-height: 1.5rem; /* 24px */
+  letter-spacing: 0.009375rem;
+  font-weight: 500;
+}
+
+@utility text-title-sm {
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.25rem; /* 20px */
+  letter-spacing: 0.00625rem;
+  font-weight: 500;
+}
+
+/* --- Body --- */
+@utility text-body-lg {
+  font-size: 1rem; /* 16px */
+  line-height: 1.5rem; /* 24px */
+  letter-spacing: 0.03125rem;
+  font-weight: 400;
+}
+
+@utility text-body-md {
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.25rem; /* 20px */
+  letter-spacing: 0.015625rem;
+  font-weight: 400;
+}
+
+@utility text-body-sm {
+  font-size: 0.75rem; /* 12px */
+  line-height: 1rem; /* 16px */
+  letter-spacing: 0.025rem;
+  font-weight: 400;
+}
+
+/* --- Label --- */
+@utility text-label-lg {
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.25rem; /* 20px */
+  letter-spacing: 0.00625rem;
+  font-weight: 500;
+}
+
+@utility text-label-md {
+  font-size: 0.75rem; /* 12px */
+  line-height: 1rem; /* 16px */
+  letter-spacing: 0.03125rem;
+  font-weight: 500;
+}
+
+@utility text-label-sm {
+  font-size: 0.6875rem; /* 11px */
+  line-height: 1rem; /* 16px */
+  letter-spacing: 0.03125rem;
+  font-weight: 500;
+}

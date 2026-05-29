@@ -1,0 +1,54 @@
+<script lang="ts">
+  import '../app.css';
+  import { onMount } from 'svelte';
+  import { page } from '$app/state';
+  import { applyM3Theme } from '$lib/theme/apply-theme';
+  import { setLinkNavigate } from '$lib/ui/display/link-context';
+  import { goto } from '$app/navigation';
+
+  let { children } = $props();
+
+  // Wire the kit's <Link> to SvelteKit's client-side navigation for the demo.
+  setLinkNavigate((href, opts) => goto(href, { replaceState: opts?.replace }));
+
+  onMount(() => {
+    applyM3Theme('#1976d2');
+  });
+
+  const nav = [
+    { href: '/', label: 'Overview' },
+    { href: '/display', label: 'Display' },
+    { href: '/structure', label: 'Structure' },
+    { href: '/data', label: 'Data' },
+    { href: '/forms', label: 'Forms' },
+    { href: '/overlays', label: 'Overlays' },
+    { href: '/hooks', label: 'Hooks' },
+  ];
+
+  let current = $derived(page.url.pathname);
+</script>
+
+<div class="flex min-h-screen bg-surface text-on-surface">
+  <aside class="w-56 shrink-0 border-r border-outline-variant p-4">
+    <a href="/" class="block mb-6">
+      <span class="text-title-lg text-primary font-semibold">ApartX UI</span>
+      <span class="block text-body-sm text-on-surface-variant">Svelte 5 · M3</span>
+    </a>
+    <nav class="flex flex-col gap-1">
+      {#each nav as item (item.href)}
+        <a
+          href={item.href}
+          class="rounded-sm px-3 py-2 text-label-lg transition-colors hover:bg-primary/8"
+          class:bg-primary={current === item.href}
+          class:text-on-primary={current === item.href}
+        >
+          {item.label}
+        </a>
+      {/each}
+    </nav>
+  </aside>
+
+  <main class="flex-1 overflow-auto p-8">
+    {@render children()}
+  </main>
+</div>
