@@ -127,7 +127,6 @@
       easing: cubicOut,
       css: (_t, u) => (dir === 'back' ? leading(u) : trailing(u)),
     };
-    };
   }
 </script>
 
