@@ -48,7 +48,11 @@
     if (!v) onclose?.();
   }
 
-  // Fullscreen dialogs slide up like a sheet; centered ones pop.
+  // Exit only. Fullscreen dialogs slide down like a sheet; centered ones pop.
+  // Enter is a CSS @keyframes class instead (see <style>): a Svelte `transition:`
+  // applies its start state a frame late on iOS WebKit, flashing the settled
+  // dialog for one frame ("opens twice"). A CSS animation class is in the computed
+  // style before the first paint, so there is no flash.
   function contentTransition(node: Element): TransitionConfig {
     return fullScreen ? sheet(node, { side: 'bottom' }) : dialogPop(node);
   }
@@ -96,8 +100,8 @@
         {#if isOpen}
           <div
             {...props}
-            class={cn('fixed inset-0 z-40 bg-scrim/40', overlayClass)}
-            transition:overlayFade
+            class={cn('dlg-scrim dlg-overlay-in fixed inset-0 z-40', overlayClass)}
+            out:overlayFade|global
           ></div>
         {/if}
       {/snippet}
@@ -121,12 +125,12 @@
               class={cn(
                 'pointer-events-auto flex flex-col bg-surface shadow-level-3 outline-none',
                 fullScreen
-                  ? 'absolute inset-0 rounded-none'
-                  : 'max-w-lg w-full max-h-[85vh] rounded-xl overflow-hidden',
+                  ? 'absolute inset-0 rounded-none dlg-in-sheet'
+                  : 'max-w-lg w-full max-h-[85vh] rounded-xl overflow-hidden dlg-in-pop',
                 className,
                 contentClass,
               )}
-              transition:contentTransition
+              out:contentTransition|global
             >
               {@render panel()}
             </div>
@@ -136,3 +140,65 @@
     </BitsDialog.Content>
   </BitsDialog.Portal>
 </BitsDialog.Root>
+
+<style>
+  /* :global because these classes are applied via cn() (not as literals), so
+     Svelte's scoped-CSS pruning would drop them; keyframes are -global- to match.
+     Each enter animation uses `animation-fill-mode: backwards` so the `from`
+     state is applied at the first style resolution (before paint) — no iOS
+     first-frame flash — and reverts to the natural settled state afterwards, so
+     the Svelte `out:` exit animates cleanly from there. */
+
+  /* iOS-15-safe scrim: explicit alpha. Tailwind's `bg-scrim/40` compiles to
+     color-mix(), which iOS 15 Safari ignores, falling back to opaque black. */
+  :global(.dlg-scrim) {
+    background-color: rgb(0 0 0 / 0.4);
+  }
+  :global(.dlg-overlay-in) {
+    animation: dlgOverlayIn 200ms cubic-bezier(0.2, 0, 0, 1) backwards;
+  }
+  @keyframes -global-dlgOverlayIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Centered dialog: fade + subtle rise & scale (mirrors motion.ts dialogPop). */
+  :global(.dlg-in-pop) {
+    animation: dlgInPop 220ms cubic-bezier(0.2, 0, 0, 1) backwards;
+  }
+  @keyframes -global-dlgInPop {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Fullscreen dialog: slide up from the bottom (mirrors motion.ts sheet bottom). */
+  :global(.dlg-in-sheet) {
+    animation: dlgInSheet 260ms cubic-bezier(0.2, 0, 0, 1) backwards;
+  }
+  @keyframes -global-dlgInSheet {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.dlg-overlay-in),
+    :global(.dlg-in-pop),
+    :global(.dlg-in-sheet) {
+      animation-duration: 1ms;
+    }
+  }
+</style>
