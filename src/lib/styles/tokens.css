@@ -107,8 +107,8 @@
  * touch to the OS.
  *
  * On pointer-fine devices the thumb is transparent by default and becomes
- * visible while `.is-scrolling` is set (via the `autohideScroll` action) or on
- * hover. The track width stays constant, so toggling causes no layout shift.
+ * visible only while `.is-scrolling` is set (via the `autohideScroll` action).
+ * The track width stays constant, so toggling causes no layout shift.
  */
 @utility scrollbar-autohide {
   @media (pointer: fine) {
@@ -124,15 +124,11 @@
       border-radius: 9999px;
       transition: background 0.3s ease;
     }
-    &:hover {
-      scrollbar-color: color-mix(in oklab, var(--color-outline) 70%, transparent) transparent;
-    }
-    &:hover::-webkit-scrollbar-thumb,
-    &.is-scrolling::-webkit-scrollbar-thumb {
-      background: color-mix(in oklab, var(--color-outline) 70%, transparent);
-    }
     &.is-scrolling {
       scrollbar-color: color-mix(in oklab, var(--color-outline) 70%, transparent) transparent;
+    }
+    &.is-scrolling::-webkit-scrollbar-thumb {
+      background: color-mix(in oklab, var(--color-outline) 70%, transparent);
     }
   }
 }
