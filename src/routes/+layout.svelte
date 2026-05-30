@@ -8,6 +8,7 @@
   import { setNavigator, matchActive, type Navigator } from '$lib/navigation';
   import PageTransition from '$lib/navigation/PageTransition.svelte';
   import { Icon } from '$lib/ui/display';
+  import { Drawer } from '$lib/ui/overlays';
 
   let { children } = $props();
 
@@ -99,19 +100,14 @@
     {@render sidebar()}
   </aside>
 
-  <!-- Mobile drawer + scrim -->
-  {#if menuOpen}
-    <div class="fixed inset-0 z-40 sm:hidden">
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="absolute inset-0 bg-scrim/40" onclick={() => (menuOpen = false)}></div>
-      <aside
-        class="absolute left-0 top-0 h-full w-64 overflow-y-auto scrollbar-none border-r border-outline-variant bg-surface p-4 shadow-level-3"
-      >
+  <!-- Mobile drawer — the kit's Drawer component (hidden on desktop). -->
+  <div class="sm:hidden">
+    <Drawer bind:open={menuOpen} side="left" class="w-64">
+      <div class="h-full overflow-y-auto scrollbar-none p-4">
         {@render sidebar()}
-      </aside>
-    </div>
-  {/if}
+      </div>
+    </Drawer>
+  </div>
 
   <div class="flex flex-1 flex-col overflow-hidden">
     <!-- Mobile top bar -->
