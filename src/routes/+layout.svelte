@@ -73,7 +73,7 @@
 <div class="flex h-screen overflow-hidden bg-surface text-on-surface">
   <!-- Desktop sidebar -->
   <aside
-    class="hidden w-56 shrink-0 overflow-y-auto border-r border-outline-variant p-4 sm:block"
+    class="hidden w-56 shrink-0 overflow-y-auto scrollbar-none border-r border-outline-variant p-4 sm:block"
   >
     {@render sidebar()}
   </aside>
@@ -85,7 +85,7 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="absolute inset-0 bg-scrim/40" onclick={() => (menuOpen = false)}></div>
       <aside
-        class="absolute left-0 top-0 h-full w-64 overflow-y-auto border-r border-outline-variant bg-surface p-4 shadow-level-3"
+        class="absolute left-0 top-0 h-full w-64 overflow-y-auto scrollbar-none border-r border-outline-variant bg-surface p-4 shadow-level-3"
       >
         {@render sidebar()}
       </aside>

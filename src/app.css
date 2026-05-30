@@ -5,12 +5,3 @@
 /* Scan the library and the demo routes for Tailwind class usage. */
 @source './lib/**/*.{svelte,ts}';
 @source './routes/**/*.{svelte,ts}';
-
-/* Hide scrollbar utility — works across all browsers. */
-@utility scrollbar-none {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
-}

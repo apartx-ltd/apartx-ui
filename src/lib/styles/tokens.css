@@ -97,3 +97,12 @@
   --duration-extra-long-3: 900ms;
   --duration-extra-long-4: 1000ms;
 }
+
+/* Hide the scrollbar while keeping the element scrollable (wheel/touch/keys). */
+@utility scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
