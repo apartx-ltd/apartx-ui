@@ -17,6 +17,8 @@ export interface MapProviderConfig {
   apiKey?: string;
   /** UI/results language, e.g. "en_US", "ru_RU". */
   lang?: string;
+  /** Google Map ID — required for Advanced Markers. Ignored by other providers. */
+  mapId?: string;
 }
 
 export interface MarkerOptions {

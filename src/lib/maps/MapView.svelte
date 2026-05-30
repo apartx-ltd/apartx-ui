@@ -42,6 +42,7 @@
     const provider = cfg.provider;
     const apiKey = cfg.config.apiKey;
     const lang = cfg.config.lang;
+    const mapId = cfg.config.mapId;
     if (!el) return;
 
     let disposed = false;
@@ -49,7 +50,7 @@
     (async () => {
       try {
         const p = getProvider();
-        await p.load({ apiKey, lang });
+        await p.load({ apiKey, lang, mapId });
         if (disposed) return;
         const start = untrack(() => ({ center, zoom }));
         const h = await p.createMap(el, start);

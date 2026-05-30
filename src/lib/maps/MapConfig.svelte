@@ -18,18 +18,21 @@
     provider = 'yandex',
     apiKey = '',
     lang = 'en_US',
+    mapId = '',
   }: {
     children: any;
     provider?: MapProviderName;
     apiKey?: string;
     lang?: string;
+    /** Google Map ID for Advanced Markers (ignored by other providers). */
+    mapId?: string;
   } = $props();
 
   // Reactive context object so descendants react if credentials change.
-  const ctx = $state({ provider, config: { apiKey, lang } });
+  const ctx = $state({ provider, config: { apiKey, lang, mapId: mapId || undefined } });
   $effect(() => {
     ctx.provider = provider;
-    ctx.config = { apiKey, lang };
+    ctx.config = { apiKey, lang, mapId: mapId || undefined };
   });
 
   setMapConfig(ctx);
