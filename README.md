@@ -85,20 +85,49 @@ The kit ships a neutral ApartX-blue fallback palette in `styles/tokens.css`.
 To rebrand at runtime, call `applyTheme(seedHex)` once near app start; it
 generates the full palette from a seed and sets the `--theme-*` CSS variables.
 
-### Routing — `<Link>`
+### Navigation — router-agnostic
 
-The kit is router-agnostic. `<Link>` falls back to native `<a href>` navigation
-unless a navigator is injected. Wire it once near your Svelte root:
+The kit never owns routing. Instead a host adapts its router to the `Navigator`
+contract (`apartx-ui/navigation`) and injects it once near the Svelte root.
+Nav-aware components (`<Link>`, …) consume it; without it they degrade to native
+`<a href>`.
 
 ```svelte
 <script>
-  import { setLinkNavigate } from 'apartx-ui/display';
-  import { goto } from '$app/navigation'; // or your router's push/replace
-  setLinkNavigate((href, opts) => goto(href, { replaceState: opts?.replace }));
+  import { setNavigator, matchActive, type Navigator } from 'apartx-ui/navigation';
+  import { goto } from '$app/navigation';   // or your router
+  import { page } from '$app/state';
+
+  const navigator: Navigator = {
+    push: (href) => goto(href),
+    replace: (href) => goto(href, { replaceState: true }),
+    back: () => history.back(),
+    get current() {
+      return { pathname: page.url.pathname, search: page.url.search, hash: page.url.hash };
+    },
+    isActive: (href, opts) => matchActive(page.url.pathname, href, opts),
+  };
+  setNavigator(navigator);
 </script>
 ```
 
-Per-instance override is also available via the `navigate` prop on `<Link>`.
+`<Link>` also accepts a per-instance `navigate` prop override.
+
+### Page transitions — `<PageTransition>`
+
+Animate view changes without owning routing — pass a `key` that changes per
+route. Respects `prefers-reduced-motion`.
+
+```svelte
+<script>
+  import { PageTransition } from 'apartx-ui/navigation';
+  import { page } from '$app/state';
+</script>
+
+<PageTransition key={page.url.pathname}>
+  {@render children()}
+</PageTransition>
+```
 
 ## Scope
 

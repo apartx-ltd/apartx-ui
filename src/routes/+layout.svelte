@@ -3,14 +3,25 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { base } from '$app/paths';
-  import { applyTheme } from '$lib/theme/apply-theme';
-  import { setLinkNavigate } from '$lib/ui/display/link-context';
   import { goto } from '$app/navigation';
+  import { applyTheme } from '$lib/theme/apply-theme';
+  import { setNavigator, matchActive, type Navigator } from '$lib/navigation';
+  import PageTransition from '$lib/navigation/PageTransition.svelte';
 
   let { children } = $props();
 
-  // Wire the kit's <Link> to SvelteKit's client-side navigation for the demo.
-  setLinkNavigate((href, opts) => goto(href, { replaceState: opts?.replace }));
+  // Adapt SvelteKit's router to the kit's Navigator contract — example of how a
+  // host wires the UI Kit. Meteor consumers would adapt their own router here.
+  const navigator: Navigator = {
+    push: (href) => goto(href),
+    replace: (href) => goto(href, { replaceState: true }),
+    back: () => history.back(),
+    get current() {
+      return { pathname: page.url.pathname, search: page.url.search, hash: page.url.hash };
+    },
+    isActive: (href, opts) => matchActive(page.url.pathname, href, opts),
+  };
+  setNavigator(navigator);
 
   onMount(() => {
     applyTheme('#1976d2');
@@ -52,6 +63,8 @@
   </aside>
 
   <main class="flex-1 overflow-auto p-8">
-    {@render children()}
+    <PageTransition key={page.url.pathname}>
+      {@render children()}
+    </PageTransition>
   </main>
 </div>

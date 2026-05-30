@@ -35,9 +35,11 @@ not as a side effect of other work.
   into `src/lib`. `rg "meteor/|i18next|/imports/" src/lib` must stay empty.
 - **All user-facing text is a prop with an English default** so consumers
   translate at the call site.
-- **`<Link>` is router-agnostic** — it uses an injected navigator
-  (`setLinkNavigate` context or `navigate` prop) and falls back to native
-  `<a href>`. Never re-add a hard router dependency.
+- **Navigation is router-agnostic** — the kit never owns routing/history. Hosts
+  adapt their router to the `Navigator` contract (`apartx-ui/navigation`,
+  `setNavigator`/`getNavigator`); nav-aware components (`<Link>`, …) consume it
+  and fall back to native `<a href>`. `<PageTransition>` animates view changes
+  without owning routing. Never re-add a hard router dependency to `src/lib`.
 - **Barrels:** every category has an `index.ts`; the root `src/lib/index.ts`
   re-exports all categories. Keep new components exported from both.
 - **Internal imports:** `cn` from `'../utils/cn'`; cross-category components by

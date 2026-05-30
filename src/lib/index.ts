@@ -6,8 +6,11 @@
 // Structure
 export * from './ui/structure';
 
-// Display (incl. Link + setLinkNavigate/getLinkNavigate)
+// Display (incl. Link)
 export * from './ui/display';
+
+// Navigation (Navigator contract, setNavigator/getNavigator, PageTransition)
+export * from './navigation';
 
 // Data
 export * from './ui/data';

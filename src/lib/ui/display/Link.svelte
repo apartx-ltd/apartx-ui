@@ -1,6 +1,6 @@
 <script lang="ts">
   import { cn } from '../utils/cn';
-  import { getLinkNavigate, type LinkNavigate } from './link-context';
+  import { getNavigator, type LinkNavigate } from '../../navigation/context';
 
   let {
     href = '',
@@ -25,7 +25,7 @@
     [key: string]: any;
   } = $props();
 
-  const ctxNavigate = getLinkNavigate();
+  const navigator = getNavigator();
 
   let isExternal = $derived(
     external || /^(https?:|mailto:|tel:)/.test(href) || target === '_blank',
@@ -38,12 +38,18 @@
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     if (e.button !== 0) return;
 
-    const nav = navigate ?? ctxNavigate;
-    // No router injected → let the browser perform native navigation.
-    if (!nav) return;
-
-    e.preventDefault();
-    nav(href, { replace });
+    // Priority: per-instance override → injected navigator → native <a href>.
+    if (navigate) {
+      e.preventDefault();
+      navigate(href, { replace });
+      return;
+    }
+    if (navigator) {
+      e.preventDefault();
+      if (replace) navigator.replace(href);
+      else navigator.push(href);
+    }
+    // No navigator → let the browser perform native navigation.
   }
 </script>
 

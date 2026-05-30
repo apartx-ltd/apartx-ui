@@ -15,4 +15,5 @@ export { default as Accordion } from './Accordion.svelte';
 export { default as AccordionItem } from './AccordionItem.svelte';
 export { default as PopoverJson } from './PopoverJson.svelte';
 
-export { setLinkNavigate, getLinkNavigate, type LinkNavigate } from './link-context';
+// Navigation contract lives in `apartx-ui/navigation` (setNavigator/getNavigator).
+export type { LinkNavigate } from '../../navigation/context';
