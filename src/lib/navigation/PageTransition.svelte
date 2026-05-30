@@ -1,49 +1,136 @@
 <script lang="ts">
-  import { fly, fade } from 'svelte/transition';
+  import type { TransitionConfig } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
 
   /**
    * Animate page changes. Wrap route content and pass a `key` that changes per
    * route (e.g. the pathname); the block re-mounts and transitions on change.
    *
-   * Respects `prefers-reduced-motion`: falls back to a quick crossfade with no
-   * movement. Purely visual — does not touch routing.
+   * On mobile (`mode='auto'`) it plays a Telegram-style directional stack slide:
+   * forward navigation enters right→left (the old page parallaxes left), back
+   * navigation reverses left→right. On desktop it crossfades. Direction is
+   * inferred from a stack of visited keys, or set explicitly via `direction`.
+   * Respects `prefers-reduced-motion`. Purely visual — never touches routing.
    *
    * @example
-   *   <PageTransition key={page.url.pathname}>
+   *   <PageTransition key={page.url.pathname} contentClass="p-8">
    *     {@render children()}
    *   </PageTransition>
    */
   let {
     key,
     children,
-    duration = 180,
-    y = 8,
+    direction: directionProp,
+    mode = 'auto',
+    duration = 300,
+    parallax = 30,
     class: className,
+    contentClass,
   }: {
     key: unknown;
     children: () => any;
+    /** Force navigation direction; otherwise inferred from the key stack. */
+    direction?: 'forward' | 'back' | 'none';
+    /** 'auto' = slide on mobile / fade on desktop; or force 'slide' / 'fade'. */
+    mode?: 'auto' | 'slide' | 'fade';
     duration?: number;
-    y?: number;
+    /** How far (%) the covered page parallaxes during a slide. */
+    parallax?: number;
     class?: string;
+    contentClass?: string;
   } = $props();
 
-  // SSR-safe: matchMedia is read lazily on the client when a transition runs.
-  function reducedMotion(): boolean {
-    return (
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    );
+  // --- Direction inference via a stack of visited keys (router-agnostic) ---
+  let stack: string[] = [];
+  let lastKey: string | null = null;
+  let lastDir: 'forward' | 'back' | 'none' = 'none';
+
+  const direction = $derived.by<'forward' | 'back' | 'none'>(() => {
+    if (directionProp) return directionProp;
+    const k = String(key);
+    if (k === lastKey) return lastDir;
+    lastKey = k;
+    const i = stack.indexOf(k);
+    if (i === -1) {
+      stack.push(k);
+      lastDir = 'forward';
+    } else if (i < stack.length - 1) {
+      stack.length = i + 1;
+      lastDir = 'back';
+    } else {
+      lastDir = 'none';
+    }
+    return lastDir;
+  });
+
+  // --- Responsive + reduced-motion detection (client only) ---
+  let isMobile = $state(false);
+  let reduced = $state(false);
+
+  $effect(() => {
+    const mqMobile = window.matchMedia('(max-width: 640px)');
+    const mqReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => {
+      isMobile = mqMobile.matches;
+      reduced = mqReduced.matches;
+    };
+    sync();
+    mqMobile.addEventListener('change', sync);
+    mqReduced.addEventListener('change', sync);
+    return () => {
+      mqMobile.removeEventListener('change', sync);
+      mqReduced.removeEventListener('change', sync);
+    };
+  });
+
+  let slide = $derived(!reduced && (mode === 'slide' || (mode === 'auto' && isMobile)));
+
+  const TOP = 'z-index:2;box-shadow:-8px 0 24px rgb(0 0 0 / 0.18);';
+
+  // `u` is displacement (1 = fully off-screen / pre-enter, 0 = settled).
+  function enter(_node: Element): TransitionConfig {
+    const dir = direction;
+    if (!slide) {
+      return {
+        duration: reduced ? 110 : 180,
+        easing: cubicOut,
+        css: (t, u) => `opacity:${t};transform:translateY(${reduced ? 0 : 8 * u}px);`,
+      };
+    }
+    return {
+      duration,
+      easing: cubicOut,
+      css: (_t, u) =>
+        dir === 'back'
+          ? `transform:translateX(${-parallax * u}%);z-index:1;` // revealed page slides in from the left
+          : `transform:translateX(${100 * u}%);${TOP}`, // new page enters from the right
+    };
   }
 
-  function enter(node: Element) {
-    if (reducedMotion()) return fade(node, { duration: Math.min(duration, 120) });
-    return fly(node, { y, duration, easing: cubicOut });
+  function exit(_node: Element): TransitionConfig {
+    const dir = direction;
+    if (!slide) {
+      return {
+        duration: reduced ? 110 : 150,
+        easing: cubicOut,
+        css: (t) => `opacity:${t};`,
+      };
+    }
+    return {
+      duration,
+      easing: cubicOut,
+      css: (_t, u) =>
+        dir === 'back'
+          ? `transform:translateX(${100 * u}%);${TOP}` // top page dismissed to the right
+          : `transform:translateX(${-parallax * u}%);z-index:1;`, // covered page parallaxes left
+    };
   }
 </script>
 
-{#key key}
-  <div in:enter class={className}>
-    {@render children()}
-  </div>
-{/key}
+<div class="relative h-full w-full overflow-hidden {className ?? ''}">
+  {#key key}
+    <div class="absolute inset-0 overflow-y-auto {contentClass ?? ''}" in:enter out:exit>
+      {@render children()}
+    </div>
+  {/key}
+</div>

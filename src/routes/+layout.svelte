@@ -62,8 +62,8 @@
     </nav>
   </aside>
 
-  <main class="flex-1 overflow-auto p-8">
-    <PageTransition key={page.url.pathname}>
+  <main class="flex-1 overflow-hidden">
+    <PageTransition key={page.url.pathname} contentClass="p-8">
       {@render children()}
     </PageTransition>
   </main>
