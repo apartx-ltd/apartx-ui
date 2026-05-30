@@ -1,11 +1,11 @@
 # apartx-ui
 
-ApartX Svelte 5 UI Kit — a Material Design 3 component library shared across
+ApartX Svelte 5 UI Kit — a themeable component library shared across
 ApartX front-ends (`apartx-admin`, and in future `apartx-cabinet` /
 `apartx-spaces`).
 
 - **Svelte 5** (runes throughout: `$props`/`$state`/`$derived`/`$effect`, snippets)
-- **Tailwind CSS v4** with M3 design tokens
+- **Tailwind CSS v4** with a semantic design-token system
 - **Source-based, no build step** — consumers compile the raw `.svelte`/`.ts`
   sources directly through their own bundler (Meteor + rspack, Vite, etc.). The
   repo ships no compiled artifacts; `package.json` `exports` point at sources.
@@ -34,8 +34,8 @@ src/
 │   │   └── utils/            # cn, date
 │   ├── hooks/                # useMobile, useDebounce, useLocalStorage,
 │   │                         #   useDisclosure, useNotification, useSearchQuery
-│   ├── theme/                # applyM3Theme, generateM3Tokens (runtime palette)
-│   └── styles/               # tokens.css (M3 @theme), typescale.css
+│   ├── theme/                # applyTheme, generateTokens (runtime palette)
+│   └── styles/               # tokens.css (@theme), typescale.css
 └── routes/                   # === demo playground (not published) ===
 ```
 
@@ -72,7 +72,7 @@ The consumer's bundler must:
 2. Resolve the `apartx-ui` alias to `apartx-ui/src/lib` (and the subpaths).
 3. Scan the submodule for Tailwind classes — add to the app's `app.css`:
    `@source '../../apartx-ui/src/lib/**/*.{svelte,ts}';`
-4. Import the M3 token styles once (after `@import 'tailwindcss'`):
+4. Import the token styles once (after `@import 'tailwindcss'`):
    `@import 'apartx-ui/styles/tokens.css';` and `typescale.css`.
 
 `bits-ui`, `svelte`, and `svelte-fa` are **peer dependencies** — keep a single
@@ -82,8 +82,8 @@ Dialog/DatePicker/Accordion context).
 ### Theming
 
 The kit ships a neutral ApartX-blue fallback palette in `styles/tokens.css`.
-To rebrand at runtime, call `applyM3Theme(seedHex)` once near app start; it
-generates the full M3 palette from a seed and sets the `--m3-*` CSS variables.
+To rebrand at runtime, call `applyTheme(seedHex)` once near app start; it
+generates the full palette from a seed and sets the `--theme-*` CSS variables.
 
 ### Routing — `<Link>`
 

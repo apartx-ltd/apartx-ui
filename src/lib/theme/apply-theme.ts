@@ -1,14 +1,14 @@
-import { generateM3Tokens, type M3Tokens } from './m3-tokens';
+import { generateTokens, type ThemeTokens } from './tokens';
 
-let currentTokens: M3Tokens | null = null;
+let currentTokens: ThemeTokens | null = null;
 
 /**
- * Apply M3 color tokens to :root as CSS variables.
+ * Apply color tokens to :root as `--theme-*` CSS variables.
  *
  * @param seedHex - Seed color (e.g. '#1976d2' for ApartX blue)
  */
-export function applyM3Theme(seedHex: string) {
-  currentTokens = generateM3Tokens(seedHex);
+export function applyTheme(seedHex: string) {
+  currentTokens = generateTokens(seedHex);
   const isDark = document.documentElement.classList.contains('dark');
   applyTokens(isDark ? currentTokens.dark : currentTokens.light);
 }

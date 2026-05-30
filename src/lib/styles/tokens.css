@@ -1,61 +1,61 @@
 /*
- * ApartX UI Kit — Material Design 3 design tokens.
+ * ApartX UI Kit — design tokens.
  *
- * Maps M3 token names onto Tailwind v4 theme variables. The `--m3-*` runtime
- * variables are produced by `theme/apply-theme.ts` from a seed colour; the
- * fallback literals below match the ApartX brand seed (#1976d2) so the kit is
- * usable even when a consumer never calls `applyTheme()`.
+ * Maps semantic token names onto Tailwind v4 theme variables. The `--theme-*`
+ * runtime variables are produced by `theme/apply-theme.ts` from a seed colour;
+ * the fallback literals below match the ApartX brand seed (#1976d2) so the kit
+ * is usable even when a consumer never calls `applyTheme()`.
  *
  * Consumers import this via `apartx-ui/styles/tokens.css` (after `@import
- * "tailwindcss"`) and may override any `--m3-*` variable to rebrand.
+ * "tailwindcss"`) and may override any `--theme-*` variable to rebrand.
  */
 @theme {
-  /* --- M3 Color Tokens --- */
-  --color-primary: var(--m3-primary, #1976d2);
-  --color-on-primary: var(--m3-on-primary, #ffffff);
-  --color-primary-container: var(--m3-primary-container, #d1e4ff);
-  --color-on-primary-container: var(--m3-on-primary-container, #001d36);
+  /* --- Color Tokens --- */
+  --color-primary: var(--theme-primary, #1976d2);
+  --color-on-primary: var(--theme-on-primary, #ffffff);
+  --color-primary-container: var(--theme-primary-container, #d1e4ff);
+  --color-on-primary-container: var(--theme-on-primary-container, #001d36);
 
-  --color-secondary: var(--m3-secondary, #535f70);
-  --color-on-secondary: var(--m3-on-secondary, #ffffff);
-  --color-secondary-container: var(--m3-secondary-container, #d7e3f7);
-  --color-on-secondary-container: var(--m3-on-secondary-container, #101c2b);
+  --color-secondary: var(--theme-secondary, #535f70);
+  --color-on-secondary: var(--theme-on-secondary, #ffffff);
+  --color-secondary-container: var(--theme-secondary-container, #d7e3f7);
+  --color-on-secondary-container: var(--theme-on-secondary-container, #101c2b);
 
-  --color-tertiary: var(--m3-tertiary, #6b5778);
-  --color-on-tertiary: var(--m3-on-tertiary, #ffffff);
-  --color-tertiary-container: var(--m3-tertiary-container, #f2daff);
-  --color-on-tertiary-container: var(--m3-on-tertiary-container, #251431);
+  --color-tertiary: var(--theme-tertiary, #6b5778);
+  --color-on-tertiary: var(--theme-on-tertiary, #ffffff);
+  --color-tertiary-container: var(--theme-tertiary-container, #f2daff);
+  --color-on-tertiary-container: var(--theme-on-tertiary-container, #251431);
 
-  --color-error: var(--m3-error, #ba1a1a);
-  --color-on-error: var(--m3-on-error, #ffffff);
-  --color-error-container: var(--m3-error-container, #ffdad6);
-  --color-on-error-container: var(--m3-on-error-container, #410002);
+  --color-error: var(--theme-error, #ba1a1a);
+  --color-on-error: var(--theme-on-error, #ffffff);
+  --color-error-container: var(--theme-error-container, #ffdad6);
+  --color-on-error-container: var(--theme-on-error-container, #410002);
 
-  --color-background: var(--m3-background, #fdfcff);
-  --color-on-background: var(--m3-on-background, #1a1c1e);
-  --color-surface: var(--m3-surface, #fdfcff);
-  --color-on-surface: var(--m3-on-surface, #1a1c1e);
-  --color-surface-variant: var(--m3-surface-variant, #dfe2eb);
-  --color-on-surface-variant: var(--m3-on-surface-variant, #43474e);
+  --color-background: var(--theme-background, #fdfcff);
+  --color-on-background: var(--theme-on-background, #1a1c1e);
+  --color-surface: var(--theme-surface, #fdfcff);
+  --color-on-surface: var(--theme-on-surface, #1a1c1e);
+  --color-surface-variant: var(--theme-surface-variant, #dfe2eb);
+  --color-on-surface-variant: var(--theme-on-surface-variant, #43474e);
 
-  --color-outline: var(--m3-outline, #73777f);
-  --color-outline-variant: var(--m3-outline-variant, #c3c7cf);
-  --color-shadow: var(--m3-shadow, #000000);
-  --color-scrim: var(--m3-scrim, #000000);
+  --color-outline: var(--theme-outline, #73777f);
+  --color-outline-variant: var(--theme-outline-variant, #c3c7cf);
+  --color-shadow: var(--theme-shadow, #000000);
+  --color-scrim: var(--theme-scrim, #000000);
 
-  --color-inverse-surface: var(--m3-inverse-surface, #2f3033);
-  --color-inverse-on-surface: var(--m3-inverse-on-surface, #f1f0f4);
-  --color-inverse-primary: var(--m3-inverse-primary, #a0cafd);
+  --color-inverse-surface: var(--theme-inverse-surface, #2f3033);
+  --color-inverse-on-surface: var(--theme-inverse-on-surface, #f1f0f4);
+  --color-inverse-primary: var(--theme-inverse-primary, #a0cafd);
 
   /* Custom semantic */
-  --color-success: var(--m3-success, #2e7d32);
-  --color-on-success: var(--m3-on-success, #ffffff);
-  --color-warning: var(--m3-warning, #ed6c02);
-  --color-on-warning: var(--m3-on-warning, #ffffff);
-  --color-info: var(--m3-info, #0288d1);
-  --color-on-info: var(--m3-on-info, #ffffff);
+  --color-success: var(--theme-success, #2e7d32);
+  --color-on-success: var(--theme-on-success, #ffffff);
+  --color-warning: var(--theme-warning, #ed6c02);
+  --color-on-warning: var(--theme-on-warning, #ffffff);
+  --color-info: var(--theme-info, #0288d1);
+  --color-on-info: var(--theme-on-info, #ffffff);
 
-  /* --- M3 Shape Scale --- */
+  /* --- Shape Scale --- */
   --radius-none: 0px;
   --radius-xs: 4px;
   --radius-sm: 8px;
@@ -64,7 +64,7 @@
   --radius-xl: 28px;
   --radius-full: 9999px;
 
-  /* --- M3 Elevation (as box-shadow) --- */
+  /* --- Elevation (as box-shadow) --- */
   --shadow-level-0: none;
   --shadow-level-1: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 1px 3px 1px rgb(0 0 0 / 0.15);
   --shadow-level-2: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15);
@@ -72,7 +72,7 @@
   --shadow-level-4: 0 6px 10px 4px rgb(0 0 0 / 0.15), 0 2px 3px 0 rgb(0 0 0 / 0.3);
   --shadow-level-5: 0 8px 12px 6px rgb(0 0 0 / 0.15), 0 4px 4px 0 rgb(0 0 0 / 0.3);
 
-  /* --- M3 Motion --- */
+  /* --- Motion --- */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-standard-decelerate: cubic-bezier(0, 0, 0, 1);
   --ease-standard-accelerate: cubic-bezier(0.3, 0, 1, 1);

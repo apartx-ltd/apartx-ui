@@ -12,7 +12,7 @@
 <header class="mb-8">
   <h1 class="text-headline-lg mb-2">ApartX UI Kit</h1>
   <p class="text-body-lg text-on-surface-variant max-w-2xl">
-    Svelte 5 component library built on Material Design 3 and Tailwind CSS v4.
+    Svelte 5 component library with a themeable design system and Tailwind CSS v4.
     Source-based — consumers compile the raw <code>.svelte</code>/<code>.ts</code>
     sources directly (no build step). Browse a category below.
   </p>

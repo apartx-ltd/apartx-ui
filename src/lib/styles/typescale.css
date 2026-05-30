@@ -1,8 +1,8 @@
 /*
- * M3 Typescale — 15 styles mapped to Tailwind @utility classes.
+ * Typescale — 15 styles mapped to Tailwind @utility classes.
  * Usage: class="text-body-md", class="text-headline-sm", etc.
  *
- * Font: Roboto (M3 default), fallback to system sans-serif.
+ * Font: Roboto (with system sans-serif fallback).
  * Each style sets: font-family, font-size, line-height, letter-spacing, font-weight.
  */
 

@@ -5,7 +5,7 @@ Per-project guidance for the ApartX Svelte 5 UI Kit. See the workspace root
 
 ## What this is
 
-A **source-based** Svelte 5 component library (Material Design 3, Tailwind v4),
+A **source-based** Svelte 5 component library (themeable design system, Tailwind v4),
 extracted from `apartx-admin` so it can be shared across ApartX front-ends.
 There is **no build step**: consumers compile the raw `.svelte`/`.ts` sources
 through their own bundler. `package.json` `exports` point straight at

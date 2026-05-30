@@ -2,7 +2,7 @@
   import '../app.css';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { applyM3Theme } from '$lib/theme/apply-theme';
+  import { applyTheme } from '$lib/theme/apply-theme';
   import { setLinkNavigate } from '$lib/ui/display/link-context';
   import { goto } from '$app/navigation';
 
@@ -12,7 +12,7 @@
   setLinkNavigate((href, opts) => goto(href, { replaceState: opts?.replace }));
 
   onMount(() => {
-    applyM3Theme('#1976d2');
+    applyTheme('#1976d2');
   });
 
   const nav = [
@@ -32,7 +32,7 @@
   <aside class="w-56 shrink-0 border-r border-outline-variant p-4">
     <a href="/" class="block mb-6">
       <span class="text-title-lg text-primary font-semibold">ApartX UI</span>
-      <span class="block text-body-sm text-on-surface-variant">Svelte 5 · M3</span>
+      <span class="block text-body-sm text-on-surface-variant">Svelte 5 · Tailwind v4</span>
     </a>
     <nav class="flex flex-col gap-1">
       {#each nav as item (item.href)}

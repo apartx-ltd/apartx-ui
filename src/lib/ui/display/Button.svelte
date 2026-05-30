@@ -2,7 +2,7 @@
   import { cn } from '../utils/cn';
 
   /**
-   * M3 Button component.
+   * Button component.
    * @param variant - filled | outlined | text | tonal | icon | fab
    * @param color - primary | secondary | tertiary | error
    * @param size - sm | md | lg

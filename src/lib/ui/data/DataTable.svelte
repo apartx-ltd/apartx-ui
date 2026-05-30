@@ -3,7 +3,7 @@
   import Loading from '../display/Loading.svelte';
 
   /**
-   * M3-styled data table.
+   * Data table.
    *
    * @param columns - Array of { key, header, class? }
    * @param data - Array of row objects
