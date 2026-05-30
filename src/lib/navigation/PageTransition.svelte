@@ -22,8 +22,8 @@
     children,
     direction: directionProp,
     mode = 'auto',
-    duration = 300,
-    parallax = 30,
+    duration = 280,
+    distance = 30,
     class: className,
     contentClass,
   }: {
@@ -34,8 +34,8 @@
     /** 'auto' = slide on mobile / fade on desktop; or force 'slide' / 'fade'. */
     mode?: 'auto' | 'slide' | 'fade';
     duration?: number;
-    /** How far (%) the covered page parallaxes during a slide. */
-    parallax?: number;
+    /** How far (%) the leading page travels — short, Telegram/Android style (not full width). */
+    distance?: number;
     class?: string;
     contentClass?: string;
   } = $props();
@@ -87,7 +87,14 @@
 
   const TOP = 'z-index:2;box-shadow:-8px 0 24px rgb(0 0 0 / 0.18);';
 
-  // `u` is displacement (1 = fully off-screen / pre-enter, 0 = settled).
+  // `u` is displacement (1 = fully displaced / pre-enter, 0 = settled).
+  // Telegram/Android "shared axis": the leading page makes a short slide + fade;
+  // the page underneath does a subtle reverse parallax (no fade).
+  const leading = (u: number) =>
+    `transform:translateX(${distance * u}%);opacity:${1 - u};${TOP}`;
+  const trailing = (u: number) =>
+    `transform:translateX(${-distance * 0.4 * u}%);z-index:1;`;
+
   function enter(_node: Element): TransitionConfig {
     const dir = direction;
     if (!slide) {
@@ -97,13 +104,11 @@
         css: (t, u) => `opacity:${t};transform:translateY(${reduced ? 0 : 8 * u}px);`,
       };
     }
+    // Incoming page: leading on forward, the revealed page underneath on back.
     return {
       duration,
       easing: cubicOut,
-      css: (_t, u) =>
-        dir === 'back'
-          ? `transform:translateX(${-parallax * u}%);z-index:1;` // revealed page slides in from the left
-          : `transform:translateX(${100 * u}%);${TOP}`, // new page enters from the right
+      css: (_t, u) => (dir === 'back' ? trailing(u) : leading(u)),
     };
   }
 
@@ -116,13 +121,12 @@
         css: (t) => `opacity:${t};`,
       };
     }
+    // Outgoing page: the page underneath on forward, leading (dismissed) on back.
     return {
       duration,
       easing: cubicOut,
-      css: (_t, u) =>
-        dir === 'back'
-          ? `transform:translateX(${100 * u}%);${TOP}` // top page dismissed to the right
-          : `transform:translateX(${-parallax * u}%);z-index:1;`, // covered page parallaxes left
+      css: (_t, u) => (dir === 'back' ? leading(u) : trailing(u)),
+    };
     };
   }
 </script>
