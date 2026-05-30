@@ -6,11 +6,12 @@
    * Animate page changes. Wrap route content and pass a `key` that changes per
    * route (e.g. the pathname); the block re-mounts and transitions on change.
    *
-   * On mobile (`mode='auto'`) it plays a Telegram-style directional stack slide:
-   * forward navigation enters right→left (the old page parallaxes left), back
-   * navigation reverses left→right. On desktop it crossfades. Direction is
-   * inferred from a stack of visited keys, or set explicitly via `direction`.
-   * Respects `prefers-reduced-motion`. Purely visual — never touches routing.
+   * On mobile (`mode='auto'`) it plays a Telegram-style directional slide:
+   * `direction='forward'` enters right→left (the old page parallaxes left),
+   * `direction='back'` reverses left→right, `direction='none'` crossfades.
+   * On desktop it always crossfades. The host maps its router to a direction
+   * (push→forward, back→back, replace→none) and passes it in — the kit keeps
+   * no history of its own. Respects `prefers-reduced-motion`. Never routes.
    *
    * @example
    *   <PageTransition key={page.url.pathname} contentClass="p-8">
@@ -20,7 +21,7 @@
   let {
     key,
     children,
-    direction: directionProp,
+    direction = 'forward',
     mode = 'auto',
     duration = 280,
     distance = 30,
@@ -29,7 +30,7 @@
   }: {
     key: unknown;
     children: () => any;
-    /** Force navigation direction; otherwise inferred from the key stack. */
+    /** Navigation direction: 'forward'/'back' slide, 'none' crossfades. */
     direction?: 'forward' | 'back' | 'none';
     /** 'auto' = slide on mobile / fade on desktop; or force 'slide' / 'fade'. */
     mode?: 'auto' | 'slide' | 'fade';
@@ -39,29 +40,6 @@
     class?: string;
     contentClass?: string;
   } = $props();
-
-  // --- Direction inference via a stack of visited keys (router-agnostic) ---
-  let stack: string[] = [];
-  let lastKey: string | null = null;
-  let lastDir: 'forward' | 'back' | 'none' = 'none';
-
-  const direction = $derived.by<'forward' | 'back' | 'none'>(() => {
-    if (directionProp) return directionProp;
-    const k = String(key);
-    if (k === lastKey) return lastDir;
-    lastKey = k;
-    const i = stack.indexOf(k);
-    if (i === -1) {
-      stack.push(k);
-      lastDir = 'forward';
-    } else if (i < stack.length - 1) {
-      stack.length = i + 1;
-      lastDir = 'back';
-    } else {
-      lastDir = 'none';
-    }
-    return lastDir;
-  });
 
   // --- Responsive + reduced-motion detection (client only) ---
   let isMobile = $state(false);
@@ -83,7 +61,9 @@
     };
   });
 
-  let slide = $derived(!reduced && (mode === 'slide' || (mode === 'auto' && isMobile)));
+  let slide = $derived(
+    !reduced && direction !== 'none' && (mode === 'slide' || (mode === 'auto' && isMobile)),
+  );
 
   const TOP = 'z-index:2;box-shadow:-8px 0 24px rgb(0 0 0 / 0.18);';
 

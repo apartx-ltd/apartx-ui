@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { base } from '$app/paths';
-  import { goto } from '$app/navigation';
+  import { goto, beforeNavigate } from '$app/navigation';
   import { applyTheme } from '$lib/theme/apply-theme';
   import { setNavigator, matchActive, type Navigator } from '$lib/navigation';
   import PageTransition from '$lib/navigation/PageTransition.svelte';
@@ -11,11 +11,32 @@
 
   let { children } = $props();
 
+  // Page-transition direction, derived straight from the router's navigation
+  // events — no heuristic. push/link → forward, popstate-back → back, replace →
+  // none (crossfade). `replace` can't be read off the navigation event, so the
+  // adapter flags it; back/forward come from popstate `delta`.
+  let transitionDir = $state<'forward' | 'back' | 'none'>('forward');
+  let replaceNext = false;
+
+  beforeNavigate((nav) => {
+    if (replaceNext) {
+      transitionDir = 'none';
+      replaceNext = false;
+    } else if (nav.type === 'popstate') {
+      transitionDir = (nav.delta ?? 0) < 0 ? 'back' : 'forward';
+    } else {
+      transitionDir = 'forward';
+    }
+  });
+
   // Adapt SvelteKit's router to the kit's Navigator contract — example of how a
   // host wires the UI Kit. Meteor consumers would adapt their own router here.
   const navigator: Navigator = {
     push: (href) => goto(href),
-    replace: (href) => goto(href, { replaceState: true }),
+    replace: (href) => {
+      replaceNext = true;
+      return goto(href, { replaceState: true });
+    },
     back: () => history.back(),
     get current() {
       return { pathname: page.url.pathname, search: page.url.search, hash: page.url.hash };
@@ -107,7 +128,7 @@
     </header>
 
     <main class="flex-1 overflow-hidden">
-      <PageTransition key={page.url.pathname} contentClass="p-5 sm:p-8">
+      <PageTransition key={page.url.pathname} direction={transitionDir} contentClass="p-5 sm:p-8">
         {@render children()}
       </PageTransition>
     </main>
