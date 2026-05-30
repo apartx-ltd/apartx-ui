@@ -30,3 +30,4 @@ export * from './theme';
 // Utils
 export { cn } from './ui/utils/cn';
 export * from './ui/utils/date';
+export { overlayFade, dialogPop, sheet, type SheetSide } from './ui/utils/motion';

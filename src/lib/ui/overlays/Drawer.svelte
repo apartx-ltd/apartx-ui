@@ -1,5 +1,6 @@
 <script>
   import { cn } from '../utils/cn';
+  import { overlayFade, sheet } from '../utils/motion';
 
   let {
     children,
@@ -24,7 +25,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="fixed inset-0 z-50 flex" onkeydown={handleKeydown}>
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="absolute inset-0 bg-scrim/40" onclick={close}></div>
+    <div class="absolute inset-0 bg-scrim/40" onclick={close} transition:overlayFade></div>
 
     <div
       class={cn(
@@ -33,6 +34,7 @@
         'w-80 max-w-[85vw]',
         className
       )}
+      transition:sheet={{ side }}
       {...restProps}
     >
       {@render children()}
