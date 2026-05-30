@@ -92,7 +92,11 @@
   </nav>
 {/snippet}
 
-<div class="flex h-screen overflow-hidden bg-surface text-on-surface">
+<!-- h-dvh (not h-screen/100vh): on mobile the browser chrome shrinks the visible
+     area, but 100vh counts the largest viewport, pushing the bottom under the
+     toolbar where body's overflow:hidden makes it unreachable. dvh tracks the
+     real visible height. -->
+<div class="flex h-dvh overflow-hidden bg-surface text-on-surface">
   <!-- Desktop sidebar -->
   <aside
     class="hidden w-56 shrink-0 overflow-y-auto scrollbar-none border-r border-outline-variant p-4 sm:block"
