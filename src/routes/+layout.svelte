@@ -30,8 +30,8 @@
   let current = $derived(page.url.pathname.slice(base.length) || '/');
 </script>
 
-<div class="flex min-h-screen bg-surface text-on-surface">
-  <aside class="w-56 shrink-0 border-r border-outline-variant p-4">
+<div class="flex h-screen overflow-hidden bg-surface text-on-surface">
+  <aside class="w-56 shrink-0 overflow-y-auto border-r border-outline-variant p-4">
     <a href="{base}/" class="block mb-6">
       <span class="text-title-lg text-primary font-semibold">ApartX UI</span>
       <span class="block text-body-sm text-on-surface-variant">Svelte 5 · Tailwind v4</span>
