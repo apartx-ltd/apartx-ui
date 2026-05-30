@@ -58,6 +58,7 @@
     { path: '/data', label: 'Data' },
     { path: '/forms', label: 'Forms' },
     { path: '/overlays', label: 'Overlays' },
+    { path: '/maps', label: 'Maps' },
     { path: '/hooks', label: 'Hooks' },
   ];
 

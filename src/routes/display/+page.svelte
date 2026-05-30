@@ -3,9 +3,24 @@
   import {
     Button, Icon, Badge, Card, Chip, Avatar, Tabs, Separator,
     Progress, Skeleton, Loading, Fab, Link, Accordion, AccordionItem, PopoverJson,
+    Popover, BottomNav, ScrollArea,
   } from '$lib/ui/display';
+  import { Chart } from '$lib/chart';
+  import { Carousel } from '$lib/carousel';
 
   let tab = $state('one');
+  let navTab = $state('home');
+
+  const chartData = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+    datasets: [{ label: 'Bookings', data: [12, 19, 9, 24, 17], backgroundColor: '#6750a4' }],
+  };
+
+  const slides = [
+    { color: 'bg-primary text-on-primary', label: 'Slide 1' },
+    { color: 'bg-secondary text-on-secondary', label: 'Slide 2' },
+    { color: 'bg-tertiary text-on-tertiary', label: 'Slide 3' },
+  ];
 </script>
 
 <h1 class="text-headline-md mb-6">Display</h1>
@@ -101,4 +116,59 @@
 <section class="mb-8">
   <h2 class="text-title-md mb-3">PopoverJson</h2>
   <PopoverJson src={{ hello: 'world', nested: { count: 3 } }} />
+</section>
+
+<section class="mb-8">
+  <h2 class="text-title-md mb-3">Popover</h2>
+  <Popover side="bottom" align="start" contentClass="p-3 max-w-xs">
+    {#snippet trigger()}
+      <Button variant="outlined">Open popover</Button>
+    {/snippet}
+    <p class="text-body-md text-on-surface">Any content can live inside a Popover.</p>
+  </Popover>
+</section>
+
+<section class="mb-8">
+  <h2 class="text-title-md mb-3">ScrollArea</h2>
+  <ScrollArea class="h-40 max-w-sm rounded-md border border-outline-variant p-3">
+    <div class="flex flex-col gap-2">
+      {#each Array.from({ length: 20 }, (_, i) => i + 1) as n (n)}
+        <div class="text-body-md text-on-surface">Scrollable row {n}</div>
+      {/each}
+    </div>
+  </ScrollArea>
+</section>
+
+<section class="mb-8 max-w-md">
+  <h2 class="text-title-md mb-3">Chart (chart.js · subpath apartx-ui/chart)</h2>
+  <div class="h-64">
+    <Chart type="bar" data={chartData} />
+  </div>
+</section>
+
+<section class="mb-8 max-w-md">
+  <h2 class="text-title-md mb-3">Carousel (swiper · subpath apartx-ui/carousel)</h2>
+  <Carousel items={slides} slidesPerView={1} navigation pagination loop class="rounded-md overflow-hidden">
+    {#snippet slide(s)}
+      <div class={`flex h-40 items-center justify-center text-title-lg ${s.color}`}>{s.label}</div>
+    {/snippet}
+  </Carousel>
+</section>
+
+<section class="mb-8">
+  <h2 class="text-title-md mb-3">BottomNav</h2>
+  <!-- Normally `fixed` to the viewport; pinned static here for the demo frame. -->
+  <div class="relative max-w-sm overflow-hidden rounded-md border border-outline-variant">
+    <BottomNav
+      class="!static border-t-0"
+      bind:active={navTab}
+      items={[
+        { value: 'home', label: 'Home', icon: 'house' },
+        { value: 'search', label: 'Search', icon: 'magnifying-glass' },
+        { value: 'alerts', label: 'Alerts', icon: 'bell', badge: 3 },
+        { value: 'profile', label: 'Profile', icon: 'user' },
+      ]}
+    />
+  </div>
+  <p class="text-body-sm text-on-surface-variant mt-2">active=<code>{navTab}</code></p>
 </section>

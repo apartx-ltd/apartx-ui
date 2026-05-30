@@ -10,3 +10,4 @@ export { default as Segment } from './Segment.svelte';
 export { default as SplitPane } from './SplitPane.svelte';
 export { default as Menu } from './Menu.svelte';
 export { default as DrawerButton } from './DrawerButton.svelte';
+export { default as Buttons } from './Buttons.svelte';

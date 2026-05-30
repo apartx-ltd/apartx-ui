@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Searchbar, Segment, Toolbar, Title } from '$lib/ui/structure';
+  import { Searchbar, Segment, Toolbar, Title, Buttons } from '$lib/ui/structure';
   import { Button } from '$lib/ui/display';
 
   let query = $state('');
@@ -20,6 +20,19 @@
   <h2 class="text-title-md mb-3">Searchbar</h2>
   <Searchbar bind:value={query} placeholder="Search…" class="max-w-md" />
   <p class="text-body-sm text-on-surface-variant mt-2">query=<code>{query}</code></p>
+</section>
+
+<section class="mb-8">
+  <h2 class="text-title-md mb-3">Buttons (group container)</h2>
+  <Toolbar class="rounded-md border border-outline-variant px-3 py-2">
+    <Title>Actions</Title>
+    {#snippet end()}
+      <Buttons>
+        <Button variant="text">Cancel</Button>
+        <Button variant="filled">Save</Button>
+      </Buttons>
+    {/snippet}
+  </Toolbar>
 </section>
 
 <section class="mb-8">
