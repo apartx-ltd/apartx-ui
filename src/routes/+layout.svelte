@@ -81,7 +81,7 @@
   <nav class="flex flex-col gap-1">
     {#each nav as item (item.path)}
       <a
-        href="{base}{item.path === '/' ? '' : item.path}"
+        href={item.path === '/' ? base || '/' : `${base}${item.path}`}
         class="rounded-sm px-3 py-2 text-label-lg transition-colors hover:bg-primary/8"
         class:bg-primary={current === item.path}
         class:text-on-primary={current === item.path}
@@ -124,7 +124,12 @@
     </header>
 
     <main class="flex-1 overflow-hidden">
-      <PageTransition key={page.url.pathname} direction={transitionDir} contentClass="p-5 sm:p-8">
+      <PageTransition
+        key={page.url.pathname}
+        direction={transitionDir}
+        restoreScroll
+        contentClass="p-5 sm:p-8"
+      >
         {@render children()}
       </PageTransition>
     </main>

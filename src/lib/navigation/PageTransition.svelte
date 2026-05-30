@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { TransitionConfig } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
+  import { scrollRestore } from '../ui/utils/scroll-restore';
 
   /**
    * Animate page changes. Wrap route content and pass a `key` that changes per
@@ -25,6 +26,7 @@
     mode = 'auto',
     duration = 280,
     distance = 30,
+    restoreScroll = false,
     class: className,
     contentClass,
   }: {
@@ -37,6 +39,8 @@
     duration?: number;
     /** How far (%) the leading page travels — short, Telegram/Android style (not full width). */
     distance?: number;
+    /** Remember/restore the panel's scroll position per `key` (e.g. restore on back). */
+    restoreScroll?: boolean;
     class?: string;
     contentClass?: string;
   } = $props();
@@ -116,6 +120,7 @@
          Scrollbar hidden (scrollbar-none) so no bar shows mid-slide or lingers. -->
     <div
       class="absolute inset-0 bg-surface overflow-y-auto scrollbar-none {contentClass ?? ''}"
+      use:scrollRestore={restoreScroll ? String(key) : undefined}
       in:enter
       out:exit
     >

@@ -31,3 +31,4 @@ export * from './theme';
 export { cn } from './ui/utils/cn';
 export * from './ui/utils/date';
 export { overlayFade, dialogPop, sheet, type SheetSide } from './ui/utils/motion';
+export { scrollRestore, clearScrollPosition } from './ui/utils/scroll-restore';
