@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { TransitionConfig } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
+  import { autohideScroll } from '../ui/utils/scroll';
 
   /**
    * Animate page changes. Wrap route content and pass a `key` that changes per
@@ -133,7 +134,12 @@
 <div class="relative h-full w-full overflow-hidden {className ?? ''}">
   {#key key}
     <!-- Opaque bg so stacked pages don't show through each other while sliding. -->
-    <div class="absolute inset-0 overflow-y-auto bg-surface {contentClass ?? ''}" in:enter out:exit>
+    <div
+      class="absolute inset-0 overflow-y-auto bg-surface scrollbar-autohide {contentClass ?? ''}"
+      use:autohideScroll
+      in:enter
+      out:exit
+    >
       {@render children()}
     </div>
   {/key}
