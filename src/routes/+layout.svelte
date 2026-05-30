@@ -18,6 +18,7 @@
 
   const nav = [
     { path: '/', label: 'Overview' },
+    { path: '/components', label: 'Components' },
     { path: '/display', label: 'Display' },
     { path: '/structure', label: 'Structure' },
     { path: '/data', label: 'Data' },

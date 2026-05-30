@@ -14,7 +14,7 @@
       <div class="text-body-sm text-on-surface-variant">Live playground for every component & hook.</div>
     </div>
     <a
-      href="{base}/display"
+      href="{base}/components"
       class="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-label-lg text-on-primary transition-shadow hover:shadow-level-2"
     >
       Browse components →
