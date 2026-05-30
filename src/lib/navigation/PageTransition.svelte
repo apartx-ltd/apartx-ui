@@ -129,7 +129,8 @@
 
 <div class="relative h-full w-full overflow-hidden {className ?? ''}">
   {#key key}
-    <div class="absolute inset-0 overflow-y-auto {contentClass ?? ''}" in:enter out:exit>
+    <!-- Opaque bg so stacked pages don't show through each other while sliding. -->
+    <div class="absolute inset-0 overflow-y-auto bg-surface {contentClass ?? ''}" in:enter out:exit>
       {@render children()}
     </div>
   {/key}
