@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from '$app/paths';
   import {
     Button, Icon, Badge, Card, Chip, Avatar, Tabs, Separator,
     Progress, Skeleton, Loading, Fab, Link, Accordion, AccordionItem, PopoverJson,
@@ -87,7 +88,7 @@
 <section class="mb-8">
   <h2 class="text-title-md mb-3">Link</h2>
   <div class="flex gap-4">
-    <Link href="/forms">Internal link (client-side)</Link>
+    <Link href="{base}/forms">Internal link (client-side)</Link>
     <Link href="https://svelte.dev" external target="_blank">External link</Link>
   </div>
 </section>

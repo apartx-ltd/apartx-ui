@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { base } from '$app/paths';
+
   const categories = [
     { href: '/display', label: 'Display', desc: 'Button, Icon, Badge, Card, Chip, Avatar, Tabs, Accordion…' },
     { href: '/structure', label: 'Structure', desc: 'Page, Header, Toolbar, Searchbar, Segment, SplitPane, Menu…' },
@@ -21,7 +23,7 @@
 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {#each categories as cat (cat.href)}
     <a
-      href={cat.href}
+      href="{base}{cat.href}"
       class="block rounded-md border border-outline-variant p-5 transition-shadow hover:shadow-level-2"
     >
       <div class="text-title-md text-primary mb-1">{cat.label}</div>
