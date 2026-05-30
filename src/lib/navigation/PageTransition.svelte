@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { TransitionConfig } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
-  import { autohideScroll } from '../ui/utils/scroll';
 
   /**
    * Animate page changes. Wrap route content and pass a `key` that changes per
@@ -86,6 +85,22 @@
 
   let slide = $derived(!reduced && (mode === 'slide' || (mode === 'auto' && isMobile)));
 
+  // Lock scrolling (and thus hide the native scrollbar) while pages are moving,
+  // then restore it once settled. One timer per navigation — no scroll listeners.
+  // Relies on native scrollbars otherwise (overlay scrollbars stay hidden during
+  // a transform anyway; this also covers platforms with persistent scrollbars).
+  let scrollable = $state(false);
+  let settleTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => {
+    void key; // re-run whenever the route key changes
+    scrollable = false;
+    if (settleTimer) clearTimeout(settleTimer);
+    settleTimer = setTimeout(() => (scrollable = true), duration + 60);
+    return () => {
+      if (settleTimer) clearTimeout(settleTimer);
+    };
+  });
+
   const TOP = 'z-index:2;box-shadow:-8px 0 24px rgb(0 0 0 / 0.18);';
 
   // `u` is displacement (1 = fully displaced / pre-enter, 0 = settled).
@@ -133,10 +148,10 @@
 
 <div class="relative h-full w-full overflow-hidden {className ?? ''}">
   {#key key}
-    <!-- Opaque bg so stacked pages don't show through each other while sliding. -->
+    <!-- Opaque bg so stacked pages don't show through each other while sliding.
+         Scrolling is locked during the transition so no scrollbar shows mid-slide. -->
     <div
-      class="absolute inset-0 overflow-y-auto bg-surface scrollbar-autohide {contentClass ?? ''}"
-      use:autohideScroll
+      class="absolute inset-0 bg-surface {scrollable ? 'overflow-y-auto' : 'overflow-hidden'} {contentClass ?? ''}"
       in:enter
       out:exit
     >

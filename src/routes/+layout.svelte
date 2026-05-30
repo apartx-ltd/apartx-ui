@@ -8,7 +8,6 @@
   import { setNavigator, matchActive, type Navigator } from '$lib/navigation';
   import PageTransition from '$lib/navigation/PageTransition.svelte';
   import { Icon } from '$lib/ui/display';
-  import { autohideScroll } from '$lib/ui/utils/scroll';
 
   let { children } = $props();
 
@@ -74,8 +73,7 @@
 <div class="flex h-screen overflow-hidden bg-surface text-on-surface">
   <!-- Desktop sidebar -->
   <aside
-    class="hidden w-56 shrink-0 overflow-y-auto border-r border-outline-variant p-4 scrollbar-autohide sm:block"
-    use:autohideScroll
+    class="hidden w-56 shrink-0 overflow-y-auto border-r border-outline-variant p-4 sm:block"
   >
     {@render sidebar()}
   </aside>
