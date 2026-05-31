@@ -44,6 +44,26 @@ export function getNavigator(): Navigator | undefined {
   return getContext<Navigator | undefined>(NAVIGATOR_KEY);
 }
 
+const ROUTE_KEY = Symbol('apartx-ui:route-key');
+
+/** Reactive accessor for the current route's scroll key (e.g. the pathname). */
+export type RouteKeyGetter = () => string | undefined;
+
+/**
+ * Provide the current route key near the root (e.g. in the router's switch),
+ * so scroll-aware components like `<Content>` can remember/restore scroll per
+ * route without every page passing an explicit `name`. Pass a getter so the
+ * value stays reactive as navigation happens.
+ */
+export function setRouteKey(get: RouteKeyGetter): void {
+  setContext(ROUTE_KEY, get);
+}
+
+/** Read the route-key getter, if a host provided one. */
+export function getRouteKey(): RouteKeyGetter | undefined {
+  return getContext<RouteKeyGetter | undefined>(ROUTE_KEY);
+}
+
 /**
  * Default `isActive` matcher — useful when writing a custom `Navigator`.
  * Prefix-matches by path segment so `/users` is active on `/users/42`.
