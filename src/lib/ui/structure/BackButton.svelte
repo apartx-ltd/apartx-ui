@@ -1,6 +1,7 @@
 <script>
   import { cn } from '../utils/cn';
   import Icon from '../display/Icon.svelte';
+  import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
   let { onclick, class: className, ...restProps } = $props();
 
@@ -24,5 +25,5 @@
   onclick={handleClick}
   {...restProps}
 >
-  <Icon name="arrow-left" />
+  <Icon icon={faArrowLeft} />
 </button>

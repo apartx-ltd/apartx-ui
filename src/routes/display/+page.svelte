@@ -5,6 +5,8 @@
     Progress, Skeleton, Loading, Fab, Link, Accordion, AccordionItem, PopoverJson,
     Popover, BottomNav, ScrollArea,
   } from '$lib/ui/display';
+  import { faHouse, faGear, faHeart, faPlus, faMagnifyingGlass, faBell, faUser } from '@fortawesome/free-solid-svg-icons';
+  import { faGithub } from '@fortawesome/free-brands-svg-icons';
   import { Chart } from '$lib/chart';
   import { Carousel } from '$lib/carousel';
 
@@ -41,10 +43,10 @@
 <section class="mb-8">
   <h2 class="text-title-md mb-3">Icon</h2>
   <div class="flex items-center gap-4 text-on-surface-variant">
-    <Icon name="house" />
-    <Icon name="gear" size="lg" />
-    <Icon name="heart" />
-    <Icon name="github" prefix="fab" />
+    <Icon icon={faHouse} />
+    <Icon icon={faGear} size="lg" />
+    <Icon icon={faHeart} />
+    <Icon icon={faGithub} />
   </div>
 </section>
 
@@ -110,7 +112,7 @@
 
 <section class="mb-8">
   <h2 class="text-title-md mb-3">Fab</h2>
-  <Fab><Icon name="plus" /></Fab>
+  <Fab><Icon icon={faPlus} /></Fab>
 </section>
 
 <section class="mb-8">
@@ -163,10 +165,10 @@
       class="!static border-t-0"
       bind:active={navTab}
       items={[
-        { value: 'home', label: 'Home', icon: 'house' },
-        { value: 'search', label: 'Search', icon: 'magnifying-glass' },
-        { value: 'alerts', label: 'Alerts', icon: 'bell', badge: 3 },
-        { value: 'profile', label: 'Profile', icon: 'user' },
+        { value: 'home', label: 'Home', icon: faHouse },
+        { value: 'search', label: 'Search', icon: faMagnifyingGlass },
+        { value: 'alerts', label: 'Alerts', icon: faBell, badge: 3 },
+        { value: 'profile', label: 'Profile', icon: faUser },
       ]}
     />
   </div>

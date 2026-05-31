@@ -57,7 +57,7 @@
     {#snippet inner()}
       <span class="relative flex items-center justify-center">
         {#if item.icon}
-          <Icon name={item.icon} />
+          <Icon icon={item.icon} />
         {/if}
         {#if item.badge !== undefined && item.badge !== ''}
           <span class="absolute -top-1 -right-2">

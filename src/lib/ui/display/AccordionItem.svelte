@@ -2,6 +2,7 @@
   import { Accordion } from 'bits-ui';
   import { cn } from '../utils/cn';
   import Icon from './Icon.svelte';
+  import { faChevronDown } from '@fortawesome/free-solid-svg-icons';
 
   let {
     value,
@@ -16,7 +17,7 @@
   <Accordion.Header>
     <Accordion.Trigger class="w-full px-4 py-3 cursor-pointer flex items-center justify-between text-title-sm text-on-surface hover:bg-on-surface/8">
       {title}
-      <Icon name="chevron-down" class="transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
+      <Icon icon={faChevronDown} class="transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
     </Accordion.Trigger>
   </Accordion.Header>
   <Accordion.Content class="overflow-hidden">

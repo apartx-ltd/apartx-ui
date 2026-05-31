@@ -1,6 +1,7 @@
 <script lang="ts">
   import TextField from './TextField.svelte';
   import Icon from '../display/Icon.svelte';
+  import { faPhone } from '@fortawesome/free-solid-svg-icons';
 
   /**
    * Phone number field built on TextField. Sanitises input to a leading `+`
@@ -79,6 +80,6 @@
   {...restProps}
 >
   {#snippet start()}
-    <Icon name="phone" />
+    <Icon icon={faPhone} />
   {/snippet}
 </TextField>

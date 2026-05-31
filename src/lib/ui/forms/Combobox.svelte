@@ -2,6 +2,7 @@
   import { Combobox as BitsCombobox } from 'bits-ui';
   import { cn } from '../utils/cn';
   import Icon from '../display/Icon.svelte';
+  import { faChevronDown, faPlus } from '@fortawesome/free-solid-svg-icons';
 
   type Option = { value: string; label: string; disabled?: boolean };
 
@@ -91,7 +92,7 @@
         class="flex-1 bg-transparent border-none outline-none text-body-lg text-on-surface placeholder:text-on-surface-variant/60 min-w-0"
       />
       <BitsCombobox.Trigger class="flex-shrink-0 text-on-surface-variant cursor-pointer" aria-label="Open">
-        <Icon name="chevron-down" />
+        <Icon icon={faChevronDown} />
       </BitsCombobox.Trigger>
     </div>
 
@@ -123,7 +124,7 @@
               label={search.trim()}
               class="flex items-center gap-2 w-full px-3 py-2.5 text-body-md cursor-pointer text-primary data-[highlighted]:bg-on-surface/8"
             >
-              <Icon name="plus" />
+              <Icon icon={faPlus} />
               {createLabel} “{search.trim()}”
             </BitsCombobox.Item>
           {/if}

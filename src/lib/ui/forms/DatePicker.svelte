@@ -2,6 +2,7 @@
   import { DatePicker as BitsDatePicker } from 'bits-ui';
   import { parseDate, type DateValue } from '@internationalized/date';
   import { cn } from '../utils/cn';
+  import { faCalendar, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
   import Icon from '../display/Icon.svelte';
 
   let {
@@ -87,7 +88,7 @@
             class="ml-auto p-1 rounded-full text-on-surface-variant hover:bg-on-surface/8 cursor-pointer focus-visible:outline-none focus-visible:bg-on-surface/8"
             aria-label="Open calendar"
           >
-            <Icon name="calendar" />
+            <Icon icon={faCalendar} />
           </BitsDatePicker.Trigger>
         </div>
       {/snippet}
@@ -100,11 +101,11 @@
           {#snippet children({ months, weekdays })}
             <BitsDatePicker.Header class="flex items-center justify-between mb-2">
               <BitsDatePicker.PrevButton class="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-on-surface/8 cursor-pointer">
-                <Icon name="chevron-left" />
+                <Icon icon={faChevronLeft} />
               </BitsDatePicker.PrevButton>
               <BitsDatePicker.Heading class="text-title-sm text-on-surface" />
               <BitsDatePicker.NextButton class="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-on-surface/8 cursor-pointer">
-                <Icon name="chevron-right" />
+                <Icon icon={faChevronRight} />
               </BitsDatePicker.NextButton>
             </BitsDatePicker.Header>
 

@@ -2,6 +2,7 @@
   import { Popover } from 'bits-ui';
   import { cn } from '../utils/cn';
   import Icon from './Icon.svelte';
+  import { faCircleInfo } from '@fortawesome/free-solid-svg-icons';
 
   let { src, class: className, ...restProps } = $props();
 
@@ -23,7 +24,7 @@
     class={cn('w-8 h-8 rounded-full inline-flex items-center justify-center text-on-surface-variant hover:bg-on-surface/8 cursor-pointer', className)}
     {...restProps}
   >
-    <Icon name="circle-info" />
+    <Icon icon={faCircleInfo} />
   </Popover.Trigger>
 
   <Popover.Content

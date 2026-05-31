@@ -3,6 +3,7 @@
   import type { TransitionConfig } from 'svelte/transition';
   import { cn } from '../utils/cn';
   import { overlayFade, dialogPop, sheet } from '../utils/motion';
+  import { faXmark } from '@fortawesome/free-solid-svg-icons';
   import Button from '../display/Button.svelte';
   import Icon from '../display/Icon.svelte';
 
@@ -72,7 +73,7 @@
       {/if}
       {#if showCloseButton}
         <Button variant="icon" onclick={() => (open = false)} aria-label="Close">
-          <Icon name="xmark" />
+          <Icon icon={faXmark} />
         </Button>
       {/if}
     </div>

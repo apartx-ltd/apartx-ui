@@ -1,5 +1,6 @@
 <script>
   import { cn } from '../utils/cn';
+  import { faBars } from '@fortawesome/free-solid-svg-icons';
   import Icon from '../display/Icon.svelte';
 
   let { onclick, class: className, ...restProps } = $props();
@@ -16,5 +17,5 @@
   {onclick}
   {...restProps}
 >
-  <Icon name="bars" />
+  <Icon icon={faBars} />
 </button>

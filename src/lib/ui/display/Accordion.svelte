@@ -1,7 +1,6 @@
 <script>
   import { Accordion } from 'bits-ui';
   import { cn } from '../utils/cn';
-  import Icon from './Icon.svelte';
 
   let {
     type = 'multiple',

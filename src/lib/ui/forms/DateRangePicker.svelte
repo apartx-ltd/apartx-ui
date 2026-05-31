@@ -3,6 +3,7 @@
   import { parseDate, type DateValue } from '@internationalized/date';
   import { cn } from '../utils/cn';
   import Icon from '../display/Icon.svelte';
+  import { faCalendar, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 
   type RangeStr = { start: string; end: string };
   type DateRange = { start: DateValue | undefined; end: DateValue | undefined };
@@ -103,7 +104,7 @@
         class="ml-auto p-1 rounded-full text-on-surface-variant hover:bg-on-surface/8 cursor-pointer focus-visible:outline-none focus-visible:bg-on-surface/8"
         aria-label="Open calendar"
       >
-        <Icon name="calendar" />
+        <Icon icon={faCalendar} />
       </BitsRange.Trigger>
     </div>
 
@@ -113,11 +114,11 @@
           {#snippet children({ months, weekdays })}
             <BitsRange.Header class="flex items-center justify-between mb-2">
               <BitsRange.PrevButton class="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-on-surface/8 cursor-pointer">
-                <Icon name="chevron-left" />
+                <Icon icon={faChevronLeft} />
               </BitsRange.PrevButton>
               <BitsRange.Heading class="text-title-sm text-on-surface" />
               <BitsRange.NextButton class="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-on-surface/8 cursor-pointer">
-                <Icon name="chevron-right" />
+                <Icon icon={faChevronRight} />
               </BitsRange.NextButton>
             </BitsRange.Header>
 

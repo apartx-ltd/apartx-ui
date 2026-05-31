@@ -8,6 +8,7 @@
   import { setNavigator, matchActive, type Navigator } from '$lib/navigation';
   import PageTransition from '$lib/navigation/PageTransition.svelte';
   import { Icon } from '$lib/ui/display';
+  import { faBars } from '@fortawesome/free-solid-svg-icons';
   import { Drawer } from '$lib/ui/overlays';
 
   let { children } = $props();
@@ -123,7 +124,7 @@
         aria-label="Open menu"
         class="grid h-10 w-10 place-items-center rounded-full text-on-surface-variant hover:bg-on-surface/8"
       >
-        <Icon name="bars" />
+        <Icon icon={faBars} />
       </button>
       <span class="text-title-md text-primary font-semibold">ApartX UI</span>
     </header>

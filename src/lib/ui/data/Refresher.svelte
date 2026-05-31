@@ -1,6 +1,7 @@
 <script lang="ts">
   import { cn } from '../utils/cn';
   import Icon from '../display/Icon.svelte';
+  import { faArrowDown } from '@fortawesome/free-solid-svg-icons';
   import Loading from '../display/Loading.svelte';
 
   /**
@@ -101,7 +102,7 @@
       <Loading />
       <span class="text-label-sm">{refreshingText}</span>
     {:else}
-      <span class={cn('transition-transform', armed && 'rotate-180')}><Icon name="arrow-down" /></span>
+      <span class={cn('transition-transform', armed && 'rotate-180')}><Icon icon={faArrowDown} /></span>
       <span class="text-label-sm">{armed ? releaseText : pullingText}</span>
     {/if}
   </div>

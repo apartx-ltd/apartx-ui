@@ -1,36 +1,25 @@
 <script>
   import { cn } from '../utils/cn';
   import Fa from 'svelte-fa';
-  import * as solidIcons from '@fortawesome/free-solid-svg-icons';
-  import * as brandIcons from '@fortawesome/free-brands-svg-icons';
-  import * as regularIcons from '@fortawesome/free-regular-svg-icons';
 
   /**
    * FontAwesome SVG icon wrapper.
-   * Accepts icon name (kebab-case, e.g. "arrow-left") and resolves to a FA icon.
-   * Defaults to the solid set; pass prefix="fab" for brand icons or "far" for regular.
    *
-   * @example <Icon name="arrow-left" />
-   * @example <Icon name="plus" size="lg" />
-   * @example <Icon name="whatsapp" prefix="fab" />
+   * The kit imports NO icon sets — that would force the whole FontAwesome library
+   * into every consumer's bundle (it can't be tree-shaken through a dynamic
+   * name→icon lookup). Instead the CONSUMER passes a FontAwesome `IconDefinition`
+   * via `icon`, using a tree-shaken named import so only the icons actually used
+   * ship:
+   *
+   * @example
+   *   import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+   *   <Icon icon={faArrowLeft} />
+   *   <Icon icon={faPlus} size="lg" />
+   *
+   * Kit components that need their own icon (e.g. a dropdown chevron) import that
+   * single icon by name and pass it here the same way.
    */
-  let { name, size, prefix = 'fas', class: className, ...restProps } = $props();
-
-  const sets = { fas: solidIcons, fab: brandIcons, far: regularIcons };
-
-  // Convert kebab-case name to FA icon object
-  // "arrow-left" → "faArrowLeft"; falls back to solid if not found in the requested set.
-  function resolveIcon(name, prefix) {
-    if (!name) return null;
-    const camelCase = 'fa' + name
-      .split('-')
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-      .join('');
-    const set = sets[prefix] || solidIcons;
-    return set[camelCase] || solidIcons[camelCase] || null;
-  }
-
-  let icon = $derived(resolveIcon(name, prefix));
+  let { icon, size, class: className, ...restProps } = $props();
 </script>
 
 {#if icon}
