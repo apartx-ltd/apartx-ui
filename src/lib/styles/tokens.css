@@ -38,6 +38,15 @@
   --color-surface-variant: var(--theme-surface-variant, #dfe2eb);
   --color-on-surface-variant: var(--theme-on-surface-variant, #43474e);
 
+  /* Tonal surface-container roles (derived from the neutral palette) */
+  --color-surface-dim: var(--theme-surface-dim, #dbd9dd);
+  --color-surface-bright: var(--theme-surface-bright, #fdfcff);
+  --color-surface-container-lowest: var(--theme-surface-container-lowest, #ffffff);
+  --color-surface-container-low: var(--theme-surface-container-low, #f7f2f7);
+  --color-surface-container: var(--theme-surface-container, #f1edf1);
+  --color-surface-container-high: var(--theme-surface-container-high, #ebe7ec);
+  --color-surface-container-highest: var(--theme-surface-container-highest, #e6e1e6);
+
   --color-outline: var(--theme-outline, #73777f);
   --color-outline-variant: var(--theme-outline-variant, #c3c7cf);
   --color-shadow: var(--theme-shadow, #000000);

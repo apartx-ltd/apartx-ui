@@ -10,6 +10,28 @@ export interface ThemeTokens {
   dark: Record<string, string>;
 }
 
+// Tonal surface-container roles. MCU's Scheme doesn't expose these directly —
+// they're derived from the neutral palette at fixed tones (different per light/dark).
+// Tones per the M3 spec (https://m3.material.io/styles/color/roles).
+const SURFACE_TONES_LIGHT: Record<string, number> = {
+  '--theme-surface-dim': 87,
+  '--theme-surface-bright': 98,
+  '--theme-surface-container-lowest': 100,
+  '--theme-surface-container-low': 96,
+  '--theme-surface-container': 94,
+  '--theme-surface-container-high': 92,
+  '--theme-surface-container-highest': 90,
+};
+const SURFACE_TONES_DARK: Record<string, number> = {
+  '--theme-surface-dim': 6,
+  '--theme-surface-bright': 24,
+  '--theme-surface-container-lowest': 4,
+  '--theme-surface-container-low': 10,
+  '--theme-surface-container': 12,
+  '--theme-surface-container-high': 17,
+  '--theme-surface-container-highest': 22,
+};
+
 /**
  * Generate color tokens from a seed color.
  * Returns `--theme-*` CSS variable values for light and dark schemes.
@@ -19,6 +41,14 @@ export interface ThemeTokens {
  */
 export function generateTokens(seedHex: string): ThemeTokens {
   const theme = themeFromSourceColor(argbFromHex(seedHex));
+  const neutral = theme.palettes.neutral;
+
+  function surfaceContainers(isDark: boolean): Record<string, string> {
+    const tones = isDark ? SURFACE_TONES_DARK : SURFACE_TONES_LIGHT;
+    const out: Record<string, string> = {};
+    for (const key in tones) out[key] = hexFromArgb(neutral.tone(tones[key]));
+    return out;
+  }
 
   function extractScheme(scheme: any): Record<string, string> {
     return {
@@ -62,7 +92,7 @@ export function generateTokens(seedHex: string): ThemeTokens {
   }
 
   return {
-    light: extractScheme(theme.schemes.light),
-    dark: extractScheme(theme.schemes.dark),
+    light: { ...extractScheme(theme.schemes.light), ...surfaceContainers(false) },
+    dark: { ...extractScheme(theme.schemes.dark), ...surfaceContainers(true) },
   };
 }
