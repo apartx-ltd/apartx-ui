@@ -1,13 +1,27 @@
 <script>
   import { cn } from '../utils/cn';
   import Icon from '../display/Icon.svelte';
+  import { getNavigator } from '../../navigation/context';
   import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
-  let { onclick, class: className, ...restProps } = $props();
+  // A back/up button. By default it pops one history entry. Pass `href` to go
+  // "up" to a specific route instead — useful for deep-linked pages with no list
+  // behind them. Either way it always plays the router's *backward* transition
+  // (via the injected Navigator's `back()`), never a forward slide. `onclick` is
+  // an escape hatch for non-navigation actions (e.g. closing a modal).
+  let { href, onclick, class: className, ...restProps } = $props();
+
+  const navigator = getNavigator();
 
   function handleClick(e) {
     if (onclick) {
       onclick(e);
+      return;
+    }
+    if (navigator) {
+      navigator.back(href);
+    } else if (href) {
+      window.location.assign(href);
     } else {
       history.back();
     }

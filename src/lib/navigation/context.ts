@@ -21,8 +21,13 @@ export interface Navigator {
   push(href: string): void;
   /** Navigate to `href`, replacing the current history entry. */
   replace(href: string): void;
-  /** Go back one history entry. */
-  back(): void;
+  /**
+   * Go back. With no argument, pops one history entry (native back). With an
+   * `href`, navigates there but still plays the *backward* view transition —
+   * for "up to parent" buttons whose target may not be the previous entry
+   * (e.g. a deep-linked detail page with no list behind it).
+   */
+  back(href?: string): void;
   /** Reactive snapshot of the current location. */
   readonly current: RouteSnapshot;
   /** Whether `href` matches the current location (prefix match unless `exact`). */
