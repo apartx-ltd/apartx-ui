@@ -40,6 +40,7 @@
     <button
       type="button"
       class="w-5 h-5 flex-shrink-0 opacity-60 hover:opacity-100 cursor-pointer"
+      aria-label="Clear"
       onclick={() => { value = ''; }}
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

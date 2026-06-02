@@ -33,8 +33,15 @@
          exit stays a Svelte transition. Background is an explicit rgb()/alpha,
          NOT Tailwind's `bg-scrim/40` — that compiles to `color-mix()`, which
          iOS 15 Safari ignores, falling back to opaque black. -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="dr-scrim dr-scrim-in absolute inset-0" onclick={close} out:overlayFade|global></div>
+    <div
+      class="dr-scrim dr-scrim-in absolute inset-0"
+      onclick={close}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); close(); } }}
+      role="button"
+      tabindex="0"
+      aria-label="Close"
+      out:overlayFade|global
+    ></div>
 
     <!-- Slide wrapper carries the enter animation as a fully-static class literal
          (no dynamic `class=`, via the {#if} branches) so it is on the cloned

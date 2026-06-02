@@ -15,14 +15,26 @@
 </script>
 
 <div class={cn('relative inline-flex', className)} {...restProps}>
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div onclick={toggle}>
+  <div
+    onclick={toggle}
+    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
+    role="button"
+    tabindex="0"
+    aria-haspopup="menu"
+    aria-expanded={open}
+  >
     {@render trigger()}
   </div>
 
   {#if open}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="fixed inset-0 z-40" onclick={close}></div>
+    <div
+      class="fixed inset-0 z-40"
+      onclick={close}
+      onkeydown={(e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); close(); } }}
+      role="button"
+      tabindex="-1"
+      aria-label="Close menu"
+    ></div>
 
     <div
       class={cn(

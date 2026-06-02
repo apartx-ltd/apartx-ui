@@ -20,6 +20,19 @@
     class: className,
     ...restProps
   } = $props();
+
+  // A clickable row navigates, but cells often contain their own controls
+  // (buttons, links, popovers, form fields). A click on one of those should act
+  // on the control alone, not also trigger row navigation — so we skip the row
+  // handler when the click originates inside an interactive element. This makes
+  // `stopPropagation` wrappers in cell renderers unnecessary.
+  function handleRowClick(event, row) {
+    const interactive = event.target.closest(
+      'button, a, input, select, textarea, label, [role="button"], [data-no-row-click]',
+    );
+    if (interactive) return;
+    onRowClick(row);
+  }
 </script>
 
 <div class={cn('overflow-auto', className)} {...restProps}>
@@ -63,7 +76,7 @@
               'border-b border-outline-variant last:border-b-0',
               onRowClick && 'hover:bg-on-surface/8 cursor-pointer'
             )}
-            onclick={onRowClick ? () => onRowClick(row) : undefined}
+            onclick={onRowClick ? (e) => handleRowClick(e, row) : undefined}
           >
             {#each columns as col (col.key)}
               <td class={cn('px-4 py-3', col.class)}>

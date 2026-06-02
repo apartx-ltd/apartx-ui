@@ -48,10 +48,13 @@
     onkeydown={(e) => e.key === 'Escape' && closeDrawer()}
   >
     <!-- Scrim -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="absolute inset-0 bg-scrim/40"
       onclick={closeDrawer}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); closeDrawer(); } }}
+      role="button"
+      tabindex="0"
+      aria-label="Close"
     ></div>
     <!-- Drawer -->
     <div class="relative z-10 h-full flex" style:width="{sidebarWidth}px">

@@ -15,16 +15,17 @@
     checked = !checked;
     onchange?.({ target: { checked } });
   }
+
+  const labelId = $props.id();
 </script>
 
-<label
+<div
   class={cn(
     'inline-flex items-center gap-3 cursor-pointer',
     disabled && 'opacity-38 cursor-not-allowed',
     className
   )}
 >
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class={cn(
       'relative w-12 h-7 rounded-full transition-colors',
@@ -33,6 +34,7 @@
     onclick={toggle}
     role="switch"
     aria-checked={checked}
+    aria-labelledby={label ? labelId : undefined}
     tabindex="0"
     onkeydown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } }}
     {...restProps}
@@ -47,6 +49,6 @@
     ></div>
   </div>
   {#if label}
-    <span class="text-body-md text-on-surface">{label}</span>
+    <span id={labelId} class="text-body-md text-on-surface">{label}</span>
   {/if}
-</label>
+</div>

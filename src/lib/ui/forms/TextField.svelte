@@ -13,10 +13,16 @@
     end,
     class: className,
     oninput,
+    id,
     ...restProps
   } = $props();
 
   let focused = $state(false);
+
+  // Stable id so the <label> can associate with the <input>; a consumer-passed
+  // `id` wins.
+  const fallbackId = $props.id();
+  const inputId = $derived(id ?? fallbackId);
 
   function handleInput(e) {
     value = e.target.value;
@@ -26,7 +32,7 @@
 
 <div class={cn('flex flex-col gap-1', className)}>
   {#if label}
-    <label class={cn('text-label-md', error ? 'text-error' : 'text-on-surface-variant')}>
+    <label for={inputId} class={cn('text-label-md', error ? 'text-error' : 'text-on-surface-variant')}>
       {label}{required ? ' *' : ''}
     </label>
   {/if}
@@ -47,6 +53,7 @@
     {/if}
 
     <input
+      id={inputId}
       {type}
       {value}
       {placeholder}

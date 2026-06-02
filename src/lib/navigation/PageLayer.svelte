@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { scrollRestore } from '../ui/utils/scroll-restore';
 
   /**
@@ -46,7 +47,8 @@
   } = $props();
 
   // Snapshot so an in-flight page keeps its enter kind across later navigations.
-  const k = kind;
+  // `untrack` makes the one-time read explicit (no reactive subscription to `kind`).
+  const k = untrack(() => kind);
 
   // tick-only (no css) → sets no inline style, so it can't clobber the pt-out-*
   // class animation; it just keeps the node mounted for the animation's duration.
