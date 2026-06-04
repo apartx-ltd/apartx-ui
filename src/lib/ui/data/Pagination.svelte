@@ -33,17 +33,30 @@
     return items;
   });
 
+  // Tighter list for mobile: first … current … last (negatives = ellipsis).
+  let pageItemsMobile = $derived.by(() => {
+    if (totalPages <= 1) return [];
+    if (totalPages <= 3) return Array.from({ length: totalPages }, (_, i) => i);
+    const last = totalPages - 1;
+    const items = [0];
+    if (page > 1) items.push(-1);
+    if (page !== 0 && page !== last) items.push(page);
+    if (page < last - 1) items.push(-2);
+    items.push(last);
+    return items;
+  });
+
   function prev() { if (page > 0) page--; }
   function next() { if (page < totalPages - 1) page++; }
   function goto(p) { if (p >= 0 && p < totalPages && p !== page) page = p; }
 </script>
 
 <div
-  class={cn('flex items-center justify-end gap-4 px-4 py-2 text-body-md text-on-surface-variant', className)}
+  class={cn('flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-x-4 gap-y-1 px-4 py-2 text-body-md text-on-surface-variant', className)}
   {...restProps}
 >
   {#if perPageOptions.length > 1}
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 order-2 sm:order-1">
       <span>Rows per page:</span>
       <select
         class="bg-transparent border-none text-body-md text-on-surface cursor-pointer outline-none"
@@ -61,21 +74,10 @@
     </div>
   {/if}
 
-  <span>{from}–{to} of {total}</span>
+  <span class="order-1 sm:order-2">{from}–{to} of {total}</span>
 
-  <div class="flex items-center gap-1">
-    <button
-      type="button"
-      class="w-8 h-8 rounded-full inline-flex items-center justify-center hover:bg-on-surface/8 disabled:opacity-38 disabled:cursor-not-allowed cursor-pointer"
-      disabled={page === 0}
-      onclick={prev}
-      aria-label="Previous page"
-      title="Previous page"
-    >
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
-    </button>
-
-    {#each pageItems as p, i (i)}
+  {#snippet pager(list)}
+    {#each list as p, i (i)}
       {#if p < 0}
         <span class="px-1 text-on-surface-variant select-none">…</span>
       {:else}
@@ -93,6 +95,23 @@
         >{p + 1}</button>
       {/if}
     {/each}
+  {/snippet}
+
+  <div class="flex items-center gap-1 order-3">
+    <button
+      type="button"
+      class="w-8 h-8 rounded-full inline-flex items-center justify-center hover:bg-on-surface/8 disabled:opacity-38 disabled:cursor-not-allowed cursor-pointer"
+      disabled={page === 0}
+      onclick={prev}
+      aria-label="Previous page"
+      title="Previous page"
+    >
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+
+    <!-- Full numbered list on >= sm, tighter list on mobile -->
+    <div class="hidden sm:flex items-center gap-1">{@render pager(pageItems)}</div>
+    <div class="flex sm:hidden items-center gap-1">{@render pager(pageItemsMobile)}</div>
 
     <button
       type="button"
