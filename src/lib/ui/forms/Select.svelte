@@ -121,7 +121,7 @@
           role="option"
           aria-selected={isSelected(opt.value)}
           class={cn(
-            'flex items-center w-full px-3 py-2.5 text-body-md cursor-pointer transition-colors text-left',
+            'flex items-start w-full px-3 py-2.5 text-body-md cursor-pointer transition-colors text-left',
             multiple && 'gap-3',
             isSelected(opt.value)
               ? 'bg-secondary-container text-on-secondary-container'
@@ -139,7 +139,7 @@
               {/if}
             </span>
           {/if}
-          {opt.label}
+          <span class="min-w-0 break-words">{opt.label}</span>
         </button>
       {/each}
     </div>

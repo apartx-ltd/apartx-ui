@@ -1,7 +1,7 @@
 <script>
   import { cn } from '../utils/cn';
 
-  let { children, start, end, class: className, ...restProps } = $props();
+  let { children, start, end, class: className, startClass, contentClass, endClass, ...restProps } = $props();
 </script>
 
 <div
@@ -12,17 +12,17 @@
   {...restProps}
 >
   {#if start}
-    <div class="shrink-0 flex items-center">
+    <div class={cn('shrink-0 flex items-center', startClass)}>
       {@render start()}
     </div>
   {/if}
 
-  <div class="flex-1 flex items-center min-w-0">
+  <div class={cn('flex-1 flex flex-wrap items-center gap-2 min-w-0', contentClass)}>
     {@render children()}
   </div>
 
   {#if end}
-    <div class="shrink-0 flex items-center">
+    <div class={cn('shrink-0 flex items-center', endClass)}>
       {@render end()}
     </div>
   {/if}
