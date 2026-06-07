@@ -27,7 +27,7 @@ export * from './hooks';
 // Theme utilities
 export * from './theme';
 
-// NOTE: virtualization (`VirtualList`/`ChatList`, virtua) is intentionally NOT
+// NOTE: virtualization (`VirtualList`/`MessagesList`, virtua) is intentionally NOT
 // re-exported here — import it from the `apartx-ui/virtual` subpath so the
 // `virtua` dependency stays out of bundles that don't need it.
 

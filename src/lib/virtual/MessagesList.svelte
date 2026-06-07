@@ -3,20 +3,20 @@
   import VirtualList from './VirtualList.svelte';
 
   /**
-   * Chat/feed preset over `VirtualList`. The virtua Svelte adapter has no
+   * Messages/feed preset over `VirtualList`. The virtua Svelte adapter has no
    * `reverse` prop, so stick-to-bottom is driven manually via
    * `scrollToIndex(last, { align: 'end' })`, and `shift` keeps the scroll
    * position when older items are prepended. Logic mirrors the battle-tested
-   * admin `MessagesList`.
+   * admin message list.
    *
    * Bind the component to call `scrollToBottom()` / `stick()` after sending.
    *
    * @example
-   * let chat;
-   * <ChatList bind:this={chat} data={messages} getKey={(m) => m._id}
-   *           hasMore={store.hasMore()} onLoadOlder={() => store.fetch()}>
+   * let feed;
+   * <MessagesList bind:this={feed} data={messages} getKey={(m) => m._id}
+   *               hasMore={store.hasMore()} onLoadOlder={() => store.fetch()}>
    *   {#snippet children(m, i)}<Message {m} />{/snippet}
-   * </ChatList>
+   * </MessagesList>
    */
   let {
     data,
