@@ -111,13 +111,18 @@ export const yandexProvider: MapProvider = {
     const map = new YMap(container, {
       location: { center: [options.center.lng, options.center.lat], zoom: options.zoom },
     });
-    map.addChild(new YMapDefaultSchemeLayer({}));
+    // Keep a handle on the scheme layer so the theme can be switched in place.
+    const schemeLayer = new YMapDefaultSchemeLayer({ theme: options.theme ?? 'light' });
+    map.addChild(schemeLayer);
     map.addChild(new YMapDefaultFeaturesLayer({}));
 
     return {
       native: map,
       setCenter(center: LngLat, zoom?: number) {
         map.update({ location: { center: [center.lng, center.lat], zoom: zoom ?? options.zoom } });
+      },
+      setTheme(theme) {
+        schemeLayer.update({ theme });
       },
       addMarker(opts: MarkerOptions): MarkerHandle {
         const el = opts.element ?? makeDefaultPin();

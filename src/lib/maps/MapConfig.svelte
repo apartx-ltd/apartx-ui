@@ -19,6 +19,7 @@
     apiKey = '',
     lang = 'en_US',
     mapId = '',
+    theme = 'light',
   }: {
     children: any;
     provider?: MapProviderName;
@@ -26,13 +27,15 @@
     lang?: string;
     /** Google Map ID for Advanced Markers (ignored by other providers). */
     mapId?: string;
+    /** Map colour scheme ('light' | 'dark'). */
+    theme?: 'light' | 'dark';
   } = $props();
 
-  // Reactive context object so descendants react if credentials change.
-  const ctx = $state({ provider, config: { apiKey, lang, mapId: mapId || undefined } });
+  // Reactive context object so descendants react if credentials/theme change.
+  const ctx = $state({ provider, config: { apiKey, lang, mapId: mapId || undefined, theme } });
   $effect(() => {
     ctx.provider = provider;
-    ctx.config = { apiKey, lang, mapId: mapId || undefined };
+    ctx.config = { apiKey, lang, mapId: mapId || undefined, theme };
   });
 
   setMapConfig(ctx);

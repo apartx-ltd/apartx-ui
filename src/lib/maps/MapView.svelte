@@ -52,7 +52,9 @@
         const p = getProvider();
         await p.load({ apiKey, lang, mapId });
         if (disposed) return;
-        const start = untrack(() => ({ center, zoom }));
+        // theme read untracked too — switching it updates in place via the
+        // effect below, not by tearing down and recreating the map.
+        const start = untrack(() => ({ center, zoom, theme: cfg.config.theme }));
         const h = await p.createMap(el, start);
         if (disposed) { h.destroy(); return; }
         handle = h;
@@ -72,6 +74,12 @@
   // Recentre when inputs change (after the map exists).
   $effect(() => {
     if (handle) handle.setCenter(center, zoom);
+  });
+
+  // Switch colour scheme in place when the theme config changes.
+  $effect(() => {
+    const theme = cfg.config.theme;
+    if (handle?.setTheme && theme) handle.setTheme(theme);
   });
 
   export function getHandle(): MapHandle | null {

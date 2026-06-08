@@ -19,6 +19,7 @@ export type {
   MarkerHandle,
   MarkerOptions,
   MapViewOptions,
+  MapTheme,
   SearchResult,
   ClusterPoint,
   ClustererOptions,

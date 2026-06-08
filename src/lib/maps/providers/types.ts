@@ -7,9 +7,13 @@ export interface LngLat {
   lat: number;
 }
 
+export type MapTheme = 'light' | 'dark';
+
 export interface MapViewOptions {
   center: LngLat;
   zoom: number;
+  /** Map colour scheme. Defaults to 'light' when omitted. */
+  theme?: MapTheme;
 }
 
 export interface MapProviderConfig {
@@ -19,6 +23,8 @@ export interface MapProviderConfig {
   lang?: string;
   /** Google Map ID — required for Advanced Markers. Ignored by other providers. */
   mapId?: string;
+  /** Map colour scheme ('light' | 'dark'). Defaults to 'light'. */
+  theme?: MapTheme;
 }
 
 export interface MarkerOptions {
@@ -62,6 +68,8 @@ export interface ClustererHandle<T = any> {
 
 export interface MapHandle {
   setCenter(center: LngLat, zoom?: number): void;
+  /** Switch the map colour scheme in place. Optional — providers may omit it. */
+  setTheme?(theme: MapTheme): void;
   addMarker(options: MarkerOptions): MarkerHandle;
   /**
    * Add a clustering layer. Optional — providers without clustering omit it,
