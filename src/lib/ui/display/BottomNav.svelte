@@ -41,9 +41,28 @@
     active = item.value;
     onChange?.(item.value);
   }
+
+  // Publish the bar's *rendered* height (incl. border + iOS safe-area inset) as
+  // a CSS variable on <html>, so full-bleed content (e.g. a map) can reserve
+  // exactly the right amount above this fixed bar — no magic numbers, and it
+  // tracks orientation / safe-area changes.
+  let navEl = $state<HTMLElement | null>(null);
+  $effect(() => {
+    if (!navEl) return;
+    const root = document.documentElement;
+    const apply = () => root.style.setProperty('--app-bottom-nav-height', `${navEl!.offsetHeight}px`);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(navEl);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty('--app-bottom-nav-height');
+    };
+  });
 </script>
 
 <nav
+  bind:this={navEl}
   class={cn(
     'fixed bottom-0 inset-x-0 z-30 flex items-stretch justify-around',
     'bg-surface-container border-t border-outline-variant',
