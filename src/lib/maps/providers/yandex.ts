@@ -1,4 +1,7 @@
 import type {
+  ClusterPoint,
+  ClustererHandle,
+  ClustererOptions,
   LngLat,
   MapHandle,
   MapProvider,
@@ -21,6 +24,28 @@ declare global {
 
 const SCRIPT_ID = 'apartx-ui-ymaps3';
 let loadPromise: Promise<void> | null = null;
+
+// The clusterer is a separately-versioned ymaps3 package, lazy-imported on first
+// use (cached for the page lifetime). Mirrors the way the SDK ships add-ons.
+let clustererModulePromise: Promise<any> | null = null;
+function importClustererModule(): Promise<any> {
+  if (!clustererModulePromise) {
+    clustererModulePromise = globalThis.ymaps3.import('@yandex/ymaps3-clusterer');
+    clustererModulePromise.catch(() => { clustererModulePromise = null; });
+  }
+  return clustererModulePromise;
+}
+
+// GeoJSON Feature shape the clusterer consumes; `id` ties a feature back to its
+// ClusterPoint so callbacks/renderers receive the original consumer payload.
+function pointToFeature(p: ClusterPoint) {
+  return {
+    type: 'Feature',
+    id: p.id,
+    geometry: { type: 'Point', coordinates: [p.coordinates.lng, p.coordinates.lat] },
+    properties: {},
+  };
+}
 
 function loadScript(config: MapProviderConfig): Promise<void> {
   if (loadPromise) return loadPromise;
@@ -114,6 +139,51 @@ export const yandexProvider: MapProvider = {
           },
           destroy() {
             map.removeChild(marker);
+          },
+        };
+      },
+      async addClusterer(opts: ClustererOptions): Promise<ClustererHandle> {
+        const { YMapClusterer, clusterByGrid } = await importClustererModule();
+
+        // Live id→point index so the renderer/click callbacks always resolve the
+        // current payload, including after update().
+        let index = new Map<string, ClusterPoint>(opts.points.map((p) => [p.id, p]));
+
+        const markerFactory = (feature: any) => {
+          const point = index.get(String(feature.id));
+          const el = point ? opts.renderMarker(point) : makeDefaultPin();
+          if (point && opts.onPickMarker) {
+            el.addEventListener('click', () => opts.onPickMarker!(point));
+          }
+          return new YMapMarker({ coordinates: feature.geometry.coordinates }, el);
+        };
+
+        const clusterFactory = (coordinates: [number, number], features: any[]) => {
+          const points = features
+            .map((f) => index.get(String(f.id)))
+            .filter((p): p is ClusterPoint => Boolean(p));
+          const el = opts.renderCluster(points);
+          if (opts.onPickCluster) {
+            el.addEventListener('click', () => opts.onPickCluster!(points));
+          }
+          return new YMapMarker({ coordinates }, el);
+        };
+
+        const clusterer = new YMapClusterer({
+          method: clusterByGrid({ gridSize: opts.gridSize ?? 64 }),
+          features: opts.points.map(pointToFeature),
+          marker: markerFactory,
+          cluster: clusterFactory,
+        });
+        map.addChild(clusterer);
+
+        return {
+          update(points: ClusterPoint[]) {
+            index = new Map(points.map((p) => [p.id, p]));
+            clusterer.update({ features: points.map(pointToFeature) });
+          },
+          destroy() {
+            map.removeChild(clusterer);
           },
         };
       },

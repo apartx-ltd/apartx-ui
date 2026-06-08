@@ -6,6 +6,7 @@
 export { default as MapConfig } from './MapConfig.svelte';
 export { default as MapView } from './MapView.svelte';
 export { default as MapMarker } from './MapMarker.svelte';
+export { default as MapClusterer } from './MapClusterer.svelte';
 export { default as MapSearch } from './MapSearch.svelte';
 
 export { resolveProvider, yandexProvider, googleProvider } from './providers';
@@ -19,4 +20,7 @@ export type {
   MarkerOptions,
   MapViewOptions,
   SearchResult,
+  ClusterPoint,
+  ClustererOptions,
+  ClustererHandle,
 } from './providers/types';
