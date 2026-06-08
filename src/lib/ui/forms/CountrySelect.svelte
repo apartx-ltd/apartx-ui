@@ -26,15 +26,33 @@
     onselect,
     title = '',
     searchPlaceholder = 'Search',
+    fullScreen = undefined,
   }: {
     open?: boolean;
     countries?: Country[];
     onselect?: (country?: Country) => void;
     title?: string;
     searchPlaceholder?: string;
+    /** Force full-screen. When undefined, auto: full-screen on mobile (≤640px),
+     *  centered above. */
+    fullScreen?: boolean;
   } = $props();
 
   let searchText = $state('');
+
+  // Responsive default: full-screen on small viewports, centered dialog on
+  // larger ones. An explicit `fullScreen` prop overrides this.
+  let isMobile = $state(false);
+  $effect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 640px)');
+    isMobile = mq.matches;
+    const onChange = (e: MediaQueryListEvent) => (isMobile = e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  });
+
+  const effectiveFullScreen = $derived(fullScreen ?? isMobile);
 
   const sorted = $derived(
     [...countries].sort((a, b) => String(a.country_name).localeCompare(String(b.country_name))),
@@ -65,7 +83,15 @@
   }
 </script>
 
-<Dialog bind:open {title} {onOpenChange} showCloseButton={false} contentClass="max-w-md max-h-[80vh]" bodyClass="p-0">
+<Dialog
+  bind:open
+  {title}
+  {onOpenChange}
+  showCloseButton={false}
+  fullScreen={effectiveFullScreen}
+  contentClass={effectiveFullScreen ? '' : 'max-w-md max-h-[80vh]'}
+  bodyClass="p-0"
+>
   {#snippet header()}
     <div class="border-outline-variant border-b">
       <Toolbar>
