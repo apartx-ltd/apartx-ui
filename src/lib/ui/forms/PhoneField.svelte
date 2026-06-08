@@ -74,4 +74,10 @@
   </div>
 </div>
 
-<CountrySelect bind:open={modalOpen} {countries} onselect={onCountryChosen} {searchPlaceholder} />
+<CountrySelect
+  bind:open={modalOpen}
+  {countries}
+  onselect={onCountryChosen}
+  title={chooseCountryLabel}
+  {searchPlaceholder}
+/>
