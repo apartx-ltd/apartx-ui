@@ -1,16 +1,21 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { cn } from '../ui/utils/cn';
+  import Loading from '../ui/display/Loading.svelte';
   import { getMapConfig, getProvider, setMapHandleAccessor } from './context';
   import type { LngLat, MapHandle } from './providers/types';
 
   /**
    * Renders a provider map. SSR-safe: the SDK loads and the map is created on
    * mount. Descendant `<MapMarker>`s attach to it via context. Reactive
-   * `center`/`zoom` recentre the map in place.
+   * `center`/`zoom` recentre the map in place. A loading overlay covers the map
+   * until it's ready (override via the `loading` snippet, or disable with
+   * `showLoading={false}`).
    */
   let {
     children,
+    loading,
+    showLoading = true,
     center,
     zoom = 12,
     class: className,
@@ -18,6 +23,8 @@
     ...restProps
   }: {
     children?: any;
+    loading?: any;
+    showLoading?: boolean;
     center: LngLat;
     zoom?: number;
     class?: string;
@@ -93,6 +100,11 @@
   {#if error}
     <div class="absolute inset-0 flex items-center justify-center bg-surface-variant text-body-md text-error p-4 text-center">
       {error}
+    </div>
+  {:else if showLoading && !handle}
+    <!-- Overlay while the SDK loads / the map is being created. -->
+    <div class="absolute inset-0 flex items-center justify-center bg-surface-variant">
+      {#if loading}{@render loading()}{:else}<Loading />{/if}
     </div>
   {/if}
 
