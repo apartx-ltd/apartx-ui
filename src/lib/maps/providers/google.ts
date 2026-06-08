@@ -1,6 +1,7 @@
 import type {
   LngLat,
   MapHandle,
+  MapLayerType,
   MapProvider,
   MapProviderConfig,
   MapViewOptions,
@@ -8,6 +9,14 @@ import type {
   MarkerOptions,
   SearchResult,
 } from './types';
+import { resolveControls } from './controls';
+
+// Google map-type ids ↔ the kit's provider-agnostic layer names.
+const TO_GOOGLE_TYPE: Record<MapLayerType, string> = {
+  map: 'roadmap',
+  satellite: 'satellite',
+  hybrid: 'hybrid',
+};
 
 // Google Maps JS API. The bootstrap script installs the global `google`; we
 // then pull individual libraries via `google.maps.importLibrary(...)`.
@@ -80,17 +89,39 @@ export const googleProvider: MapProvider = {
     const markerLib = await google.maps.importLibrary('marker');
     const AdvancedMarkerElement = markerLib.AdvancedMarkerElement;
 
+    const controls = resolveControls(options.controls);
     const map = new Map(container, {
       center: { lat: options.center.lat, lng: options.center.lng },
       zoom: options.zoom,
       mapId: lastConfig.mapId ?? DEFAULT_MAP_ID,
-      disableDefaultUI: false,
+      // Normalized `controls` → Google's default UI. `disableDefaultUI` hides the
+      // button chrome; individual controls can be re-enabled alongside it.
+      disableDefaultUI: !controls.attribution,
+      scaleControl: controls.scale,
+      // Escape hatch: raw MapOptions for the long tail, merged last so they win.
+      ...(options.providerOptions?.google ?? {}),
     });
 
     return {
       native: map,
       setCenter(center: LngLat, zoom?: number) {
         map.moveCamera({ center: { lat: center.lat, lng: center.lng }, zoom: zoom ?? options.zoom });
+      },
+      zoomIn() {
+        map.setZoom((map.getZoom() ?? options.zoom) + 1);
+      },
+      zoomOut() {
+        map.setZoom((map.getZoom() ?? options.zoom) - 1);
+      },
+      getLayer(): MapLayerType {
+        const id = map.getMapTypeId?.();
+        return id === 'satellite' || id === 'hybrid' ? id : 'map';
+      },
+      availableLayers(): MapLayerType[] {
+        return ['map', 'satellite', 'hybrid'];
+      },
+      setLayer(next: MapLayerType) {
+        map.setMapTypeId(TO_GOOGLE_TYPE[next] ?? 'roadmap');
       },
       addMarker(opts: MarkerOptions): MarkerHandle {
         const marker = new AdvancedMarkerElement({

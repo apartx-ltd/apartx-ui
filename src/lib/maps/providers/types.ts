@@ -9,11 +9,55 @@ export interface LngLat {
 
 export type MapTheme = 'light' | 'dark';
 
+/** Registered provider keys. Single source — providers/index re-exports this. */
+export type MapProviderName = 'yandex' | 'google';
+
+/** Base map type for the layer switcher. Providers advertise their subset via `availableLayers()`. */
+export type MapLayerType = 'map' | 'satellite' | 'hybrid';
+
+/**
+ * Provider-agnostic control toggles. Each provider maps these to native where
+ * it can; the interactive ones (`zoom`/`geolocation`/`layer`) are rendered by
+ * the kit as themed M3 controls driving the imperative `MapHandle` methods, so
+ * they look identical across providers and fill gaps in native coverage.
+ * `attribution`/`scale` are provider-native (passive chrome).
+ */
+export interface MapControlsConfig {
+  /** Provider copyright/attribution block (Yandex: YMap `copyrights`). Default true. */
+  attribution?: boolean;
+  /** Zoom in/out buttons (kit-rendered M3). Default false. */
+  zoom?: boolean;
+  /** "My location" button (kit-rendered; uses the browser Geolocation API). Default false. */
+  geolocation?: boolean;
+  /** Scale bar (provider-native). Default false. */
+  scale?: boolean;
+  /** Map-type switcher map/satellite/… (kit-rendered M3). Default false. */
+  layer?: boolean;
+}
+
+/** `false` disables every built-in control; an object toggles them individually. */
+export type MapControls = boolean | MapControlsConfig;
+
 export interface MapViewOptions {
   center: LngLat;
   zoom: number;
   /** Map colour scheme. Defaults to 'light' when omitted. */
   theme?: MapTheme;
+  /**
+   * Built-in UI controls. `true`/omitted shows the provider defaults;
+   * `false` disables all of them; an object toggles individual controls.
+   */
+  controls?: MapControls;
+  /**
+   * Escape hatch for provider-specific native map options that have no
+   * cross-provider equivalent (Yandex `behaviors`/`margin`, Google
+   * `gestureHandling`/`styles`, …). Keyed by provider so a call site can
+   * pre-fill several; only the active provider's entry is applied. Merged into
+   * the native map AFTER the normalized props above, so a key here overrides
+   * its normalized equivalent (last-wins). See each provider's native docs
+   * (Yandex YMap props / Google MapOptions); the kit does not type these.
+   */
+  providerOptions?: Partial<Record<MapProviderName, Record<string, unknown>>>;
 }
 
 export interface MapProviderConfig {
@@ -70,6 +114,14 @@ export interface MapHandle {
   setCenter(center: LngLat, zoom?: number): void;
   /** Switch the map colour scheme in place. Optional — providers may omit it. */
   setTheme?(theme: MapTheme): void;
+  /** Step the zoom by one level. Drives the kit zoom control. Optional. */
+  zoomIn?(): void;
+  zoomOut?(): void;
+  /** Current base map type. Optional — providers without alternates omit these. */
+  getLayer?(): MapLayerType;
+  setLayer?(layer: MapLayerType): void;
+  /** Map types this provider supports; the kit layer control renders only these. */
+  availableLayers?(): MapLayerType[];
   addMarker(options: MarkerOptions): MarkerHandle;
   /**
    * Add a clustering layer. Optional — providers without clustering omit it,

@@ -1,8 +1,6 @@
-import type { MapProvider } from './types';
+import type { MapProvider, MapProviderName } from './types';
 import { yandexProvider } from './yandex';
 import { googleProvider } from './google';
-
-export type MapProviderName = 'yandex' | 'google';
 
 const registry: Record<MapProviderName, MapProvider> = {
   yandex: yandexProvider,

@@ -1,5 +1,28 @@
 # История изменений — apartx-ui
 
+## 2026-06-08
+
+### Версия 0.1.4
+
+Провайдер-независимые контролы карты (kit-rendered M3), escape-hatch для нативных опций, фиксы темы хрома и загрузки кластеризатора.
+
+### Добавлено
+
+* **`MapView` — провайдер-независимые контролы.** Проп `controls: boolean | { attribution, zoom, geolocation, scale, layer }` (общий резолвер `providers/controls.ts`). `attribution`/`scale` — нативные пассивные (Yandex `copyrights`/`YMapScaleControl`, Google `disableDefaultUI`/`scaleControl`); `zoom`/`geolocation`/`layer` — **kit-rendered M3-кнопки** (`maps/controls/`), которые дёргают карту через новый императивный API `MapHandle` (`zoomIn`/`zoomOut`, `getLayer`/`setLayer`/`availableLayers`). Geolocation — на стороне кита через `navigator.geolocation` → `setCenter`, нативный контрол не нужен. `availableLayers()` отдаёт только поддержанные провайдером типы (Yandex map/satellite, Google map/satellite/hybrid) — свитчер не предлагает врущих тогглов. Inline-SVG в кнопках (кит по дизайну не тянет icon-сеты).
+* **`MapView` — `controlsPosition`** (`top-left|top-right|bottom-left|bottom-right`, дефолт `bottom-right`) для оверлея контролов.
+* **`MapViewOptions.providerOptions`** — escape-hatch для нативных опций провайдера без кросс-провайдерного аналога, по ключу провайдера (`{ yandex: {…}, google: {…} }`); применяется подобъект активного провайдера, мержится в нативную карту последним (перекрывает нормализованные пропы).
+
+### Изменено
+
+* **`MapProviderName`** — единый источник в `providers/types.ts` (раньше дублировался в `providers/index`), ре-экспорт сохранён.
+* **Google-провайдер** — симметрия с Yandex: нормализованные `controls`/`scale`/`layer` (`mapType`)/`zoom`.
+* **`MapConfig`** — обновляет поля `config` гранулярно, а не заменяет объект целиком: смена темы больше не инвалидирует читателей `apiKey`/`lang`/`mapId`, поэтому `MapView` ретинтит карту на месте, а не пересоздаёт её (пересоздание переподключало кластеризатор и роняло маркеры на каждый тоггл темы).
+
+### Исправлено
+
+* **Тема хрома `YMap`.** Тема задавалась только слою тайлов (`YMapDefaultSchemeLayer`), а копирайт/distribution/контролы остаются на теме самого `YMap` — в dark-mode хром оставался светлым (белый фон кнопки) и наследовал белый текст приложения → «Открыть Яндекс Карты» белым по белому. Тема теперь прокидывается и в `YMap` (и обновляется в `setTheme`).
+* **Загрузка кластеризатора Yandex.** `ymaps3.import` без зарегистрированных loader'ов падал с `no loader for pkg @yandex/ymaps3-clusterer` (молчаливый деград на plain-маркеры). Перед импортом регистрируется CDN (`ymaps3.import.registerCdn`) и используется версионированный пакет `@yandex/ymaps3-clusterer@0.0.1`.
+
 ## 2026-06-07
 
 ### Версия 0.1.3

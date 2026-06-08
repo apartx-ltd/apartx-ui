@@ -4,6 +4,7 @@ import type {
   ClustererOptions,
   LngLat,
   MapHandle,
+  MapLayerType,
   MapProvider,
   MapProviderConfig,
   MapViewOptions,
@@ -11,6 +12,7 @@ import type {
   MarkerOptions,
   SearchResult,
 } from './types';
+import { resolveControls } from './controls';
 
 // Yandex Maps JS API v3 is delivered as a CDN script that installs the global
 // `ymaps3`. We load it once and adapt its objects to the kit's MapHandle.
@@ -25,12 +27,20 @@ declare global {
 const SCRIPT_ID = 'apartx-ui-ymaps3';
 let loadPromise: Promise<void> | null = null;
 
-// The clusterer is a separately-versioned ymaps3 package, lazy-imported on first
-// use (cached for the page lifetime). Mirrors the way the SDK ships add-ons.
+// The clusterer is a separately-versioned ymaps3 add-on, lazy-imported on first
+// use (cached for the page lifetime). `ymaps3.import` ships with NO loaders
+// registered, so importing an official package fails with "no loader for pkg"
+// unless we first point it at a CDN that serves the npm package.
+const CLUSTERER_PKG = '@yandex/ymaps3-clusterer@0.0.1';
+let clustererCdnRegistered = false;
 let clustererModulePromise: Promise<any> | null = null;
 function importClustererModule(): Promise<any> {
   if (!clustererModulePromise) {
-    clustererModulePromise = globalThis.ymaps3.import('@yandex/ymaps3-clusterer');
+    if (!clustererCdnRegistered) {
+      globalThis.ymaps3.import.registerCdn('https://cdn.jsdelivr.net/npm/{package}', CLUSTERER_PKG);
+      clustererCdnRegistered = true;
+    }
+    clustererModulePromise = globalThis.ymaps3.import(CLUSTERER_PKG);
     clustererModulePromise.catch(() => { clustererModulePromise = null; });
   }
   return clustererModulePromise;
@@ -106,23 +116,87 @@ export const yandexProvider: MapProvider = {
 
   async createMap(container: HTMLElement, options: MapViewOptions): Promise<MapHandle> {
     const ymaps3 = globalThis.ymaps3;
-    const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker } = ymaps3;
+    const {
+      YMap,
+      YMapDefaultSchemeLayer,
+      YMapDefaultSatelliteLayer,
+      YMapDefaultFeaturesLayer,
+      YMapMarker,
+      YMapControls,
+      YMapScaleControl,
+    } = ymaps3;
 
+    const controls = resolveControls(options.controls);
     const map = new YMap(container, {
       location: { center: [options.center.lng, options.center.lat], zoom: options.zoom },
+      // Theme the YMap itself, not just the scheme layer: the copyright/
+      // distribution/control chrome follows YMap.theme. Without it the chrome
+      // stays light (white control bg) while it inherits the app's text colour
+      // (white in dark mode) → white-on-white "Открыть Яндекс Карты".
+      theme: options.theme ?? 'light',
+      // The bottom "© Яндекс / Открыть Яндекс Карты" block is YMap's copyright
+      // chrome — toggled natively here, not via provider-specific CSS.
+      copyrights: controls.attribution,
+      // Escape hatch: raw YMap props for the long tail, merged last so they win.
+      ...(options.providerOptions?.yandex ?? {}),
     });
-    // Keep a handle on the scheme layer so the theme can be switched in place.
+
+    // Base layers: scheme (vector "map") is default; satellite is created lazily
+    // on first switch. Theme applies to the scheme layer.
     const schemeLayer = new YMapDefaultSchemeLayer({ theme: options.theme ?? 'light' });
     map.addChild(schemeLayer);
     map.addChild(new YMapDefaultFeaturesLayer({}));
 
+    let satelliteLayer: any = null;
+    let layer: MapLayerType = 'map';
+
+    // Native scale bar; zoom/geolocation/layer are kit-rendered M3 controls.
+    if (controls.scale) {
+      const scaleControls = new YMapControls({ position: 'bottom left' });
+      scaleControls.addChild(new YMapScaleControl({}));
+      map.addChild(scaleControls);
+    }
+
+    // Track zoom so the kit zoom control can step it without reading SDK state.
+    let curZoom = options.zoom;
+
     return {
       native: map,
       setCenter(center: LngLat, zoom?: number) {
-        map.update({ location: { center: [center.lng, center.lat], zoom: zoom ?? options.zoom } });
+        curZoom = zoom ?? curZoom;
+        map.update({ location: { center: [center.lng, center.lat], zoom: curZoom } });
       },
       setTheme(theme) {
+        // Tiles (scheme layer) and chrome (YMap) both follow the theme.
         schemeLayer.update({ theme });
+        map.update({ theme });
+      },
+      zoomIn() {
+        curZoom = Math.min(curZoom + 1, 21);
+        map.update({ location: { zoom: curZoom, duration: 200 } });
+      },
+      zoomOut() {
+        curZoom = Math.max(curZoom - 1, 0);
+        map.update({ location: { zoom: curZoom, duration: 200 } });
+      },
+      getLayer() {
+        return layer;
+      },
+      availableLayers(): MapLayerType[] {
+        return ['map', 'satellite'];
+      },
+      setLayer(next: MapLayerType) {
+        const target: MapLayerType = next === 'satellite' ? 'satellite' : 'map';
+        if (target === layer) return;
+        if (target === 'satellite') {
+          if (!satelliteLayer) satelliteLayer = new YMapDefaultSatelliteLayer({});
+          map.removeChild(schemeLayer);
+          map.addChild(satelliteLayer);
+        } else {
+          if (satelliteLayer) map.removeChild(satelliteLayer);
+          map.addChild(schemeLayer);
+        }
+        layer = target;
       },
       addMarker(opts: MarkerOptions): MarkerHandle {
         const el = opts.element ?? makeDefaultPin();

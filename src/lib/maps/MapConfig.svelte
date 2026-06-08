@@ -32,10 +32,17 @@
   } = $props();
 
   // Reactive context object so descendants react if credentials/theme change.
+  // Update fields granularly (not by replacing `config`) so a theme change only
+  // invalidates readers of `config.theme` — MapView recentres/retints in place
+  // instead of tearing down and recreating the whole map (which would re-run the
+  // clusterer import and drop markers on every theme toggle).
   const ctx = $state({ provider, config: { apiKey, lang, mapId: mapId || undefined, theme } });
   $effect(() => {
     ctx.provider = provider;
-    ctx.config = { apiKey, lang, mapId: mapId || undefined, theme };
+    ctx.config.apiKey = apiKey;
+    ctx.config.lang = lang;
+    ctx.config.mapId = mapId || undefined;
+    ctx.config.theme = theme;
   });
 
   setMapConfig(ctx);
