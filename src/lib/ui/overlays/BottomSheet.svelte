@@ -67,34 +67,6 @@
   let startOffset = 0
   let isAllowedToDrag = false
   let dragStartTime = 0
-  let scrollEl = null            // the inner scroll container under the press, if any
-  let scrollPrevOverflow = null  // saved inline overflow-y while locked (null = not locked)
-
-  // Nearest scrollable ancestor of `target` (the consumer's scroller, e.g. a list).
-  function findScrollEl(target) {
-    let el = target
-    while (el && el !== document.body) {
-      if (el.scrollHeight > el.clientHeight) return el
-      el = el.parentNode
-    }
-    return null
-  }
-  // While we drag the SHEET, the inner scroller must not also scroll natively — the
-  // browser would otherwise start a native scroll, steal the touch, fire pointercancel,
-  // and the sheet would snap back after a couple px. vaul does the same via a
-  // `.vaul-scrollable { overflow: hidden }` rule during drag; we do it imperatively.
-  // Save/restore the scroller's ORIGINAL inline overflow-y (virtua sets its own) so
-  // unlock doesn't wipe it; guard so a double-lock doesn't save 'hidden' as the prev.
-  function lockScroll() {
-    if (!scrollEl || scrollPrevOverflow !== null) return
-    scrollPrevOverflow = scrollEl.style.overflowY || ''
-    scrollEl.style.overflowY = 'hidden'
-  }
-  function unlockScroll() {
-    if (scrollEl && scrollPrevOverflow !== null) scrollEl.style.overflowY = scrollPrevOverflow
-    scrollEl = null
-    scrollPrevOverflow = null
-  }
 
   // Rubber-band resistance when dragging above the top snap (vaul's dampenValue idea).
   function dampen(v) {
@@ -102,57 +74,59 @@
     return damped > v ? v : Math.max(0, damped)
   }
 
-  // Decide whether THIS pointermove drags the sheet or lets a scroller scroll.
-  // Walk up from the touched element: a scrollable ancestor not at the top keeps the
-  // scroll (return false). At scrollTop 0 (or no scrollable ancestor) → drag the sheet.
+  // Decide whether THIS move drags the sheet or lets a scroller scroll natively.
+  // This is the whole handoff model:
+  //   • Below the top snap (sheet pulled down) → ALWAYS drag the sheet, never the list.
+  //   • At the top snap → walk up from the touched element; a scrollable ancestor with
+  //     scrollTop > 0 keeps its native scroll (return false). At scrollTop 0 the list is
+  //     at its top: dragging DOWN takes over and pulls the sheet down; dragging UP stays
+  //     with the (already-at-top) list so it can't pull the sheet further up.
+  // The native list scroll is only *suppressed* by preventDefault in the touch handler
+  // when this returns true — we never fight virtua's inline overflow styles.
   function shouldDrag(target, draggingDown) {
-    if (translateY > minOffset + 1) return true            // already pulled down a bit
+    if (translateY > minOffset + 1) return true            // below top → sheet drags
     if (openTime && Date.now() - openTime < SETTLE_MS) return false
     let el = target
     while (el && el !== document.body) {
       if (el.scrollHeight > el.clientHeight) {
-        if (el.scrollTop > 0) return false                 // scrolled → let it scroll
+        if (el.scrollTop > 0) return false                 // list scrolled → let it scroll
       }
       el = el.parentNode
     }
-    if (!draggingDown) return false                        // at top & dragging up → inner scroll
-    return true
+    if (!draggingDown) return false                        // at list top & dragging up → list
+    return true                                            // at list top & dragging down → sheet
   }
 
-  function onpointerdown(e) {
-    pointerStart = e.screenY
-    pressTarget = e.target
+  // ---- shared drag core (driven by both pointer [mouse] and touch handlers) ----
+  function startDrag(screenY, target) {
+    pointerStart = screenY
+    pressTarget = target
     startOffset = activeOffset
     dragStartTime = Date.now()
     isAllowedToDrag = false
-    scrollEl = findScrollEl(e.target)
-    // Below the top snap the WHOLE sheet drags (never the list), so lock the inner
-    // scroller up front — that way the browser never starts a native scroll that
-    // would cancel the drag. At the top snap we leave it scrollable and only lock
-    // once the drag actually commits (in onpointermove).
-    if (activeOffset > minOffset + 1) lockScroll()
-    contentEl?.setPointerCapture?.(e.pointerId)
   }
 
-  function onpointermove(e) {
-    if (!pointerStart) return
-    const delta = e.screenY - pointerStart                 // down = positive
+  // Apply a move to `screenY`. Returns true once the gesture has committed to dragging
+  // the SHEET (so the touch handler knows to preventDefault and kill the native scroll).
+  function moveDrag(screenY) {
+    if (!pointerStart) return false
+    const delta = screenY - pointerStart                   // down = positive
     const draggingDown = delta > 0
-    if (!isAllowedToDrag && !shouldDrag(pressTarget, draggingDown)) return
+    if (!isAllowedToDrag && !shouldDrag(pressTarget, draggingDown)) return false
     isAllowedToDrag = true
     dragging = true
-    lockScroll()                                           // sheet is dragging → freeze inner scroll
     let next = startOffset + delta
     if (next < minOffset) next = minOffset - dampen(minOffset - next)  // rubber-band above top
     dragOffset = next
+    return true
   }
 
-  function onpointerup(e) {
+  function release(screenY) {
     if (!isAllowedToDrag) { endDrag(); return }
     const current = dragOffset ?? activeOffset
     const distance = current - startOffset                 // +down / -up
     const elapsed = Math.max(1, Date.now() - dragStartTime)
-    const velocity = Math.abs(e.screenY - pointerStart) / elapsed
+    const velocity = Math.abs(screenY - pointerStart) / elapsed
     const draggingDown = distance > 0
 
     const sorted = [...offsets].sort((a, b) => a - b)       // ascending = top→bottom
@@ -178,6 +152,43 @@
     snapTo(closest)
   }
 
+  // ---- pointer handlers: MOUSE / PEN ONLY (touch goes through the touch handlers
+  // below, which can preventDefault to stop the list's native scroll) ----
+  function onpointerdown(e) {
+    if (e.pointerType === 'touch') return
+    startDrag(e.screenY, e.target)
+    contentEl?.setPointerCapture?.(e.pointerId)
+  }
+  function onpointermove(e) {
+    if (e.pointerType === 'touch') return
+    moveDrag(e.screenY)
+  }
+  function onpointerup(e) {
+    if (e.pointerType === 'touch') return
+    release(e.screenY)
+  }
+  function onpointercancel(e) {
+    if (e.pointerType === 'touch') return
+    endDrag()
+  }
+
+  // ---- touch handlers (attached non-passively via the effect below) ----
+  // touchstart fires before the synthetic pointer events; touch events keep targeting
+  // the start element for the whole gesture, so no pointer-capture is needed. The key
+  // is onTouchMove: when the gesture is a SHEET drag we preventDefault, which is the
+  // ONLY reliable way to stop the inner list's native scroll (pointermove can't, and
+  // forcing overflow:hidden fights virtua). When it's a list scroll we don't, so the
+  // list scrolls natively.
+  function onTouchStart(e) {
+    startDrag(e.touches[0].screenY, e.target)
+  }
+  function onTouchMove(e) {
+    if (moveDrag(e.touches[0].screenY)) e.preventDefault()
+  }
+  function onTouchEnd(e) {
+    release(e.changedTouches[0].screenY)
+  }
+
   function snapTo(offset) {
     const i = offsets.indexOf(offset)
     if (i !== -1) activeSnapPoint = snapPoints[i]
@@ -190,7 +201,6 @@
     pointerStart = 0
     pressTarget = null
     isAllowedToDrag = false
-    unlockScroll()
   }
 
   // Animate down off-screen, then actually close after the transition.
@@ -199,7 +209,6 @@
     dragOffset = viewportH
     pointerStart = 0
     isAllowedToDrag = false
-    unlockScroll()
     setTimeout(() => { handleOpenChange(false); dragOffset = null }, 520)
   }
 
@@ -258,6 +267,25 @@
       html.style.overscrollBehavior = prevHtmlOB
     }
   })
+
+  // Attach touch listeners on the sheet imperatively so touchmove is NON-PASSIVE —
+  // Svelte/the browser default touchmove to passive, where preventDefault is ignored.
+  // Non-passive is what lets onTouchMove cancel the inner list's native scroll the
+  // instant the gesture commits to a sheet drag. Re-runs when contentEl (re)mounts.
+  $effect(() => {
+    const el = contentEl
+    if (!el) return
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd, { passive: true })
+    el.addEventListener('touchcancel', endDrag, { passive: true })
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('touchcancel', endDrag)
+    }
+  })
 </script>
 
 <Dialog.Root bind:open onOpenChange={handleOpenChange} {modal}>
@@ -274,10 +302,13 @@
            hijacks touchmove to lock the page — it ALSO blocks the inner list's native
            scroll AND eats our drag gesture. We disable it (same as vaul) and lock the
            document ourselves (see the body-lock effect above).
-           touch-action is dynamic: `none` below the top snap (the whole sheet drags —
-           the browser must not claim the vertical gesture for native panning), `pan-y`
-           at the top snap (let the inner list scroll natively). overscroll-behavior:
-           contain stops a list scroll from chaining out to the page. -->
+           touch-action: pan-y — we allow the browser to offer a vertical pan, but the
+           non-passive touchmove handler (see onTouchMove) preventDefaults the instant the
+           gesture is a SHEET drag, which cancels the would-be native scroll. When the
+           gesture is a list scroll (at the top snap, list not at its top) we don't
+           preventDefault, so pan-y lets the list scroll natively. overscroll-behavior:
+           contain stops a list scroll from chaining out to the page.
+           Pointer handlers are MOUSE/PEN only (they bail on pointerType==='touch'). -->
       <Dialog.Content
         forceMount
         preventScroll={false}
@@ -285,14 +316,14 @@
         onpointerdown={onpointerdown}
         onpointermove={onpointermove}
         onpointerup={onpointerup}
-        onpointercancel={endDrag}
+        onpointercancel={onpointercancel}
         class={cn(
           'fixed inset-x-0 bottom-0 z-50 flex flex-col bg-surface-container text-on-surface',
           'rounded-t-2xl shadow-level-3 select-none',
           squareTop && 'rounded-t-none',
           className,
         )}
-        style={`height:100dvh;transform:translate3d(0,${translateY}px,0);transition:${dragging ? 'none' : TRANSITION};touch-action:${atTop ? 'pan-y' : 'none'};overscroll-behavior:contain;`}
+        style={`height:100dvh;transform:translate3d(0,${translateY}px,0);transition:${dragging ? 'none' : TRANSITION};touch-action:pan-y;overscroll-behavior:contain;`}
       >
         {#if showHandle}
           <div class="mx-auto mt-2 mb-1 h-1.5 w-9 shrink-0 touch-none rounded-full bg-outline-variant"></div>
