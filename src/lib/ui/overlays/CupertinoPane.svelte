@@ -76,6 +76,7 @@
     onDidPresent = null,
     onWillPresent = null,
     onBackdropTap = null,
+    onBreakChange = null,
 
     customSettings = {},
 
@@ -168,6 +169,9 @@
       pane = null
     }
     pane = new CupertinoPane(element, paneSettings)
+    // Fresh instance → fresh break baseline, so the next settle re-emits the
+    // break even if it matches the previous (destroyed) pane's last break.
+    lastBreak = null
     if (show) present()
   }
 
@@ -194,6 +198,33 @@
     if (el.style.borderRadius !== want) el.style.borderRadius = want
   }
 
+  // Library `currentBreak()` desyncs (its currentBreakpoint isn't reliably
+  // committed). Derive the break from the real transform position: nearest
+  // breakpoint Y wins. Returns 'top' | 'middle' | 'bottom' | null.
+  function breakByPosition() {
+    const breaks = pane?.breakpoints?.breaks
+    const y = pane?.getPanelTransformY?.()
+    if (!breaks || typeof y !== 'number') return null
+    let best = null
+    let bestDist = Infinity
+    for (const name of ['top', 'middle', 'bottom']) {
+      const by = breaks[name]
+      if (typeof by !== 'number') continue
+      const d = Math.abs(by - y)
+      if (d < bestDist) { bestDist = d; best = name }
+    }
+    return best
+  }
+
+  let lastBreak = null
+  function notifyBreak() {
+    const brk = breakByPosition()
+    if (brk && brk !== lastBreak) {
+      lastBreak = brk
+      onBreakChange?.(brk)
+    }
+  }
+
   // Apply now (live, e.g. mid-drag) AND once more after the snap settles. On
   // release the pane is still at the finger position while it animates to its
   // target break, so the immediate read can miss a snap UP to `top`; the trailing
@@ -201,8 +232,9 @@
   // this — the library notes a browser bug where it may not fire on a drag-snap.
   function syncFlatTop() {
     applyFlatTop()
+    notifyBreak()
     if (flatTimer) clearTimeout(flatTimer)
-    flatTimer = setTimeout(applyFlatTop, (animationDuration || 300) + 60)
+    flatTimer = setTimeout(() => { applyFlatTop(); notifyBreak() }, (animationDuration || 300) + 60)
   }
 
   // Recreate the pane when mounted or settings change.
