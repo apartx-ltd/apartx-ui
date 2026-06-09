@@ -189,6 +189,14 @@
     release(e.changedTouches[0].screenY)
   }
 
+  // Desktop: the list scrolls via wheel, which is NOT a pointer event, so the drag
+  // gesture never sees it — below the top snap the list would scroll inside the
+  // un-expanded sheet. Mirror the touch model: suppress wheel scrolling unless the
+  // sheet is at the top snap (where the list is meant to scroll natively).
+  function onWheel(e) {
+    if (!atTop) e.preventDefault()
+  }
+
   function snapTo(offset) {
     const i = offsets.indexOf(offset)
     if (i !== -1) activeSnapPoint = snapPoints[i]
@@ -268,10 +276,10 @@
     }
   })
 
-  // Attach touch listeners on the sheet imperatively so touchmove is NON-PASSIVE —
-  // Svelte/the browser default touchmove to passive, where preventDefault is ignored.
-  // Non-passive is what lets onTouchMove cancel the inner list's native scroll the
-  // instant the gesture commits to a sheet drag. Re-runs when contentEl (re)mounts.
+  // Attach touch/wheel listeners on the sheet imperatively so they are NON-PASSIVE —
+  // Svelte/the browser default touchmove & wheel to passive, where preventDefault is
+  // ignored. Non-passive is what lets onTouchMove/onWheel cancel the inner list's
+  // native scroll the instant the gesture must drive the sheet. Re-runs on (re)mount.
   $effect(() => {
     const el = contentEl
     if (!el) return
@@ -279,11 +287,13 @@
     el.addEventListener('touchmove', onTouchMove, { passive: false })
     el.addEventListener('touchend', onTouchEnd, { passive: true })
     el.addEventListener('touchcancel', endDrag, { passive: true })
+    el.addEventListener('wheel', onWheel, { passive: false })
     return () => {
       el.removeEventListener('touchstart', onTouchStart)
       el.removeEventListener('touchmove', onTouchMove)
       el.removeEventListener('touchend', onTouchEnd)
       el.removeEventListener('touchcancel', endDrag)
+      el.removeEventListener('wheel', onWheel)
     }
   })
 </script>
