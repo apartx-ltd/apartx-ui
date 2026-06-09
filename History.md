@@ -1,5 +1,56 @@
 # История изменений — apartx-ui
 
+## 2026-06-09
+
+### Версия 0.1.7
+
+Новый `BottomSheet` — bottom-sheet со снап-поинтами на bits-ui `Dialog`.
+
+### Добавлено
+
+* **`BottomSheet` — draggable bottom-sheet на bits-ui `Dialog`.** Оболочка — `Dialog`
+  (`Portal` в `<body>`, бэкдроп, focus-trap, escape, scroll-lock), консистентно с
+  `Dialog`/`AlertDialog`. Слой жеста (snap-поинты как доли `0..1`/px, drag, физика
+  релиза по velocity+ближайшему снапу, handoff «тянем шторку ↔ скроллим контент» по
+  позиции скролла) — свой, на рунах, адаптирован из vaul-svelte (MIT, huntabyte).
+  `Portal` в `<body>` снимает корневую боль cupertino-pane: пейн больше не привязан к
+  родителю/хедеру и не зависит от внутренних замеров библиотеки. API: `open` (bindable),
+  `snapPoints`, `activeSnapPoint` (bindable), `dismissible`, `backdrop`/`backdropOpacity`,
+  `squareCornersAtTop`, `showHandle`, `modal`, `onSnapChange`/`onOpenChange`/`onClose`.
+  `CupertinoPane` пока остаётся; миграция search-шторки — первый потребитель.
+
+### Версия 0.1.6
+
+`CupertinoPane`: не шлёт dismiss-события при размонтировании; не презентует дважды на маунте. `MapView`: хром карты изолирован под оверлеями.
+
+### Исправлено
+
+* **`MapView` — изолирующий stacking context (`isolate`).** Хром провайдера (у Yandex —
+  копирайт / ссылка «Открыть Яндекс Карты») пинится с очень высоким z-index и без
+  изоляции конкурировал в корневом stacking-контексте → рендерился ПОВЕРХ оверлеев
+  приложения (например, шторки `CupertinoPane` на z-50). Корневой `<div>` карты получил
+  `isolation: isolate`, поэтому весь хром карты теперь живёт под любым внешним оверлеем
+  независимо от внутренних z-index провайдера. Kit-овые M3-контролы (z-10) продолжают
+  работать внутри этого контекста.
+
+* **`CupertinoPane` — двойной present на маунте убран.** `createPane()` презентовал
+  пейн, и сразу следом show-`$effect` презентовал его ВТОРОЙ раз. Второй вызов
+  cupertino `present()` на уже отрендеренном пейне делает `moveToBreak(initialBreak)` —
+  то есть затирал любой программный брейк, выставленный хостом из `onDidPresent`
+  (например, restore последнего брейка при «назад»). Введён флаг `lastShow` (последнее
+  применённое значение show): show-`$effect` презентует/прячет только при РЕАЛЬНОЙ смене,
+  а маунтовый прогон, где createPane уже презентовал, пропускается. Для консьюмеров без
+  программного moveToBreak поведение не меняется (тот же конечный брейк).
+
+* **`CupertinoPane` — onWillDismiss/onDidDismiss больше не дёргаются при unmount.**
+  cupertino `destroy()` эмитит оба dismiss-события (как при свайпе/тапе по бэкдропу), а
+  kit зовёт `pane.destroy()` в onMount-cleanup — поэтому при размонтировании компонента
+  (например, SPA-переход на другую страницу) хост получал ложный «dismiss». Если хост на
+  onDidDismiss чистит сохранённое состояние шторки (для restore при «назад»), оно стиралось
+  ровно в момент ухода со страницы. Введён флаг `destroyingOnUnmount` (ставится в
+  onMount-cleanup ДО `destroy()`): обёртки onWillDismiss/onDidDismiss при teardown'е
+  ни хоста не уведомляют, ни `createPane()` не зовут (re-arm воскрешал бы уходящую шторку).
+
 ## 2026-06-08
 
 ### Версия 0.1.5
