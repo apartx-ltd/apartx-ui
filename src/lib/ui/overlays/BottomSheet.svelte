@@ -289,6 +289,9 @@
     return () => {
       window.removeEventListener('resize', onResize)
       window.visualViewport?.removeEventListener('resize', onResize)
+      // Drop a pending close timer so onClose can't fire after the sheet unmounts
+      // (e.g. the host navigates away while the sheet is mid-slide-out).
+      if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
     }
   })
 
