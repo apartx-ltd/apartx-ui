@@ -208,8 +208,16 @@
           style={`opacity:${backdropOpacity};transition:opacity 0.3s ease;`}
         />
       {/if}
+      <!-- preventScroll={false}: bits-ui Dialog's default scroll-lock (RemoveScroll)
+           hijacks touchmove to lock the page — it ALSO blocks the inner list's native
+           scroll AND eats our drag gesture (sheet wouldn't move, list wouldn't scroll).
+           We don't need it (the sheet is fixed/portalled), so disable it — same as vaul.
+           touch-none on the content (below) keeps the browser from claiming vertical
+           gestures for native panning, so our pointer-drag wins; the inner scroll
+           container still scrolls (its own touch-action governs it). -->
       <Dialog.Content
         forceMount
+        preventScroll={false}
         bind:ref={contentEl}
         onpointerdown={onpointerdown}
         onpointermove={onpointermove}
@@ -217,7 +225,7 @@
         onpointercancel={endDrag}
         class={cn(
           'fixed inset-x-0 bottom-0 z-50 flex flex-col bg-surface-container text-on-surface',
-          'rounded-t-2xl shadow-level-3 select-none',
+          'rounded-t-2xl shadow-level-3 touch-none select-none',
           squareTop && 'rounded-t-none',
           className,
         )}
