@@ -58,7 +58,8 @@
   let dragOffset = $state(null)   // live px during a drag; null ⇒ follow activeOffset
 
   const translateY = $derived(dragOffset ?? activeOffset)
-  const squareTop = $derived(squareCornersAtTop && translateY <= minOffset + 1)
+  const atTop = $derived(translateY <= minOffset + 1)
+  const squareTop = $derived(squareCornersAtTop && atTop)
 
   // ---- gesture state (adapted from vaul-svelte, MIT) ----
   let pointerStart = 0
@@ -233,6 +234,30 @@
 
   // Reset the settle timer whenever we (re)open, so the first 500ms suppress drag.
   $effect(() => { if (open) openTime = Date.now() })
+
+  // Lock the page behind the sheet while it's open. We disabled bits-ui's own
+  // scroll-lock (preventScroll={false}) because it ALSO blocked the inner list's
+  // scroll — so we must lock the document ourselves (as vaul does). Without this the
+  // drag leaks THROUGH the sheet: the browser scroll-chains the touch to the page,
+  // drags it under the sheet, and that native scroll fires pointercancel — so the
+  // sheet jumps a few px and snaps back. overflow:hidden stops body scroll;
+  // overscroll-behavior:none stops the chain/rubber-band that leaks to the document.
+  $effect(() => {
+    if (typeof document === 'undefined' || !open) return
+    const body = document.body
+    const html = document.documentElement
+    const prevBodyOverflow = body.style.overflow
+    const prevHtmlOverflow = html.style.overflow
+    const prevHtmlOB = html.style.overscrollBehavior
+    body.style.overflow = 'hidden'
+    html.style.overflow = 'hidden'
+    html.style.overscrollBehavior = 'none'
+    return () => {
+      body.style.overflow = prevBodyOverflow
+      html.style.overflow = prevHtmlOverflow
+      html.style.overscrollBehavior = prevHtmlOB
+    }
+  })
 </script>
 
 <Dialog.Root bind:open onOpenChange={handleOpenChange} {modal}>
@@ -247,11 +272,12 @@
       {/if}
       <!-- preventScroll={false}: bits-ui Dialog's default scroll-lock (RemoveScroll)
            hijacks touchmove to lock the page — it ALSO blocks the inner list's native
-           scroll AND eats our drag gesture (sheet wouldn't move, list wouldn't scroll).
-           We don't need it (the sheet is fixed/portalled), so disable it — same as vaul.
-           touch-none on the content (below) keeps the browser from claiming vertical
-           gestures for native panning, so our pointer-drag wins; the inner scroll
-           container still scrolls (its own touch-action governs it). -->
+           scroll AND eats our drag gesture. We disable it (same as vaul) and lock the
+           document ourselves (see the body-lock effect above).
+           touch-action is dynamic: `none` below the top snap (the whole sheet drags —
+           the browser must not claim the vertical gesture for native panning), `pan-y`
+           at the top snap (let the inner list scroll natively). overscroll-behavior:
+           contain stops a list scroll from chaining out to the page. -->
       <Dialog.Content
         forceMount
         preventScroll={false}
@@ -262,11 +288,11 @@
         onpointercancel={endDrag}
         class={cn(
           'fixed inset-x-0 bottom-0 z-50 flex flex-col bg-surface-container text-on-surface',
-          'rounded-t-2xl shadow-level-3 touch-none select-none',
+          'rounded-t-2xl shadow-level-3 select-none',
           squareTop && 'rounded-t-none',
           className,
         )}
-        style={`height:100dvh;transform:translate3d(0,${translateY}px,0);transition:${dragging ? 'none' : TRANSITION};`}
+        style={`height:100dvh;transform:translate3d(0,${translateY}px,0);transition:${dragging ? 'none' : TRANSITION};touch-action:${atTop ? 'pan-y' : 'none'};overscroll-behavior:contain;`}
       >
         {#if showHandle}
           <div class="mx-auto mt-2 mb-1 h-1.5 w-9 shrink-0 touch-none rounded-full bg-outline-variant"></div>
