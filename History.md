@@ -1,5 +1,21 @@
 # История изменений — apartx-ui
 
+## 2026-06-10
+
+### Версия 0.1.8
+
+`BottomSheet` проверен на устройстве; `CupertinoPane` удалён.
+
+### Удалено
+
+* **`CupertinoPane` удалён (заменён `BottomSheet`).** Компонент и его barrel-экспорт
+  (`apartx-ui/overlays`) убраны: после миграции search-шторки на `BottomSheet` ни один
+  потребитель кита (spaces/admin/cabinet) его не импортировал. Опциональная зависимость
+  `cupertino-pane` больше не нужна — консьюмеры, у которых она стояла только ради этого
+  компонента, могут её убрать (в apartx-spaces убрана). Lifecycle-события `BottomSheet`
+  (`onWillDismiss`/`onDidDismiss`) повторяют прежний API `CupertinoPane`, так что
+  семантика для хоста сохранилась.
+
 ## 2026-06-09
 
 ### Версия 0.1.7
