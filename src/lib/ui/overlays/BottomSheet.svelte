@@ -66,6 +66,34 @@
   let startOffset = 0
   let isAllowedToDrag = false
   let dragStartTime = 0
+  let scrollEl = null            // the inner scroll container under the press, if any
+  let scrollPrevOverflow = null  // saved inline overflow-y while locked (null = not locked)
+
+  // Nearest scrollable ancestor of `target` (the consumer's scroller, e.g. a list).
+  function findScrollEl(target) {
+    let el = target
+    while (el && el !== document.body) {
+      if (el.scrollHeight > el.clientHeight) return el
+      el = el.parentNode
+    }
+    return null
+  }
+  // While we drag the SHEET, the inner scroller must not also scroll natively — the
+  // browser would otherwise start a native scroll, steal the touch, fire pointercancel,
+  // and the sheet would snap back after a couple px. vaul does the same via a
+  // `.vaul-scrollable { overflow: hidden }` rule during drag; we do it imperatively.
+  // Save/restore the scroller's ORIGINAL inline overflow-y (virtua sets its own) so
+  // unlock doesn't wipe it; guard so a double-lock doesn't save 'hidden' as the prev.
+  function lockScroll() {
+    if (!scrollEl || scrollPrevOverflow !== null) return
+    scrollPrevOverflow = scrollEl.style.overflowY || ''
+    scrollEl.style.overflowY = 'hidden'
+  }
+  function unlockScroll() {
+    if (scrollEl && scrollPrevOverflow !== null) scrollEl.style.overflowY = scrollPrevOverflow
+    scrollEl = null
+    scrollPrevOverflow = null
+  }
 
   // Rubber-band resistance when dragging above the top snap (vaul's dampenValue idea).
   function dampen(v) {
@@ -96,6 +124,12 @@
     startOffset = activeOffset
     dragStartTime = Date.now()
     isAllowedToDrag = false
+    scrollEl = findScrollEl(e.target)
+    // Below the top snap the WHOLE sheet drags (never the list), so lock the inner
+    // scroller up front — that way the browser never starts a native scroll that
+    // would cancel the drag. At the top snap we leave it scrollable and only lock
+    // once the drag actually commits (in onpointermove).
+    if (activeOffset > minOffset + 1) lockScroll()
     contentEl?.setPointerCapture?.(e.pointerId)
   }
 
@@ -106,6 +140,7 @@
     if (!isAllowedToDrag && !shouldDrag(pressTarget, draggingDown)) return
     isAllowedToDrag = true
     dragging = true
+    lockScroll()                                           // sheet is dragging → freeze inner scroll
     let next = startOffset + delta
     if (next < minOffset) next = minOffset - dampen(minOffset - next)  // rubber-band above top
     dragOffset = next
@@ -154,6 +189,7 @@
     pointerStart = 0
     pressTarget = null
     isAllowedToDrag = false
+    unlockScroll()
   }
 
   // Animate down off-screen, then actually close after the transition.
@@ -162,6 +198,7 @@
     dragOffset = viewportH
     pointerStart = 0
     isAllowedToDrag = false
+    unlockScroll()
     setTimeout(() => { handleOpenChange(false); dragOffset = null }, 520)
   }
 
