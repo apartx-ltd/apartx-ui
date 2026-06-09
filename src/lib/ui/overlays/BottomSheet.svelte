@@ -62,6 +62,7 @@
 
   // ---- gesture state (adapted from vaul-svelte, MIT) ----
   let pointerStart = 0
+  let pressTarget = null
   let startOffset = 0
   let isAllowedToDrag = false
   let dragStartTime = 0
@@ -91,6 +92,7 @@
 
   function onpointerdown(e) {
     pointerStart = e.screenY
+    pressTarget = e.target
     startOffset = activeOffset
     dragStartTime = Date.now()
     isAllowedToDrag = false
@@ -101,7 +103,7 @@
     if (!pointerStart) return
     const delta = e.screenY - pointerStart                 // down = positive
     const draggingDown = delta > 0
-    if (!isAllowedToDrag && !shouldDrag(e.target, draggingDown)) return
+    if (!isAllowedToDrag && !shouldDrag(pressTarget, draggingDown)) return
     isAllowedToDrag = true
     dragging = true
     let next = startOffset + delta
@@ -150,6 +152,7 @@
     dragging = false
     dragOffset = null
     pointerStart = 0
+    pressTarget = null
     isAllowedToDrag = false
   }
 
@@ -159,7 +162,7 @@
     dragOffset = viewportH
     pointerStart = 0
     isAllowedToDrag = false
-    setTimeout(() => { handleOpenChange(false); dragOffset = null }, 320)
+    setTimeout(() => { handleOpenChange(false); dragOffset = null }, 520)
   }
 
   function handleOpenChange(v) {
@@ -197,34 +200,36 @@
 
 <Dialog.Root bind:open onOpenChange={handleOpenChange} {modal}>
   <Dialog.Portal>
-    {#if backdrop}
-      <Dialog.Overlay
-        forceMount
-        class="fixed inset-0 z-40 bg-black"
-        style={`opacity:${backdropOpacity};transition:opacity 0.3s ease;`}
-      />
-    {/if}
-    <Dialog.Content
-      forceMount
-      bind:ref={contentEl}
-      onpointerdown={onpointerdown}
-      onpointermove={onpointermove}
-      onpointerup={onpointerup}
-      onpointercancel={endDrag}
-      class={cn(
-        'fixed inset-x-0 bottom-0 z-50 flex flex-col bg-surface-container text-on-surface',
-        'rounded-t-2xl shadow-level-3 touch-none select-none',
-        squareTop && 'rounded-t-none',
-        className,
-      )}
-      style={`height:100dvh;transform:translate3d(0,${translateY}px,0);transition:${dragging ? 'none' : TRANSITION};`}
-    >
-      {#if showHandle}
-        <div class="mx-auto mt-2 mb-1 h-1.5 w-9 shrink-0 rounded-full bg-outline-variant"></div>
+    {#if open}
+      {#if backdrop}
+        <Dialog.Overlay
+          forceMount
+          class="fixed inset-0 z-40 bg-black"
+          style={`opacity:${backdropOpacity};transition:opacity 0.3s ease;`}
+        />
       {/if}
-      <div class="min-h-0 flex-1">
-        {@render children?.()}
-      </div>
-    </Dialog.Content>
+      <Dialog.Content
+        forceMount
+        bind:ref={contentEl}
+        onpointerdown={onpointerdown}
+        onpointermove={onpointermove}
+        onpointerup={onpointerup}
+        onpointercancel={endDrag}
+        class={cn(
+          'fixed inset-x-0 bottom-0 z-50 flex flex-col bg-surface-container text-on-surface',
+          'rounded-t-2xl shadow-level-3 select-none',
+          squareTop && 'rounded-t-none',
+          className,
+        )}
+        style={`height:100dvh;transform:translate3d(0,${translateY}px,0);transition:${dragging ? 'none' : TRANSITION};`}
+      >
+        {#if showHandle}
+          <div class="mx-auto mt-2 mb-1 h-1.5 w-9 shrink-0 touch-none rounded-full bg-outline-variant"></div>
+        {/if}
+        <div class="min-h-0 flex-1">
+          {@render children?.()}
+        </div>
+      </Dialog.Content>
+    {/if}
   </Dialog.Portal>
 </Dialog.Root>
