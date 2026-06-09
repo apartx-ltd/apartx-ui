@@ -2,6 +2,22 @@
 
 ## 2026-06-08
 
+### Версия 0.1.5
+
+Bottom-sheet поверх карты: тёма/z-index/острые углы `CupertinoPane`, хуки камеры карты и брейка шторки.
+
+### Добавлено
+
+* **`MapView` — `onCameraChange({ center, zoom })`.** Дёргается в конце жеста пана/зума (Yandex: `YMapListener.onActionEnd`, Google: `idle`). Для персиста позиции карты (например, в URL). `setCenter`-эффект `MapView` получил epsilon-guard, чтобы запись камеры обратно в пропы не пере-применяла ту же позицию и не зацикливалась.
+* **`CupertinoPane` — `onBreakChange(break)`.** Отдаёт брейк (`top`/`middle`/`bottom`), вычисленный по реальной позиции (`getPanelTransformY()` против `breakpoints.breaks`), а не через библиотечный `currentBreak()`, который рассинхронизируется. Дёргается на drag/transition-settle.
+* **`CupertinoPane` — `squareCornersAtTop`.** На верхнем брейке верхние углы шторки становятся острыми (0), на остальных — скруглённые. Завязано на позицию (`getPanelTransformY`), не на ненадёжный `currentBreak()`; обновляется на `onDrag`/`onDragEnd`/`onTransitionEnd`/`onDidPresent` + trailing-таймер (библиотечный `transitionend` на drag-snap ненадёжен — браузерный баг). Проброшен `onDrag` как pass-through проп.
+
+### Изменено
+
+* **`CupertinoPane` — тема и z-index по токенам кита.** Фон/текст/хэндл/destroy-кнопка маппятся на M3-токены (`--color-surface-container`/`-on-surface`/…), шторка следует светлой/тёмной теме приложения вместо хардкод-белого. `.pane`/`.backdrop` подняты в overlay-диапазон кита (z-50/z-40), чтобы шторка была над page-chrome (FAB z-20, контролы карты z-10).
+
+## 2026-06-08
+
 ### Версия 0.1.4
 
 Провайдер-независимые контролы карты (kit-rendered M3), escape-hatch для нативных опций, фиксы темы хрома и загрузки кластеризатора.
