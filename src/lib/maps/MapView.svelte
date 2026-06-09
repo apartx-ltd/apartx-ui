@@ -135,7 +135,14 @@
   }
 </script>
 
-<div class={cn('relative overflow-hidden', className)} {...restProps}>
+<!-- `isolate` makes this an isolating stacking context so the provider's own
+     chrome can't escape above sibling overlays. Yandex pins its copyright /
+     "Открыть Яндекс Карты" link with a very high z-index; without isolation it
+     competes in the root stacking context and renders ON TOP of app overlays
+     (e.g. the BottomSheet at z-50). Isolating confines all map chrome
+     beneath anything stacked outside the map — independent of the provider's
+     internal z-index. The kit M3 controls (z-10) keep working inside this context. -->
+<div class={cn('relative isolate overflow-hidden', className)} {...restProps}>
   <div bind:this={container} class="absolute inset-0"></div>
 
   {#if error}
