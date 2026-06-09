@@ -40,6 +40,21 @@ not as a side effect of other work.
   `setNavigator`/`getNavigator`); nav-aware components (`<Link>`, …) consume it
   and fall back to native `<a href>`. `<PageTransition>` animates view changes
   without owning routing. Never re-add a hard router dependency to `src/lib`.
+- **Callback prop naming** (keep new components consistent with these):
+  - **State change** → `on<Thing>Change(value)` — matches bits-ui
+    (`onOpenChange`, `onValueChange`, `onSnapChange`, `onCameraChange`,
+    `onBreakChange`, `onPerPageChange`, …). Use this for "X became Y".
+  - **Lifecycle / animated transitions** → `onWill<Event>` / `onDid<Event>`
+    (iOS-style): `onWillPresent`/`onDidPresent`, `onWillDismiss`/`onDidDismiss`.
+    `will` = the transition is starting (content still on screen); `did` = it
+    has finished (e.g. fully closed & unmounted). Overlays (`CupertinoPane`,
+    `BottomSheet`) share these exact names. Do **not** invent `onClosing`/
+    `onOpened`/etc. for the same concept.
+  - **Discrete actions** → `on<Event>` imperative: `onClick`, `onSelect`,
+    `onConfirm`, `onCancel`, `onBackdropTap`, `onPickMarker`, `onLoadMore`.
+  - Renaming a callback prop on an **already-released** component is a breaking
+    change for `apartx-admin`/`apartx-cabinet` — normalize new components up
+    front; don't sweep-rename shipped ones without updating every consumer.
 - **Barrels:** every category has an `index.ts`; the root `src/lib/index.ts`
   re-exports all categories. Keep new components exported from both.
 - **Internal imports:** `cn` from `'../utils/cn'`; cross-category components by

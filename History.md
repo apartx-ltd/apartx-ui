@@ -17,9 +17,9 @@
   родителю/хедеру и не зависит от внутренних замеров библиотеки. API: `open` (bindable),
   `snapPoints`, `activeSnapPoint` (bindable), `dismissible`, `backdrop`/`backdropOpacity`,
   `squareCornersAtTop`, `showHandle`, `modal`, `onSnapChange`/`onOpenChange` +
-  lifecycle `onClosing` (slide-out start, content still shown) / `onClosed` (fully
-  closed & unmounted; cancelled if reopened first). Появление/уход анимированы
-  (выезд снизу + затухание бэкдропа).
+  lifecycle `onWillDismiss` (slide-out start, content still shown) / `onDidDismiss`
+  (fully closed & unmounted; cancelled if reopened first) — те же имена, что у
+  `CupertinoPane`. Появление/уход анимированы (выезд снизу + затухание бэкдропа).
   `CupertinoPane` пока остаётся; миграция search-шторки — первый потребитель.
 
 ### Версия 0.1.6
