@@ -55,7 +55,14 @@
   const activeOffset = $derived(offsetOf(activeSnapPoint ?? snapPoints[0]))
 
   let dragging = $state(false)
-  let dragOffset = $state(null)   // live px during a drag; null ⇒ follow activeOffset
+  let dragOffset = $state(null)   // live px during a drag / enter-exit; null ⇒ follow activeOffset
+
+  // Render gate decoupled from `open`: stays true through the slide-OUT so the sheet
+  // animates away before it unmounts. Driven by the enter/exit effect below.
+  let rendered = $state(false)
+  let backdropOn = $state(false)  // drives the backdrop fade in sync with the slide
+  let closeTimer = null
+  let prevOpen = false            // plain mirror of last-seen `open` (guards the effect)
 
   const translateY = $derived(dragOffset ?? activeOffset)
   const atTop = $derived(translateY <= minOffset + 1)
@@ -211,28 +218,64 @@
     isAllowedToDrag = false
   }
 
-  // Animate down off-screen, then actually close after the transition.
+  // Flip `open` false and let the enter/exit effect animate the slide-down + unmount.
+  // We deliberately DON'T null dragOffset here — the effect picks up from the current
+  // (dragged) position and slides it the rest of the way down without a jump.
   function dismiss() {
-    dragging = false
-    dragOffset = viewportH
     pointerStart = 0
+    pressTarget = null
     isAllowedToDrag = false
-    setTimeout(() => { handleOpenChange(false); dragOffset = null }, 520)
+    dragging = false
+    open = false
+    onOpenChange?.(false)
   }
 
-  function handleOpenChange(v) {
-    open = v
-    if (!v) {
-      // Reset to the default snap on EVERY close (flick-down dismiss, backdrop tap,
-      // escape, programmatic). dismiss() leaves activeSnapPoint pointing at the snap
-      // the sheet was on (e.g. the top), so without this the NEXT open springs straight
-      // to that snap instead of the default snapPoints[0]. This fires on the same
-      // trigger as onClose (not on unmount), so restore-on-remount is unaffected.
-      activeSnapPoint = snapPoints[0]
-    }
-    onOpenChange?.(v)
-    if (!v) onClose?.()
+  // bits-ui asks to change the open state on user intent (backdrop tap / escape). We
+  // open via our own `open` prop and animate, so ignore v===true; on a close request
+  // route it through `open` (honouring dismissible) so the slide-OUT runs instead of
+  // Dialog unmounting the content instantly.
+  function onDialogOpenChange(v) {
+    if (v || !open) return
+    if (!dismissible) return
+    open = false
+    onOpenChange?.(false)
   }
+
+  // Enter/exit animation. `open` (host intent) maps to the internal `rendered` gate so
+  // the sheet stays mounted through the slide-OUT; dragOffset — the same transform
+  // override the drag uses — animates it: window.innerHeight = fully below the screen,
+  // null = settle to activeOffset. Reads ONLY `open` (guarded by the plain prevOpen
+  // mirror) so resize or our own writes never re-trigger the animation, and a closed
+  // initial mount doesn't fire a spurious onClose.
+  $effect(() => {
+    const isOpen = open
+    if (isOpen === prevOpen) return
+    prevOpen = isOpen
+    if (isOpen) {
+      if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
+      rendered = true
+      dragging = false
+      dragOffset = window.innerHeight                        // mount off-screen, below
+      backdropOn = false                                     // backdrop starts transparent
+      // Two rAFs: paint the off-screen frame first, THEN release to activeOffset so the
+      // CSS transition animates the slide-UP (one rAF can coalesce with the mount paint).
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (open) { dragging = false; dragOffset = null; backdropOn = true }
+      }))
+    } else {
+      dragging = false
+      dragOffset = window.innerHeight                        // slide DOWN off-screen
+      backdropOn = false                                     // fade backdrop out
+      if (closeTimer) clearTimeout(closeTimer)
+      closeTimer = setTimeout(() => {
+        rendered = false
+        dragOffset = null
+        activeSnapPoint = snapPoints[0]                      // next open starts at the default snap
+        closeTimer = null
+        onClose?.()
+      }, 540)                                                // transition (500ms) + slack
+    }
+  })
 
   // Recompute offsets when the viewport changes — but NEVER mid-drag (changing the
   // geometry under an active gesture is exactly what made cupertino dismiss). When
@@ -268,7 +311,7 @@
   // sheet jumps a few px and snaps back. overflow:hidden stops body scroll;
   // overscroll-behavior:none stops the chain/rubber-band that leaks to the document.
   $effect(() => {
-    if (typeof document === 'undefined' || !open) return
+    if (typeof document === 'undefined' || !rendered) return
     const body = document.body
     const html = document.documentElement
     const prevBodyOverflow = body.style.overflow
@@ -306,14 +349,14 @@
   })
 </script>
 
-<Dialog.Root bind:open onOpenChange={handleOpenChange} {modal}>
+<Dialog.Root open={rendered} onOpenChange={onDialogOpenChange} {modal}>
   <Dialog.Portal>
-    {#if open}
+    {#if rendered}
       {#if backdrop}
         <Dialog.Overlay
           forceMount
           class="fixed inset-0 z-40 bg-black"
-          style={`opacity:${backdropOpacity};transition:opacity 0.3s ease;`}
+          style={`opacity:${backdropOn ? backdropOpacity : 0};transition:opacity 0.3s ease;`}
         />
       {/if}
       <!-- preventScroll={false}: bits-ui Dialog's default scroll-lock (RemoveScroll)
