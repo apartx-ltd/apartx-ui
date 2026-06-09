@@ -222,6 +222,14 @@
 
   function handleOpenChange(v) {
     open = v
+    if (!v) {
+      // Reset to the default snap on EVERY close (flick-down dismiss, backdrop tap,
+      // escape, programmatic). dismiss() leaves activeSnapPoint pointing at the snap
+      // the sheet was on (e.g. the top), so without this the NEXT open springs straight
+      // to that snap instead of the default snapPoints[0]. This fires on the same
+      // trigger as onClose (not on unmount), so restore-on-remount is unaffected.
+      activeSnapPoint = snapPoints[0]
+    }
     onOpenChange?.(v)
     if (!v) onClose?.()
   }
