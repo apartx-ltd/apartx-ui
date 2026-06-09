@@ -25,6 +25,7 @@
     controls,
     controlsPosition = 'bottom-right',
     providerOptions,
+    onCameraChange,
     class: className,
     onready,
     ...restProps
@@ -40,6 +41,7 @@
     controlsPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
     /** Escape hatch for provider-specific native options, keyed by provider. */
     providerOptions?: MapViewOptions['providerOptions'];
+    onCameraChange?: MapViewOptions['onCameraChange'];
     class?: string;
     onready?: (handle: MapHandle) => void;
     [key: string]: any;
@@ -86,7 +88,7 @@
         if (disposed) return;
         // theme read untracked too — switching it updates in place via the
         // effect below, not by tearing down and recreating the map.
-        const start = untrack(() => ({ center, zoom, theme: cfg.config.theme, controls, providerOptions }));
+        const start = untrack(() => ({ center, zoom, theme: cfg.config.theme, controls, providerOptions, onCameraChange }));
         const h = await p.createMap(el, start);
         if (disposed) { h.destroy(); return; }
         handle = h;
@@ -103,9 +105,23 @@
     };
   });
 
-  // Recentre when inputs change (after the map exists).
+  // Recentre when inputs change (after the map exists). Guard against redundant
+  // re-applies: when a pan writes the camera back through the URL into these
+  // props, setCenter to the same place would re-fire the provider's gesture-end
+  // event and ping-pong. Skip if within a small epsilon of the last applied.
+  let lastApplied: { lng: number; lat: number; zoom: number } | null = null;
   $effect(() => {
-    if (handle) handle.setCenter(center, zoom);
+    if (!handle) return;
+    const c = center;
+    const z = zoom;
+    const same =
+      lastApplied &&
+      Math.abs(lastApplied.lng - c.lng) < 1e-6 &&
+      Math.abs(lastApplied.lat - c.lat) < 1e-6 &&
+      lastApplied.zoom === z;
+    if (same) return;
+    lastApplied = { lng: c.lng, lat: c.lat, zoom: z };
+    handle.setCenter(c, z);
   });
 
   // Switch colour scheme in place when the theme config changes.

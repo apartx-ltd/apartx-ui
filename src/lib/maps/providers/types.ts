@@ -9,6 +9,12 @@ export interface LngLat {
 
 export type MapTheme = 'light' | 'dark';
 
+/** Camera snapshot reported by `onCameraChange` (gesture-end). */
+export interface MapCamera {
+  center: LngLat;
+  zoom: number;
+}
+
 /** Registered provider keys. Single source — providers/index re-exports this. */
 export type MapProviderName = 'yandex' | 'google';
 
@@ -58,6 +64,13 @@ export interface MapViewOptions {
    * (Yandex YMap props / Google MapOptions); the kit does not type these.
    */
   providerOptions?: Partial<Record<MapProviderName, Record<string, unknown>>>;
+  /**
+   * Fired once at the END of a user pan/zoom gesture with the resulting camera
+   * (not during the drag, not on programmatic `setCenter`-driven idle in a tight
+   * loop — providers emit on their native gesture-end/idle event). Consumers use
+   * it to persist the map position (e.g. to the URL).
+   */
+  onCameraChange?: (camera: MapCamera) => void;
 }
 
 export interface MapProviderConfig {

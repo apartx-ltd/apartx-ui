@@ -102,6 +102,14 @@ export const googleProvider: MapProvider = {
       ...(options.providerOptions?.google ?? {}),
     });
 
+    if (options.onCameraChange) {
+      map.addListener('idle', () => {
+        const c = map.getCenter();
+        if (!c) return;
+        options.onCameraChange!({ center: { lng: c.lng(), lat: c.lat() }, zoom: map.getZoom() ?? options.zoom });
+      });
+    }
+
     return {
       native: map,
       setCenter(center: LngLat, zoom?: number) {

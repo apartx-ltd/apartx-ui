@@ -124,6 +124,7 @@ export const yandexProvider: MapProvider = {
       YMapMarker,
       YMapControls,
       YMapScaleControl,
+      YMapListener,
     } = ymaps3;
 
     const controls = resolveControls(options.controls);
@@ -150,6 +151,9 @@ export const yandexProvider: MapProvider = {
     let satelliteLayer: any = null;
     let layer: MapLayerType = 'map';
 
+    // Track zoom so the kit zoom control can step it without reading SDK state.
+    let curZoom = options.zoom;
+
     // Native scale bar; zoom/geolocation/layer are kit-rendered M3 controls.
     if (controls.scale) {
       const scaleControls = new YMapControls({ position: 'bottom left' });
@@ -157,8 +161,20 @@ export const yandexProvider: MapProvider = {
       map.addChild(scaleControls);
     }
 
-    // Track zoom so the kit zoom control can step it without reading SDK state.
-    let curZoom = options.zoom;
+    // Report camera at gesture end so the consumer can persist map position.
+    // `map.center`/`map.zoom` are the live getters; sync curZoom too so the kit
+    // zoom control stays in step after a user pinch/scroll-zoom.
+    if (options.onCameraChange) {
+      const cameraListener = new YMapListener({
+        layer: 'any',
+        onActionEnd: () => {
+          const [lng, lat] = map.center;
+          curZoom = map.zoom;
+          options.onCameraChange!({ center: { lng, lat }, zoom: map.zoom });
+        },
+      });
+      map.addChild(cameraListener);
+    }
 
     return {
       native: map,
