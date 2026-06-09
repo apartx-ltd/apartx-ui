@@ -9,7 +9,7 @@
   // page header) and computes break heights against a cached innerHeight with a
   // clamp that only runs under fitHeight:true — fragile. Dialog.Portal renders to
   // <body>, so the sheet escapes any container / transform ancestor by construction.
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import { Dialog } from 'bits-ui'
   import { cn } from '../utils/cn'
 
@@ -26,7 +26,8 @@
     class: className = '',
     onOpenChange = null,
     onSnapChange = null,
-    onClose = null,
+    onClosing = null,   // close has begun (slide-out start) — content still visible
+    onClosed = null,    // fully closed (unmounted) — cancelled if reopened first
     children,
   } = $props()
 
@@ -246,7 +247,7 @@
   // override the drag uses — animates it: window.innerHeight = fully below the screen,
   // null = settle to activeOffset. Reads ONLY `open` (guarded by the plain prevOpen
   // mirror) so resize or our own writes never re-trigger the animation, and a closed
-  // initial mount doesn't fire a spurious onClose.
+  // initial mount doesn't fire a spurious onClosing/onClosed.
   $effect(() => {
     const isOpen = open
     if (isOpen === prevOpen) return
@@ -263,6 +264,9 @@
         if (open) { dragging = false; dragOffset = null; backdropOn = true }
       }))
     } else {
+      // Close has begun: fire onClosing NOW (slide-out start) while content is still on
+      // screen. untrack so the callback identity isn't a dep of this effect.
+      untrack(() => onClosing?.())
       dragging = false
       dragOffset = window.innerHeight                        // slide DOWN off-screen
       backdropOn = false                                     // fade backdrop out
@@ -272,7 +276,7 @@
         dragOffset = null
         activeSnapPoint = snapPoints[0]                      // next open starts at the default snap
         closeTimer = null
-        onClose?.()
+        onClosed?.()                                         // fully closed (unmounted) — safe to clear content
       }, 540)                                                // transition (500ms) + slack
     }
   })
@@ -289,7 +293,7 @@
     return () => {
       window.removeEventListener('resize', onResize)
       window.visualViewport?.removeEventListener('resize', onResize)
-      // Drop a pending close timer so onClose can't fire after the sheet unmounts
+      // Drop a pending close timer so onClosed can't fire after the sheet unmounts
       // (e.g. the host navigates away while the sheet is mid-slide-out).
       if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
     }

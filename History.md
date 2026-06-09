@@ -16,7 +16,10 @@
   `Portal` в `<body>` снимает корневую боль cupertino-pane: пейн больше не привязан к
   родителю/хедеру и не зависит от внутренних замеров библиотеки. API: `open` (bindable),
   `snapPoints`, `activeSnapPoint` (bindable), `dismissible`, `backdrop`/`backdropOpacity`,
-  `squareCornersAtTop`, `showHandle`, `modal`, `onSnapChange`/`onOpenChange`/`onClose`.
+  `squareCornersAtTop`, `showHandle`, `modal`, `onSnapChange`/`onOpenChange` +
+  lifecycle `onClosing` (slide-out start, content still shown) / `onClosed` (fully
+  closed & unmounted; cancelled if reopened first). Появление/уход анимированы
+  (выезд снизу + затухание бэкдропа).
   `CupertinoPane` пока остаётся; миграция search-шторки — первый потребитель.
 
 ### Версия 0.1.6
