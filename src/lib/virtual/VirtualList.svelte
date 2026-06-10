@@ -23,7 +23,7 @@
   // mounting client-side, 0 → full height), and it lingers until the first
   // interaction — visually noisy. We hide it up front and reveal it on the first
   // real scroll, after which native scrollbar behaviour resumes. `no-scrollbar`
-  // is the kit utility from `apartx-ui/styles/utilities.css`.
+  // is a kit utility, shipped via the `apartx-ui/styles` barrel.
   const HIDE_SCROLLBAR = 'no-scrollbar';
 
   /**

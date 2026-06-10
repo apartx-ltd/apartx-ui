@@ -2,6 +2,20 @@
 
 ## 2026-06-10
 
+### Версия 0.1.11
+
+### Добавлено
+
+* **CSS-barrel `apartx-ui/styles`** — один future-proof импорт вместо пофайловых.
+  Новый `src/lib/styles/index.css` агрегирует `tokens.css` + `typescale.css` +
+  `utilities.css` (Tailwind v4 разворачивает вложенный `@import`-граф в контексте
+  потребителя, так что `@theme`/`@utility` обрабатываются как раньше). В `exports`
+  добавлен ключ `"./styles"` → `index.css`. Потребитель пишет одну строку
+  `@import 'apartx-ui/styles';` после `@import 'tailwindcss';`; будущие kit-стили
+  добавляются в barrel и подтягиваются без правок entry у потребителей. Пофайловый
+  wildcard `"./styles/*"` сохранён для обратной совместимости (admin/cabinet всё ещё
+  импортят `tokens.css`/`typescale.css` напрямую — мигрируют на barrel по мере удобства).
+
 ### Версия 0.1.10
 
 ### Добавлено

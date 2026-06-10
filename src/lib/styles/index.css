@@ -1,0 +1,14 @@
+/*
+ * Kit CSS barrel — the one import a consumer needs.
+ *
+ * Pull the whole kit stylesheet set in with a single
+ * `@import 'apartx-ui/styles';` from your Tailwind v4 entry (after
+ * `@import 'tailwindcss';`). New kit-level CSS (tokens, typescale, utilities,
+ * …) gets added here, so consumers pick it up without touching their entry.
+ *
+ * Order matters: tokens first (defines `@theme` colour/shape/motion vars the
+ * rest reads through), then the `@utility` layers.
+ */
+@import './tokens.css';
+@import './typescale.css';
+@import './utilities.css';
