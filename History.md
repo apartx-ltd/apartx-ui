@@ -2,6 +2,16 @@
 
 ## 2026-06-10
 
+### Версия 0.1.9
+
+### Добавлено
+
+* **`RangeCalendar` (`apartx-ui/forms`)** — всегда-видимый (inline) range-календарь
+  на bits-ui `RangeCalendar`, с той же разметкой/стилями ячеек, что и поповер-календарь
+  `DateRangePicker`, но без поля/триггера. Для модалок/шторок, где календарь показывается
+  напрямую. Пропы: `value` (bindable `{start,end}`, строки YYYY-MM-DD), `minValue`,
+  `maxValue`, `numberOfMonths` (по умолчанию 1), `class`.
+
 ### Версия 0.1.8
 
 `BottomSheet` проверен на устройстве; `CupertinoPane` удалён.
