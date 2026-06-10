@@ -9,8 +9,9 @@
 * **`RangeCalendar` (`apartx-ui/forms`)** — всегда-видимый (inline) range-календарь
   на bits-ui `RangeCalendar`, с той же разметкой/стилями ячеек, что и поповер-календарь
   `DateRangePicker`, но без поля/триггера. Для модалок/шторок, где календарь показывается
-  напрямую. Пропы: `value` (bindable `{start,end}`, строки YYYY-MM-DD), `minValue`,
-  `maxValue`, `numberOfMonths` (по умолчанию 1), `class`.
+  напрямую. **Растягивается на всю доступную ширину** (ячейки `flex-1`), полоса выбранного
+  диапазона тянется на всю строку. Пропы: `value` (bindable `{start,end}`, строки
+  YYYY-MM-DD), `minValue`, `maxValue`, `numberOfMonths` (по умолчанию 1), `class`.
 
 ### Версия 0.1.8
 
