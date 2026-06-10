@@ -10,18 +10,29 @@
   // When `name` is omitted, fall back to the route key a host may have provided
   // via `setRouteKey` — so scroll-restore works per route without every page
   // wiring it explicitly.
-  let { children, name, padding = false, class: className, ...restProps } = $props();
+  let { children, name, padding = false, class: className, onscroll, ...restProps } = $props();
 
   const routeKey = getRouteKey();
   const scrollKey = $derived(name ?? routeKey?.());
+
+  // Hide the native scrollbar until the first scroll, then resume native
+  // behaviour. Browsers flash their default scrollbar whenever a scroller's
+  // content size changes (first paint / async content) and it lingers until the
+  // user interacts — visually noisy. Same treatment as the kit VirtualList.
+  let scrolled = $state(false);
 </script>
 
 <main
   class={cn(
     'flex-1 overflow-y-auto overflow-x-hidden relative',
+    !scrolled && 'no-scrollbar',
     padding && 'p-4',
     className
   )}
+  onscroll={(e) => {
+    scrolled = true;
+    onscroll?.(e);
+  }}
   use:scrollRestore={scrollKey}
   {...restProps}
 >

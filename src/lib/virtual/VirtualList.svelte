@@ -16,6 +16,15 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { VList } from 'virtua/svelte';
+  import { cn } from '../ui/utils/cn';
+
+  // Hide the native scrollbar until the user first scrolls. Browsers flash their
+  // default scrollbar when a scroller's content size changes (e.g. a virtua list
+  // mounting client-side, 0 → full height), and it lingers until the first
+  // interaction — visually noisy. We hide it up front and reveal it on the first
+  // real scroll, after which native scrollbar behaviour resumes. `no-scrollbar`
+  // is the kit utility from `apartx-ui/styles/utilities.css`.
+  const HIDE_SCROLLBAR = 'no-scrollbar';
 
   /**
    * Virtualized list (forward mode) on top of `virtua`'s `VList`.
@@ -75,6 +84,9 @@
 
   let vlist = $state<any>(null);
 
+  // Revealed after the first user scroll (programmatic restore scrolls don't count).
+  let scrolled = $state(false);
+
   // Sizes cache to initialize VList with, read fresh whenever `name` changes (the
   // {#key name} below recreates VList so a per-key cache takes effect).
   function initialCache() {
@@ -113,6 +125,9 @@
   });
 
   function onScrollInternal(offset: number) {
+    // A genuine user scroll reveals the scrollbar; the programmatic restore
+    // scroll (guarded by `restoring`) must not.
+    if (!restoring) scrolled = true;
     if (name && !restoring) scrollSnapshots.set(name, { offset, cache: vlist?.getCache?.() });
     onscroll?.(offset);
   }
@@ -147,7 +162,7 @@
       {overscan}
       cache={initialCache()}
       onscroll={onScrollInternal}
-      class={className}
+      class={cn(!scrolled && HIDE_SCROLLBAR, className)}
       {...restProps}
     >
       {#snippet children(item, index)}

@@ -1,0 +1,19 @@
+/*
+ * Reusable utilities for the ApartX kit (Tailwind v4 `@utility`).
+ *
+ * Consumers @import this after `@import 'tailwindcss'`, alongside tokens.css /
+ * typescale.css. The utility only materializes where the class is actually used
+ * (Tailwind content-scan), e.g. the kit Content / VirtualList scrollers.
+ */
+
+/* Hide the native scrollbar; content still scrolls (touch / wheel / keyboard).
+   Used by Content & VirtualList (applied until the first user scroll, then
+   removed so native scrollbar behaviour resumes) and available to apps directly. */
+@utility no-scrollbar {
+  -ms-overflow-style: none; /* IE / legacy Edge */
+  scrollbar-width: none; /* Firefox */
+  &::-webkit-scrollbar {
+    /* Chrome, Safari, Opera */
+    display: none;
+  }
+}

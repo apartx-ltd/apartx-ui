@@ -1,6 +1,6 @@
 {
   "name": "apartx-ui",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "type": "module",
   "description": "ApartX Svelte 5 UI Kit — themeable design system, source-based (no build step)",
   "svelte": "./src/lib/index.ts",
