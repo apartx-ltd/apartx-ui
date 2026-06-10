@@ -67,13 +67,13 @@
       </BitsRangeCalendar.NextButton>
     </BitsRangeCalendar.Header>
 
-    <div class="flex flex-wrap justify-center gap-4">
+    <div class="flex w-full gap-4">
       {#each months as month, i (i)}
-        <BitsRangeCalendar.Grid class="border-collapse">
+        <BitsRangeCalendar.Grid class="border-collapse w-full flex-1">
           <BitsRangeCalendar.GridHead>
-            <BitsRangeCalendar.GridRow class="flex">
+            <BitsRangeCalendar.GridRow class="flex w-full">
               {#each weekdays as day, j (j)}
-                <BitsRangeCalendar.HeadCell class="w-9 h-9 flex items-center justify-center text-label-sm text-on-surface-variant font-medium">
+                <BitsRangeCalendar.HeadCell class="flex-1 h-9 flex items-center justify-center text-label-sm text-on-surface-variant font-medium">
                   {day.slice(0, 2)}
                 </BitsRangeCalendar.HeadCell>
               {/each}
@@ -81,12 +81,12 @@
           </BitsRangeCalendar.GridHead>
           <BitsRangeCalendar.GridBody>
             {#each month.weeks as weekDates, w (w)}
-              <BitsRangeCalendar.GridRow class="flex">
+              <BitsRangeCalendar.GridRow class="flex w-full">
                 {#each weekDates as date (date.toString())}
-                  <BitsRangeCalendar.Cell {date} month={month.value} class="p-0">
+                  <BitsRangeCalendar.Cell {date} month={month.value} class="flex-1 p-0">
                     <BitsRangeCalendar.Day
                       class={cn(
-                        'w-9 h-9 flex items-center justify-center text-body-md rounded-full cursor-pointer text-on-surface',
+                        'w-full h-9 flex items-center justify-center text-body-md rounded-full cursor-pointer text-on-surface',
                         'hover:bg-on-surface/8 focus:outline-none focus:bg-on-surface/8',
                         'data-[selected]:bg-secondary-container data-[selected]:text-on-secondary-container data-[selected]:rounded-none',
                         'data-[selection-start]:bg-primary data-[selection-start]:text-on-primary data-[selection-start]:rounded-l-full',
