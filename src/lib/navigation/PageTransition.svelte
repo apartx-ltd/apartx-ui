@@ -22,6 +22,8 @@
    *     {@render children()}
    *   </PageTransition>
    */
+  type Direction = 'forward' | 'back' | 'none';
+
   let {
     key,
     children,
@@ -34,8 +36,17 @@
   }: {
     key: unknown;
     children: () => any;
-    /** Navigation direction: 'forward'/'back' slide, 'none' crossfades. */
-    direction?: 'forward' | 'back' | 'none';
+    /**
+     * Navigation direction: 'forward'/'back' slide, 'none' crossfades. May be a
+     * FUNCTION `() => Direction`, resolved lazily at enter/outro time. Pass a
+     * function when the host that owns the direction can be torn down by an
+     * ANCESTOR (e.g. a nested-router shell unmounting to a detail route): a plain
+     * value prop is frozen at the host's last render, so the leaving layer would
+     * read a STALE direction (the host never re-renders before teardown — see
+     * SlotLayout in apartx-spaces). A function reads live state at outro instead.
+     * A string keeps the prior behaviour exactly.
+     */
+    direction?: Direction | (() => Direction);
     /** 'auto' = slide on mobile / fade on desktop; 'fade' forces a crossfade. */
     mode?: 'auto' | 'slide' | 'fade';
     duration?: number;
@@ -45,7 +56,9 @@
     contentClass?: string;
   } = $props();
 
-  const faded = $derived(mode === 'fade' || direction === 'none');
+  const resolveDir = (): Direction => (typeof direction === 'function' ? direction() : direction);
+  const kindFor = (d: Direction): 'fwd' | 'back' | 'fade' =>
+    mode === 'fade' || d === 'none' ? 'fade' : d === 'back' ? 'back' : 'fwd';
 
   // Don't animate the very first (possibly SSR'd) render — only later swaps.
   let started = $state(false);
@@ -55,13 +68,17 @@
 
   // Enter animation class for the incoming page; exit class for the leaving page.
   // CSS media queries turn these into slide-vs-fade per viewport — no JS needed.
-  let enterKind = $derived<'fwd' | 'back' | 'fade' | 'none'>(
-    !started ? 'none' : faded ? 'fade' : direction === 'back' ? 'back' : 'fwd',
-  );
+  // `key` is a dep so a function `direction` is re-resolved per navigation: the
+  // function reference is stable, so without it the derived would never go dirty
+  // and would reuse the previous page's enter kind.
+  let enterKind = $derived.by<'fwd' | 'back' | 'fade' | 'none'>(() => {
+    key;
+    return !started ? 'none' : kindFor(resolveDir());
+  });
 
   // Resolved lazily at outro time so it reflects the navigation that is leaving.
   function exitKind(): 'fwd' | 'back' | 'fade' {
-    return faded ? 'fade' : direction === 'back' ? 'back' : 'fwd';
+    return kindFor(resolveDir());
   }
 </script>
 
