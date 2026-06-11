@@ -12,6 +12,7 @@
   import { onMount, untrack } from 'svelte'
   import { Dialog } from 'bits-ui'
   import { cn } from '../utils/cn'
+  import { getPagePortalHost } from '../../navigation/context'
 
   let {
     open = $bindable(false),
@@ -23,6 +24,14 @@
     squareCornersAtTop = true,
     showHandle = true,
     modal = true,
+    // Where to portal the sheet. 'body' (default) escapes any transform/overflow
+    // ancestor — the kit default. 'page' portals into the nearest <PageLayer>
+    // element (provided via context by <PageTransition>) so the sheet rides the
+    // page-transition slide instead of hanging in place; falls back to <body>
+    // when there is no <PageTransition> ancestor. The transition layer is a
+    // non-scrolling stage (scrolling lives on .pt-content), so the fixed sheet can't
+    // be offset/yanked by a layer scroll while it rides the slide.
+    portalTarget = 'body',
     class: className = '',
     onOpenChange = null,
     onSnapChange = null,
@@ -30,6 +39,13 @@
     onDidDismiss = null,   // fully closed (unmounted) — cancelled if reopened first
     children,
   } = $props()
+
+  // Resolve the portal destination. For 'page', read the layer element from the
+  // PageLayer context (a getter, so it tracks mount/unmount); `?? undefined` lets
+  // bits-ui Portal fall back to <body> when no host yet — never pass null (its DEV
+  // guard throws). 'body' (or any non-'page') always portals to <body>.
+  const pageHost = getPagePortalHost()
+  const portalTo = $derived(portalTarget === 'page' ? (pageHost?.() ?? undefined) : undefined)
 
   const TRANSITION = 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
   const VELOCITY_THRESHOLD = 0.4   // px/ms — vaul's threshold for a "flick"
@@ -357,7 +373,7 @@
 </script>
 
 <Dialog.Root open={rendered} onOpenChange={onDialogOpenChange} {modal}>
-  <Dialog.Portal>
+  <Dialog.Portal to={portalTo}>
     {#if rendered}
       {#if backdrop}
         <Dialog.Overlay

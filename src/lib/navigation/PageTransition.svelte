@@ -65,7 +65,10 @@
   }
 </script>
 
-<div class="relative h-full w-full overflow-hidden {className ?? ''}" style="--pt-d:{duration}ms">
+<!-- overflow-clip (not -hidden): clips the slide WITHOUT being a scroll container, so
+     a focus-driven scrollIntoView on a portaled fixed overlay (BottomSheet
+     portalTarget="page") has no scrollable ancestor to yank — see PageLayer. -->
+<div class="relative h-full w-full overflow-clip {className ?? ''}" style="--pt-d:{duration}ms">
   {#key key}
     <PageLayer
       kind={enterKind}

@@ -49,6 +49,28 @@ export function getNavigator(): Navigator | undefined {
   return getContext<Navigator | undefined>(NAVIGATOR_KEY);
 }
 
+const PAGE_PORTAL_HOST = Symbol('apartx-ui:page-portal-host');
+
+/** Reactive accessor for the current page-transition layer element (or null). */
+export type PagePortalHostGetter = () => HTMLElement | null | undefined;
+
+/**
+ * Provided by `<PageLayer>` (inside `<PageTransition>`): a getter for the layer
+ * `<div>` currently wrapping the page. Overlays that want to ride the page
+ * transition (e.g. `<BottomSheet portalTarget="page">`) portal into this element
+ * instead of `<body>`, so the leaving page's slide carries the overlay with it.
+ * Pass a getter so the value stays correct as layers mount/unmount. Absent when
+ * there is no `<PageTransition>` ancestor — consumers then fall back to `<body>`.
+ */
+export function setPagePortalHost(get: PagePortalHostGetter): void {
+  setContext(PAGE_PORTAL_HOST, get);
+}
+
+/** Read the page-portal-host getter, if a `<PageLayer>` provided one. */
+export function getPagePortalHost(): PagePortalHostGetter | undefined {
+  return getContext<PagePortalHostGetter | undefined>(PAGE_PORTAL_HOST);
+}
+
 const ROUTE_KEY = Symbol('apartx-ui:route-key');
 
 /** Reactive accessor for the current route's scroll key (e.g. the pathname). */

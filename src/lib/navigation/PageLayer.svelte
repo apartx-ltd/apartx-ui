@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { scrollRestore } from '../ui/utils/scroll-restore';
+  import { setPagePortalHost } from './context';
 
   /**
    * One page in the transitioning stack. Used internally by `PageTransition`.
@@ -50,6 +51,15 @@
   // `untrack` makes the one-time read explicit (no reactive subscription to `kind`).
   const k = untrack(() => kind);
 
+  // Expose this layer's element so descendant overlays (e.g. <BottomSheet
+  // portalTarget="page">) can portal INTO it and thus slide out WITH the page —
+  // a <body>-portaled overlay would otherwise hang in place during the transition.
+  // The getter stays reactive (the element appears on mount, persists through the
+  // out:hold). Each layer sets its own host for its own subtree; the leaving page's
+  // overlay therefore rides the leaving layer.
+  let layerEl = $state<HTMLDivElement | null>(null);
+  setPagePortalHost(() => layerEl);
+
   // tick-only (no css) → sets no inline style, so it can't clobber the pt-out-*
   // class animation; it just keeps the node mounted for the animation's duration.
   function hold() {
@@ -64,19 +74,21 @@
   }
 </script>
 
+<!-- scrollRestore is on .pt-content (the scroller), NOT the layer (a non-scrolling
+     transform stage) — restoring the layer's scroll would be a no-op. -->
 {#snippet inner()}
-  <div class="pt-content {contentClass}">{@render children()}</div>
+  <div class="pt-content {contentClass}" use:scrollRestore={scrollKey}>{@render children()}</div>
 {/snippet}
 
 <!-- The enter class is a static literal per branch → present at the first paint. -->
 {#if k === 'fwd'}
-  <div class="pt-layer pt-in-fwd" use:scrollRestore={scrollKey} out:hold|global onoutrostart={onOutro}>{@render inner()}</div>
+  <div bind:this={layerEl} class="pt-layer pt-in-fwd" out:hold|global onoutrostart={onOutro}>{@render inner()}</div>
 {:else if k === 'back'}
-  <div class="pt-layer pt-in-back" use:scrollRestore={scrollKey} out:hold|global onoutrostart={onOutro}>{@render inner()}</div>
+  <div bind:this={layerEl} class="pt-layer pt-in-back" out:hold|global onoutrostart={onOutro}>{@render inner()}</div>
 {:else if k === 'fade'}
-  <div class="pt-layer pt-in-fade" use:scrollRestore={scrollKey} out:hold|global onoutrostart={onOutro}>{@render inner()}</div>
+  <div bind:this={layerEl} class="pt-layer pt-in-fade" out:hold|global onoutrostart={onOutro}>{@render inner()}</div>
 {:else}
-  <div class="pt-layer" use:scrollRestore={scrollKey} out:hold|global onoutrostart={onOutro}>{@render inner()}</div>
+  <div bind:this={layerEl} class="pt-layer" out:hold|global onoutrostart={onOutro}>{@render inner()}</div>
 {/if}
 
 <style>
@@ -85,17 +97,28 @@
   :global(.pt-layer) {
     position: absolute;
     inset: 0;
-    overflow-y: auto;
+    /* The layer is a pure transform STAGE, not a scroller — per the kit's "only
+       <Content> scrolls" contract, scrolling lives on .pt-content below. Crucially
+       `overflow: visible` keeps the layer from being a scroll container, so a
+       position:fixed overlay portaled into it (<BottomSheet portalTarget="page">)
+       can't be yanked by a focus-driven scrollIntoView. The slide is clipped by the
+       PageTransition root (overflow: clip — also a non-scrollable clip, so the yank
+       can't relocate there either). */
+    overflow: visible;
     background: var(--color-surface, #fff);
+  }
+  :global(.pt-content) {
+    /* The actual scroller (definite height so it can scroll; the layer it lives in
+       is inset:0 → definite). Pages that bring their own <Content> fill this and
+       scroll internally, leaving it dormant. */
+    height: 100%;
+    overflow-y: auto;
     /* hide scrollbar so a stacked page doesn't flash one mid-slide */
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
-  :global(.pt-layer)::-webkit-scrollbar {
+  :global(.pt-content)::-webkit-scrollbar {
     display: none;
-  }
-  :global(.pt-content) {
-    min-height: 100%;
   }
 
   /* ===== Desktop default: crossfade ===== */
