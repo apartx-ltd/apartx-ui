@@ -24,6 +24,7 @@
     items = [],
     active = $bindable(''),
     showLabels = true,
+    replace = false,
     onChange,
     class: className,
     ...restProps
@@ -31,6 +32,9 @@
     items?: NavItem[];
     active?: string;
     showLabels?: boolean;
+    /** Tab links replace the current history entry instead of pushing — so
+        back leaves the shell rather than retracing visited tabs. */
+    replace?: boolean;
     onChange?: (value: string) => void;
     class?: string;
     [key: string]: any;
@@ -78,7 +82,7 @@
     )}
 
     {#if item.href}
-      <Link href={item.href} class={cls} onclick={() => select(item)} aria-current={isActive ? 'page' : undefined}>
+      <Link href={item.href} {replace} class={cls} onclick={() => select(item)} aria-current={isActive ? 'page' : undefined}>
         {@render inner()}
       </Link>
     {:else}
