@@ -105,7 +105,13 @@
        PageTransition root (overflow: clip — also a non-scrollable clip, so the yank
        can't relocate there either). */
     overflow: visible;
-    background: var(--color-surface, #fff);
+    /* Match the kit <Page> base (bg-background), NOT surface: the layer is the
+       stage *under* the page, so its fallback fill must equal the page's own
+       background or a seam shows wherever the page doesn't fully cover it. In
+       light themes background==surface (no-op); they diverge in dark/Telegram
+       themes (surface is lighter), which is where the old `surface` value bled
+       through as a mismatched tone. */
+    background: var(--color-background, #fff);
   }
   :global(.pt-content) {
     /* The actual scroller (definite height so it can scroll; the layer it lives in
