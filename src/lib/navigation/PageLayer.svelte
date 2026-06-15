@@ -36,6 +36,7 @@
     scrollKey = undefined,
     contentClass = '',
     holdMs = 320,
+    providePortalHost = true,
   }: {
     children: () => any;
     /** Enter animation: 'fwd' | 'back' | 'fade' | 'none' (no animation). */
@@ -45,6 +46,15 @@
     scrollKey?: string;
     contentClass?: string;
     holdMs?: number;
+    /**
+     * Whether this layer registers itself as the page-portal host for its subtree.
+     * Default true. Set false on a NESTED <PageTransition> (e.g. a tab-content
+     * router inside a shell) so that <BottomSheet portalTarget="page"> portals into
+     * the OUTER, full-viewport layer that actually slides on a page push — not into
+     * this inner, footer-bounded layer that stays put. Deferring keeps the parent
+     * layer's host visible to descendants.
+     */
+    providePortalHost?: boolean;
   } = $props();
 
   // Snapshot so an in-flight page keeps its enter kind across later navigations.
@@ -58,7 +68,7 @@
   // out:hold). Each layer sets its own host for its own subtree; the leaving page's
   // overlay therefore rides the leaving layer.
   let layerEl = $state<HTMLDivElement | null>(null);
-  setPagePortalHost(() => layerEl);
+  if (providePortalHost) setPagePortalHost(() => layerEl);
 
   // tick-only (no css) → sets no inline style, so it can't clobber the pt-out-*
   // class animation; it just keeps the node mounted for the animation's duration.
@@ -158,15 +168,21 @@
     }
   }
 
-  /* ===== Mobile: Telegram/Android shared-axis directional slide ===== */
+  /* ===== Mobile: iOS-style opaque directional slide =====
+     The leading page is FULLY OPAQUE and slides the whole screen width (100% → 0),
+     so it covers the outgoing page completely as it arrives — nothing behind it
+     bleeds through. (The previous shared-axis variant used a 30% slide + opacity
+     fade; the partial opacity let the outgoing page — e.g. a map with a bottom nav
+     under an open bottom-sheet — show THROUGH the incoming page mid-transition.)
+     The underneath page parallaxes a short 12% for depth. */
   @media (max-width: 640px) {
-    /* forward: new page (leading, on top) slides in from the right + fades. */
+    /* forward: new page (leading, on top) slides fully in from the right, opaque. */
     :global(.pt-in-fwd) {
       animation-name: ptInFwd;
       z-index: 2;
       box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
     }
-    /* forward exit: old page (underneath) reverse-parallaxes left, no fade. */
+    /* forward exit: old page (underneath) reverse-parallaxes left, opaque. */
     :global(.pt-out-fwd) {
       animation-name: ptOutFwd;
       z-index: 1;
@@ -176,26 +192,32 @@
       animation-name: ptInBack;
       z-index: 1;
     }
-    /* back exit: old leading page (on top) slides out right + fades. */
+    /* back exit: old leading page (on top) slides fully out right, opaque. */
     :global(.pt-out-back) {
       animation-name: ptOutBack;
       z-index: 2;
       box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
     }
   }
+  /* The settled transform is translateZ(0), NOT `none`: a layer with `transform:
+     none` stops being a containing block for its position:fixed descendants. A
+     <BottomSheet portalTarget="page"> portaled into a layer must keep a stable
+     containing block across the WHOLE animation — if a keyframe drops to `none`
+     (even just the `from` at t=0) the sheet re-roots between compositor layers for
+     one frame and the page behind it (e.g. a bottom nav) flashes through. translateZ(0)
+     is an identity transform (no visual offset) that keeps the layer a containing
+     block at every frame, matching the idle translateZ(0) set in the host CSS. */
   @keyframes -global-ptInFwd {
     from {
-      transform: translateX(30%);
-      opacity: 0;
+      transform: translateX(100%);
     }
     to {
-      transform: none;
-      opacity: 1;
+      transform: translateZ(0);
     }
   }
   @keyframes -global-ptOutFwd {
     from {
-      transform: none;
+      transform: translateZ(0);
     }
     to {
       transform: translateX(-12%);
@@ -206,17 +228,15 @@
       transform: translateX(-12%);
     }
     to {
-      transform: none;
+      transform: translateZ(0);
     }
   }
   @keyframes -global-ptOutBack {
     from {
-      transform: none;
-      opacity: 1;
+      transform: translateZ(0);
     }
     to {
-      transform: translateX(30%);
-      opacity: 0;
+      transform: translateX(100%);
     }
   }
 

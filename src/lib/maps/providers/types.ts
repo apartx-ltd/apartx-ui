@@ -103,6 +103,15 @@ export interface ClusterPoint<T = any> {
   id: string;
   coordinates: LngLat;
   data?: T;
+  /**
+   * Opaque appearance token. The `id` identifies the point; `renderKey` captures
+   * how it should LOOK (e.g. selected vs not). When it changes for an existing id,
+   * the provider re-styles just that marker — Google swaps its content in place,
+   * Yandex flips the marker's internal feature id — WITHOUT changing `id`, so the
+   * point set is stable and the layer doesn't re-cluster/flicker. Omit if a point's
+   * look never changes.
+   */
+  renderKey?: string;
 }
 
 export interface ClustererOptions<T = any> {

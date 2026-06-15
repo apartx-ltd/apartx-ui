@@ -24,6 +24,11 @@
     squareCornersAtTop = true,
     showHandle = true,
     modal = true,
+    // When false, present/dismiss happen INSTANTLY (no slide, no backdrop fade).
+    // Lets a host suppress the enter animation for a restore — e.g. returning to a
+    // map with the sheet already open — and re-enable it afterwards so later
+    // opens/closes still animate. Default true = the normal animated behaviour.
+    animate = true,
     // Where to portal the sheet. 'body' (default) escapes any transform/overflow
     // ancestor — the kit default. 'page' portals into the nearest <PageLayer>
     // element (provided via context by <PageTransition>) so the sheet rides the
@@ -272,6 +277,10 @@
       if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
       rendered = true
       dragging = false
+      // Instant present (no slide): render straight at activeOffset. CSS transitions
+      // don't run on a node's first paint, so the sheet just appears at its snap —
+      // used to restore an already-open sheet without re-animating it.
+      if (!animate) { dragOffset = null; backdropOn = true; return }
       dragOffset = window.innerHeight                        // mount off-screen, below
       backdropOn = false                                     // backdrop starts transparent
       // Two rAFs: paint the off-screen frame first, THEN release to activeOffset so the
@@ -284,6 +293,16 @@
       // on screen. untrack so the callback identity isn't a dep of this effect.
       untrack(() => onWillDismiss?.())
       dragging = false
+      // Instant dismiss (no slide): unmount and report closed in the same tick.
+      if (!animate) {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
+        rendered = false
+        dragOffset = null
+        backdropOn = false
+        activeSnapPoint = snapPoints[0]
+        untrack(() => onDidDismiss?.())
+        return
+      }
       dragOffset = window.innerHeight                        // slide DOWN off-screen
       backdropOn = false                                     // fade backdrop out
       if (closeTimer) clearTimeout(closeTimer)
@@ -379,7 +398,7 @@
         <Dialog.Overlay
           forceMount
           class="fixed inset-0 z-40 bg-black"
-          style={`opacity:${backdropOn ? backdropOpacity : 0};transition:opacity 0.3s ease;`}
+          style={`opacity:${backdropOn ? backdropOpacity : 0};transition:${animate ? 'opacity 0.3s ease' : 'none'};`}
         />
       {/if}
       <!-- preventScroll={false}: bits-ui Dialog's default scroll-lock (RemoveScroll)
@@ -407,7 +426,7 @@
           squareTop && 'rounded-t-none',
           className,
         )}
-        style={`height:100dvh;transform:translate3d(0,${translateY}px,0);transition:${dragging ? 'none' : TRANSITION};touch-action:pan-y;overscroll-behavior:contain;`}
+        style={`height:100dvh;transform:translate3d(0,${translateY}px,0);transition:${dragging || !animate ? 'none' : TRANSITION};touch-action:pan-y;overscroll-behavior:contain;`}
       >
         {#if showHandle}
           <div class="mx-auto mt-2 mb-1 h-1.5 w-9 shrink-0 touch-none rounded-full bg-outline-variant"></div>

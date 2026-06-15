@@ -31,6 +31,7 @@
     mode = 'auto',
     duration = 280,
     restoreScroll = false,
+    providePortalHost = true,
     class: className,
     contentClass,
   }: {
@@ -52,6 +53,12 @@
     duration?: number;
     /** Remember/restore the panel's scroll position per `key` (e.g. on back). */
     restoreScroll?: boolean;
+    /**
+     * Forwarded to <PageLayer>. Set false on a NESTED <PageTransition> so a
+     * `portalTarget="page"` overlay portals into the OUTER layer (the one that
+     * slides on a page push) instead of this inner one. See PageLayer.
+     */
+    providePortalHost?: boolean;
     class?: string;
     contentClass?: string;
   } = $props();
@@ -93,6 +100,7 @@
       scrollKey={restoreScroll ? String(key) : undefined}
       contentClass={contentClass ?? ''}
       holdMs={duration + 40}
+      {providePortalHost}
     >
       {@render children()}
     </PageLayer>

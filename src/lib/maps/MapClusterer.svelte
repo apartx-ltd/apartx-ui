@@ -33,22 +33,34 @@
 
   let handle = $state<ClustererHandle | null>(null);
   let usingFallback = $state(false);
-  let fallbackMarkers: MarkerHandle[] = [];
+  // Keyed by point id so updates can RECONCILE (add/remove only what changed)
+  // instead of tearing down and recreating every marker. A full rebuild on each
+  // `points` change makes all pins flicker whenever the set is re-derived —
+  // selection toggling (id flips to `…__sel`), new search results, etc. Mirrors
+  // how a real clusterer reuses unchanged markers: same id ⇒ keep its DOM, gone
+  // id ⇒ destroy, new id ⇒ create. So an id flip churns only that one pin.
+  let fallbackMarkers = new Map<string, MarkerHandle>();
 
   function clearFallback() {
-    for (const m of fallbackMarkers) m.destroy();
-    fallbackMarkers = [];
+    for (const m of fallbackMarkers.values()) m.destroy();
+    fallbackMarkers.clear();
   }
 
-  function buildFallback(map: NonNullable<ReturnType<typeof getMap>>, pts: ClusterPoint[]) {
-    clearFallback();
+  function syncFallback(map: NonNullable<ReturnType<typeof getMap>>, pts: ClusterPoint[]) {
+    const nextIds = new Set(pts.map((p) => p.id));
+    for (const [id, m] of fallbackMarkers) {
+      if (nextIds.has(id)) continue;
+      m.destroy();
+      fallbackMarkers.delete(id);
+    }
     for (const p of pts) {
+      if (fallbackMarkers.has(p.id)) continue; // unchanged id → keep existing marker
       const m = map.addMarker({
         coordinates: p.coordinates,
         element: renderMarker(p),
         onClick: onPickMarker ? () => onPickMarker(p) : undefined,
       });
-      fallbackMarkers.push(m);
+      fallbackMarkers.set(p.id, m);
     }
   }
 
@@ -77,11 +89,11 @@
           console.error('[MapClusterer] clusterer unavailable, using plain markers', err);
           if (disposed) return;
           usingFallback = true;
-          buildFallback(map, untrack(() => points));
+          syncFallback(map, untrack(() => points));
         });
     } else {
       usingFallback = true;
-      buildFallback(map, initial);
+      syncFallback(map, initial);
     }
 
     return () => {
@@ -101,7 +113,7 @@
     if (handle) {
       handle.update(pts);
     } else if (usingFallback && map) {
-      buildFallback(map, pts);
+      syncFallback(map, pts);
     }
   });
 </script>
