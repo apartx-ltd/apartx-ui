@@ -4,6 +4,7 @@ export { default as Badge } from './Badge.svelte';
 export { default as Card } from './Card.svelte';
 export { default as Chip } from './Chip.svelte';
 export { default as Avatar } from './Avatar.svelte';
+export { default as Image } from './Image.svelte';
 export { default as Tabs } from './Tabs.svelte';
 export { default as Separator } from './Separator.svelte';
 export { default as Progress } from './Progress.svelte';

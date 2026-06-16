@@ -23,6 +23,7 @@
     navigation = false,
     pagination = false,
     loop = false,
+    cssMode = false,
     autoplayDelay = 0,
     class: className,
     ...restProps
@@ -35,6 +36,14 @@
     navigation?: boolean;
     pagination?: boolean;
     loop?: boolean;
+    /**
+     * Use the browser's native scroll-snap engine instead of Swiper's JS touch
+     * handling. Essential when the carousel lives inside a scrollable view
+     * (e.g. a vertical list): native scrolling lets horizontal swipe and the
+     * parent's vertical scroll coexist instead of fighting. Trade-off: `loop`
+     * and some transition effects are unavailable in this mode.
+     */
+    cssMode?: boolean;
     /** Autoplay interval in ms; 0 disables autoplay. */
     autoplayDelay?: number;
     class?: string;
@@ -52,14 +61,23 @@
 </script>
 
 {#if ready}
+  <!--
+    Pass real BOOLEANS, not 'true'/'false' strings. swiper-container defines
+    navigation/pagination/loop/autoplay as JS *properties* whose setter stores the
+    value verbatim (no formatValue), and Svelte 5 sets these single-word props via
+    the property. A string 'false' is truthy → Swiper would render the nav arrows /
+    enable loop even when disabled. Booleans store as real false/true. (css-mode is
+    kebab-cased, so it goes through the attribute path which DOES parse 'true'/'false'.)
+  -->
   <swiper-container
     class={cn('block', className)}
     slides-per-view={String(slidesPerView)}
     space-between={spaceBetween}
-    navigation={navigation ? 'true' : 'false'}
-    pagination={pagination ? 'true' : 'false'}
-    loop={loop ? 'true' : 'false'}
-    autoplay={autoplayDelay > 0 ? 'true' : 'false'}
+    navigation={navigation}
+    pagination={pagination}
+    loop={loop}
+    css-mode={cssMode ? 'true' : 'false'}
+    autoplay={autoplayDelay > 0}
     autoplay-delay={autoplayDelay || undefined}
     {...restProps}
   >

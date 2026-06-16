@@ -92,10 +92,21 @@
 
   // ---- gesture state (adapted from vaul-svelte, MIT) ----
   let pointerStart = 0
+  let pointerStartX = 0
   let pressTarget = null
   let startOffset = 0
   let isAllowedToDrag = false
   let dragStartTime = 0
+  // Axis lock, decided on the first significant movement of a gesture:
+  //   'x' → horizontal-dominant: it belongs to a horizontally-scrollable child
+  //         (e.g. a cssMode/native scroll-snap Carousel). NEVER drag the sheet and
+  //         NEVER preventDefault, so the child's native scroll survives — crucially
+  //         even BELOW the top snap, where shouldDrag() would otherwise capture
+  //         every touch as a sheet drag and kill the swipe.
+  //   'y' → vertical-dominant: run the normal sheet/list handoff (shouldDrag).
+  //   null → not yet determined.
+  let gestureAxis = null
+  const AXIS_LOCK_PX = 6   // movement before a gesture commits to an axis
 
   // Rubber-band resistance when dragging above the top snap (vaul's dampenValue idea).
   function dampen(v) {
@@ -127,19 +138,32 @@
   }
 
   // ---- shared drag core (driven by both pointer [mouse] and touch handlers) ----
-  function startDrag(screenY, target) {
+  function startDrag(screenY, screenX, target) {
     pointerStart = screenY
+    pointerStartX = screenX
     pressTarget = target
     startOffset = activeOffset
     dragStartTime = Date.now()
     isAllowedToDrag = false
+    gestureAxis = null
   }
 
-  // Apply a move to `screenY`. Returns true once the gesture has committed to dragging
-  // the SHEET (so the touch handler knows to preventDefault and kill the native scroll).
-  function moveDrag(screenY) {
+  // Apply a move to `screenY`/`screenX`. Returns true once the gesture has committed to
+  // dragging the SHEET (so the touch handler knows to preventDefault and kill the native
+  // scroll). A horizontal-dominant gesture locks to axis 'x' and always returns false, so
+  // a child carousel keeps its native horizontal scroll instead of dragging the sheet.
+  function moveDrag(screenY, screenX) {
     if (!pointerStart) return false
     const delta = screenY - pointerStart                   // down = positive
+    const dx = screenX - pointerStartX
+    // Commit the gesture to an axis once it has moved past the threshold. Until then
+    // stay neutral (return false → no preventDefault) so we never steal a swipe we
+    // haven't classified yet.
+    if (gestureAxis === null) {
+      if (Math.abs(dx) < AXIS_LOCK_PX && Math.abs(delta) < AXIS_LOCK_PX) return false
+      gestureAxis = Math.abs(dx) > Math.abs(delta) ? 'x' : 'y'
+    }
+    if (gestureAxis === 'x') return false                  // horizontal → leave it to the child
     const draggingDown = delta > 0
     if (!isAllowedToDrag && !shouldDrag(pressTarget, draggingDown)) return false
     isAllowedToDrag = true
@@ -185,12 +209,12 @@
   // below, which can preventDefault to stop the list's native scroll) ----
   function onpointerdown(e) {
     if (e.pointerType === 'touch') return
-    startDrag(e.screenY, e.target)
+    startDrag(e.screenY, e.screenX, e.target)
     contentEl?.setPointerCapture?.(e.pointerId)
   }
   function onpointermove(e) {
     if (e.pointerType === 'touch') return
-    moveDrag(e.screenY)
+    moveDrag(e.screenY, e.screenX)
   }
   function onpointerup(e) {
     if (e.pointerType === 'touch') return
@@ -209,10 +233,10 @@
   // forcing overflow:hidden fights virtua). When it's a list scroll we don't, so the
   // list scrolls natively.
   function onTouchStart(e) {
-    startDrag(e.touches[0].screenY, e.target)
+    startDrag(e.touches[0].screenY, e.touches[0].screenX, e.target)
   }
   function onTouchMove(e) {
-    if (moveDrag(e.touches[0].screenY)) e.preventDefault()
+    if (moveDrag(e.touches[0].screenY, e.touches[0].screenX)) e.preventDefault()
   }
   function onTouchEnd(e) {
     release(e.changedTouches[0].screenY)
@@ -238,6 +262,7 @@
     pointerStart = 0
     pressTarget = null
     isAllowedToDrag = false
+    gestureAxis = null
   }
 
   // Flip `open` false and let the enter/exit effect animate the slide-down + unmount.
