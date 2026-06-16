@@ -1,3 +1,14 @@
+<script module lang="ts">
+  type ImageStatus = 'loading' | 'loaded' | 'error';
+
+  // Session cache of src URLs that have successfully loaded at least once. A
+  // remounted <Image> with a cached src starts straight in 'loaded' (no skeleton,
+  // opacity-100 from the first frame) instead of replaying loading → loaded —
+  // the browser already has the bytes, so that replay was just a visible flicker.
+  // Only successful loads are recorded, so errored images still retry normally.
+  const loadedSrcs = new Set<string>();
+</script>
+
 <script lang="ts">
   import { untrack } from 'svelte';
   import { AspectRatio as BitsAspectRatio } from 'bits-ui';
@@ -6,8 +17,6 @@
   import Button from './Button.svelte';
   import Skeleton from './Skeleton.svelte';
   import { faImage, faArrowRotateRight } from '@fortawesome/free-solid-svg-icons';
-
-  type ImageStatus = 'loading' | 'loaded' | 'error';
 
   /**
    * Image with a loading skeleton and an error state + retry button.
@@ -67,7 +76,13 @@
     [key: string]: any;
   } = $props();
 
-  let status = $state<ImageStatus>('loading');
+  // Cached src → skip the loading state entirely; no src → error; otherwise load.
+  function initialStatus(s: string | undefined): ImageStatus {
+    if (!s) return 'error';
+    return loadedSrcs.has(s) ? 'loaded' : 'loading';
+  }
+
+  let status = $state<ImageStatus>(initialStatus(src));
   let retryCount = $state(0);
 
   function setStatus(next: ImageStatus) {
@@ -76,11 +91,11 @@
     onStatusChange?.(next);
   }
 
-  // Reset whenever the source changes (no src → straight to error). untrack so
-  // the status read/write and the callback don't register as effect deps.
+  // Reset whenever the source changes (cached → loaded, no src → error). untrack
+  // so the status read/write and the callback don't register as effect deps.
   $effect(() => {
     void src;
-    untrack(() => setStatus(src ? 'loading' : 'error'));
+    untrack(() => setStatus(initialStatus(src)));
   });
 
   function retry(e?: Event) {
@@ -114,7 +129,7 @@
         )}
         draggable="false"
         {loading}
-        onload={() => setStatus('loaded')}
+        onload={() => { if (src) loadedSrcs.add(src); setStatus('loaded'); }}
         onerror={() => setStatus('error')}
       />
     {/key}
