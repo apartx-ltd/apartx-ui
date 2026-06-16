@@ -17,12 +17,15 @@
     minValue,
     maxValue,
     numberOfMonths = 1,
+    locale = 'en-US',
     class: className,
   }: {
     value?: RangeStr;
     minValue?: string;
     maxValue?: string;
     numberOfMonths?: number;
+    /** BCP-47 tag for month/weekday names (passed to bits-ui). Default 'en-US'. */
+    locale?: string;
     class?: string;
   } = $props();
 
@@ -52,6 +55,7 @@
 <BitsRangeCalendar.Root
   bind:value={range}
   {numberOfMonths}
+  {locale}
   minValue={minDV}
   maxValue={maxDV}
   class={cn('w-full', className)}
