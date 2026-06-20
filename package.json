@@ -66,7 +66,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "bits-ui": "^2.18.0",
@@ -110,6 +111,7 @@
     "svelte-fa": "^4.0.4",
     "tailwindcss": "^4.2.4",
     "typescript": "^5.9.3",
-    "vite": "^7.2.2"
+    "vite": "^7.2.2",
+    "vitest": "^4.1.9"
   }
 }
