@@ -168,35 +168,64 @@
     }
   }
 
-  /* ===== Mobile: iOS-style opaque directional slide =====
-     The leading page is FULLY OPAQUE and slides the whole screen width (100% → 0),
-     so it covers the outgoing page completely as it arrives — nothing behind it
-     bleeds through. (The previous shared-axis variant used a 30% slide + opacity
-     fade; the partial opacity let the outgoing page — e.g. a map with a bottom nav
-     under an open bottom-sheet — show THROUGH the incoming page mid-transition.)
-     The underneath page parallaxes a short 12% for depth. */
+  /* ===== Mobile slide: style chosen by [data-slide-style] on the PageTransition
+     root (set from the OS-resolved `slideStyle` prop). Two variants below.
+     `:where()` wraps the attribute so these rules keep specificity 0,1,0 (just
+     `.pt-in-*`), letting the later reduced-motion override still win on mobile. ===== */
   @media (max-width: 640px) {
-    /* forward: new page (leading, on top) slides fully in from the right, opaque. */
-    :global(.pt-in-fwd) {
+    /* ---- iOS: full-width OPAQUE push (no opacity; covers the outgoing page
+       completely so nothing behind it bleeds through). ---- */
+    :global(:where([data-slide-style='ios']) .pt-in-fwd) {
       animation-name: ptInFwd;
       z-index: 2;
       box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
     }
-    /* forward exit: old page (underneath) reverse-parallaxes left, opaque. */
-    :global(.pt-out-fwd) {
+    :global(:where([data-slide-style='ios']) .pt-out-fwd) {
       animation-name: ptOutFwd;
       z-index: 1;
     }
-    /* back: the revealed page underneath parallaxes in from the left. */
-    :global(.pt-in-back) {
+    :global(:where([data-slide-style='ios']) .pt-in-back) {
       animation-name: ptInBack;
       z-index: 1;
     }
-    /* back exit: old leading page (on top) slides fully out right, opaque. */
-    :global(.pt-out-back) {
+    :global(:where([data-slide-style='ios']) .pt-out-back) {
       animation-name: ptOutBack;
       z-index: 2;
       box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+    }
+
+    /* ---- Material shared-axis: short slide on the LAYER (which stays opaque) +
+       opacity fade on .pt-content. Fade on the content (not the layer) keeps the
+       layer's opaque background covering the outgoing page → no bleed-through.
+       Resting transform is translateZ(0), never `none`, so the layer stays a
+       containing block for a portaled position:fixed BottomSheet → no flash. ---- */
+    :global(:where([data-slide-style='shared-axis']) .pt-in-fwd) {
+      animation-name: ptSaInFwd;
+      z-index: 2;
+      box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+    }
+    :global(:where([data-slide-style='shared-axis']) .pt-out-fwd) {
+      animation-name: ptSaOutFwd;
+      z-index: 1;
+    }
+    :global(:where([data-slide-style='shared-axis']) .pt-in-back) {
+      animation-name: ptSaInBack;
+      z-index: 1;
+    }
+    :global(:where([data-slide-style='shared-axis']) .pt-out-back) {
+      animation-name: ptSaOutBack;
+      z-index: 2;
+      box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+    }
+    /* Content fade — only the page that materializes (fwd-in) / dissolves (back-out)
+       fades; the underneath page (out-fwd / in-back) just parallaxes, no fade. */
+    :global(:where([data-slide-style='shared-axis']) .pt-in-fwd > .pt-content) {
+      animation: ptSaContentIn var(--pt-d, 280ms) var(--pt-e, cubic-bezier(0.2, 0, 0, 1))
+        backwards;
+    }
+    :global(:where([data-slide-style='shared-axis']) .pt-out-back > .pt-content) {
+      animation: ptSaContentOut var(--pt-d, 280ms) var(--pt-e, cubic-bezier(0.2, 0, 0, 1))
+        forwards;
     }
   }
   /* The settled transform is translateZ(0), NOT `none`: a layer with `transform:
@@ -240,6 +269,58 @@
     }
   }
 
+  /* shared-axis layer keyframes — opaque, settled at translateZ(0) (see the note
+     above the iOS keyframes about why not `none`). */
+  @keyframes -global-ptSaInFwd {
+    from {
+      transform: translateX(30%);
+    }
+    to {
+      transform: translateZ(0);
+    }
+  }
+  @keyframes -global-ptSaOutFwd {
+    from {
+      transform: translateZ(0);
+    }
+    to {
+      transform: translateX(-12%);
+    }
+  }
+  @keyframes -global-ptSaInBack {
+    from {
+      transform: translateX(-12%);
+    }
+    to {
+      transform: translateZ(0);
+    }
+  }
+  @keyframes -global-ptSaOutBack {
+    from {
+      transform: translateZ(0);
+    }
+    to {
+      transform: translateX(30%);
+    }
+  }
+  /* shared-axis content fade (runs on .pt-content, layer bg stays opaque). */
+  @keyframes -global-ptSaContentIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes -global-ptSaContentOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
   /* ===== Reduced motion: quick opacity only, both viewports. Last wins. ===== */
   @media (prefers-reduced-motion: reduce) {
     :global(.pt-in-fwd),
@@ -252,6 +333,14 @@
     :global(.pt-out-fade) {
       animation: ptFadeOut 120ms linear forwards;
       pointer-events: none;
+    }
+    /* shared-axis runs an opacity tween on .pt-content; cancel it too. Must match
+       the content-fade rules' specificity (`:where(...) .pt-in-fwd > .pt-content`
+       = 0,2,0) and rely on later source order to win — a bare `.pt-content`
+       (0,0,1) would lose and the tween would still run under reduced-motion. */
+    :global(.pt-in-fwd > .pt-content),
+    :global(.pt-out-back > .pt-content) {
+      animation: none;
     }
   }
 </style>
