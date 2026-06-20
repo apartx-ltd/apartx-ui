@@ -217,15 +217,18 @@
       z-index: 2;
       box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
     }
-    /* Content fade — only the page that materializes (fwd-in) / dissolves (back-out)
-       fades; the underneath page (out-fwd / in-back) just parallaxes, no fade. */
+    /* Content fade on the INCOMING forward page only: it materializes over the
+       layer's opaque bg, so fading the content (not the layer) keeps the bg
+       covering whatever is behind → no bleed-through. The underneath pages
+       (out-fwd / in-back) just parallax, no fade. The LEAVING back page is faded
+       at the LAYER level instead (see ptSaOutBack) — fading only its content
+       would leave the opaque bg panel on screen and make the page "vanish" into
+       a blank fill; fading the whole layer dissolves it to reveal the
+       destination, which is the intended back gesture and safe (what shows
+       through is the page we're returning to, not an unrelated screen). */
     :global(:where([data-slide-style='shared-axis']) .pt-in-fwd > .pt-content) {
       animation: ptSaContentIn var(--pt-d, 280ms) var(--pt-e, cubic-bezier(0.2, 0, 0, 1))
         backwards;
-    }
-    :global(:where([data-slide-style='shared-axis']) .pt-out-back > .pt-content) {
-      animation: ptSaContentOut var(--pt-d, 280ms) var(--pt-e, cubic-bezier(0.2, 0, 0, 1))
-        forwards;
     }
   }
   /* The settled transform is translateZ(0), NOT `none`: a layer with `transform:
@@ -295,29 +298,26 @@
       transform: translateZ(0);
     }
   }
+  /* back-exit: the whole leaving layer fades (bg + content together) while it
+     slides — dissolving to reveal the destination underneath. translateZ(0) (not
+     `none`) keeps the containing block stable; opacity rides with it. */
   @keyframes -global-ptSaOutBack {
     from {
       transform: translateZ(0);
+      opacity: 1;
     }
     to {
       transform: translateX(30%);
+      opacity: 0;
     }
   }
-  /* shared-axis content fade (runs on .pt-content, layer bg stays opaque). */
+  /* shared-axis forward-in content fade (runs on .pt-content, layer bg stays opaque). */
   @keyframes -global-ptSaContentIn {
     from {
       opacity: 0;
     }
     to {
       opacity: 1;
-    }
-  }
-  @keyframes -global-ptSaContentOut {
-    from {
-      opacity: 1;
-    }
-    to {
-      opacity: 0;
     }
   }
 
@@ -334,12 +334,11 @@
       animation: ptFadeOut 120ms linear forwards;
       pointer-events: none;
     }
-    /* shared-axis runs an opacity tween on .pt-content; cancel it too. Must match
-       the content-fade rules' specificity (`:where(...) .pt-in-fwd > .pt-content`
-       = 0,2,0) and rely on later source order to win — a bare `.pt-content`
-       (0,0,1) would lose and the tween would still run under reduced-motion. */
-    :global(.pt-in-fwd > .pt-content),
-    :global(.pt-out-back > .pt-content) {
+    /* shared-axis runs an opacity tween on the forward-in .pt-content; cancel it
+       too. Must match that rule's specificity (`:where(...) .pt-in-fwd >
+       .pt-content` = 0,2,0) and rely on later source order to win — a bare
+       `.pt-content` (0,0,1) would lose and the tween would still run. */
+    :global(.pt-in-fwd > .pt-content) {
       animation: none;
     }
   }
