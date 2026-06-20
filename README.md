@@ -129,6 +129,12 @@ route. Respects `prefers-reduced-motion`.
 </PageTransition>
 ```
 
+**`slideStyle`** (`'auto' | 'ios' | 'shared-axis'`, default `'auto'`) chooses the mobile
+slide: `ios` is a full-width opaque push; `shared-axis` is a short Material slide with a
+content fade. `'auto'` resolves by OS (iOS → `ios`, Android/other → `shared-axis`).
+Orthogonal to `mode`; ignored on desktop (always crossfades). Accepts a `() => SlideStyle`
+function, resolved lazily per navigation like `direction`.
+
 ## Scope
 
 Pure, standalone UI lives here. App-specific concerns intentionally **stay in
