@@ -1,5 +1,6 @@
 <script lang="ts">
   import PageLayer from './PageLayer.svelte';
+  import { detectMobileOS } from '../ui/utils/os';
 
   /**
    * Animate page changes. Wrap route content and pass a `key` that changes per
@@ -23,6 +24,7 @@
    *   </PageTransition>
    */
   type Direction = 'forward' | 'back' | 'none';
+  type SlideStyle = 'auto' | 'ios' | 'shared-axis';
 
   let {
     key,
@@ -32,6 +34,7 @@
     duration = 280,
     restoreScroll = false,
     providePortalHost = true,
+    slideStyle = 'auto',
     class: className,
     contentClass,
   }: {
@@ -59,11 +62,33 @@
      * slides on a page push) instead of this inner one. See PageLayer.
      */
     providePortalHost?: boolean;
+    /**
+     * Mobile slide style: 'ios' = full-width opaque push; 'shared-axis' = short
+     * Material slide + content fade. 'auto' (default) resolves by OS — iOS →
+     * 'ios', Android/other → 'shared-axis'. Orthogonal to `mode` (which decides
+     * slide-vs-fade per viewport); ignored on desktop (always crossfades). May be
+     * a FUNCTION resolved lazily per navigation, mirroring `direction`.
+     */
+    slideStyle?: SlideStyle | (() => SlideStyle);
     class?: string;
     contentClass?: string;
   } = $props();
 
   const resolveDir = (): Direction => (typeof direction === 'function' ? direction() : direction);
+  const resolveSlideStyle = (): 'ios' | 'shared-axis' => {
+    const s = typeof slideStyle === 'function' ? slideStyle() : slideStyle;
+    if (s === 'ios' || s === 'shared-axis') return s;
+    return detectMobileOS() === 'ios' ? 'ios' : 'shared-axis'; // 'auto'
+  };
+
+  // `key` dep so a function `slideStyle` re-resolves per navigation (same reason
+  // as enterKind). On the server detectMobileOS() returns 'other' → 'shared-axis';
+  // the first render isn't animated, so the client value wins on the first swap.
+  let slideStyleResolved = $derived.by<'ios' | 'shared-axis'>(() => {
+    key;
+    return resolveSlideStyle();
+  });
+
   const kindFor = (d: Direction): 'fwd' | 'back' | 'fade' =>
     mode === 'fade' || d === 'none' ? 'fade' : d === 'back' ? 'back' : 'fwd';
 
@@ -92,7 +117,11 @@
 <!-- overflow-clip (not -hidden): clips the slide WITHOUT being a scroll container, so
      a focus-driven scrollIntoView on a portaled fixed overlay (BottomSheet
      portalTarget="page") has no scrollable ancestor to yank — see PageLayer. -->
-<div class="relative h-full w-full overflow-clip {className ?? ''}" style="--pt-d:{duration}ms">
+<div
+  class="relative h-full w-full overflow-clip {className ?? ''}"
+  data-slide-style={slideStyleResolved}
+  style="--pt-d:{duration}ms"
+>
   {#key key}
     <PageLayer
       kind={enterKind}
