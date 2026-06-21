@@ -56,4 +56,51 @@ describe('createOverlayStack', () => {
     os.openOverlay(() => {});
     expect(f.calls).not.toContain('pushOverlay'); // adopted, no push
   });
+
+  it('suppressNextPop: the popstate from a non-back close is consumed without re-closing', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    let closeCount = 0;
+    const token = os.openOverlay(() => { closeCount++; });
+    // Non-back close: pops the synthetic entry via goBack and arms suppressNextPop.
+    os.closeOverlay(token);
+    expect(f.calls.filter((c) => c === 'goBack').length).toBe(1);
+    expect(os.overlayCount()).toBe(0);
+    expect(closeCount).toBe(0); // closeOverlay removes the entry; it does NOT call close()
+    // The goBack above produces a backward popstate → interceptor fires. It must be
+    // consumed (true) by the suppressNextPop branch and must NOT close anything again
+    // (the entry is already gone).
+    expect(f.fireBack()).toBe(true);
+    expect(closeCount).toBe(0);
+    expect(os.overlayCount()).toBe(0);
+  });
+
+  it('multi-overlay LIFO: back closes B then A, in that order', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const order: string[] = [];
+    os.openOverlay(() => { order.push('A'); });
+    os.openOverlay(() => { order.push('B'); });
+    expect(os.overlayCount()).toBe(2);
+    expect(f.fireBack()).toBe(true); // closes top (B)
+    expect(os.overlayCount()).toBe(1);
+    expect(f.fireBack()).toBe(true); // closes A
+    expect(os.overlayCount()).toBe(0);
+    expect(order).toEqual(['B', 'A']); // LIFO close order
+  });
+
+  it('non-top close removes the entry without popping a synthetic history entry', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const tokenA = os.openOverlay(() => {});
+    os.openOverlay(() => {}); // B is now the top
+    const goBackBefore = f.calls.filter((c) => c === 'goBack').length;
+    os.closeOverlay(tokenA); // A is NOT the top → guard `!opts?.viaBack && wasTop` is false
+    expect(os.overlayCount()).toBe(1);
+    // Non-top non-back close does NOT pop a synthetic entry.
+    expect(f.calls.filter((c) => c === 'goBack').length).toBe(goBackBefore);
+  });
 });
