@@ -33,6 +33,11 @@ not as a side effect of other work.
   diverges the shared API and risks behaviour changes across consumers.
 - **No app coupling.** Never import `meteor/*`, an i18n wrapper, or app routing
   into `src/lib`. `rg "meteor/|i18next|/imports/" src/lib` must stay empty.
+- **SvelteKit carve-out for the router.** The kit stays framework-agnostic, but
+  `apartx-ui/router/sveltekit` ships a `svelteKitHistoryAdapter` for SvelteKit hosts.
+  `src/lib/router/sveltekit.ts` is the **only** file allowed to import `$app/*`; the
+  core `apartx-ui/router` barrel must never import it. Gate:
+  `rg "\$app/" src/lib | rg -v "src/lib/router/sveltekit.ts"` must print nothing.
 - **All user-facing text is a prop with an English default** so consumers
   translate at the call site.
 - **Navigation is router-agnostic** — the kit never owns routing/history. Hosts
