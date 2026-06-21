@@ -38,6 +38,10 @@
       "svelte": "./src/lib/router/index.ts",
       "types": "./src/lib/router/index.ts"
     },
+    "./router/sveltekit": {
+      "svelte": "./src/lib/router/sveltekit.ts",
+      "types": "./src/lib/router/sveltekit.ts"
+    },
     "./hooks": {
       "svelte": "./src/lib/hooks/index.ts",
       "types": "./src/lib/hooks/index.ts"
