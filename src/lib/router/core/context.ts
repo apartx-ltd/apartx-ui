@@ -1,4 +1,5 @@
 import { getContext, setContext, type Snippet } from 'svelte';
+import type { RouteLoader } from './lazy';
 
 export interface RouterLocation {
   pathname: string;
@@ -32,6 +33,13 @@ export interface RouteRecord {
   exact?: boolean;
   /** Eager-импортированный компонент страницы (синхронный рендер для SSR/SEO). */
   component?: any;
+  /**
+   * Ленивый загрузчик чанка страницы: `() => import('./Page.svelte')`. Альтернатива
+   * `component` для code-splitting. <Router> рендерит `loading`-сниппет на первом
+   * визите, затем кэширует компонент (см. ./lazy) — повторные визиты и back/forward
+   * синхронны, без мелькания. На ошибке загрузки рендерит `error`-сниппет.
+   */
+  loader?: RouteLoader;
   /** Альтернатива component: inline-сниппет `{#snippet}` с params. */
   snippet?: Snippet<[Record<string, string>]>;
   /** Доп. пропсы, прокинутые в component. */

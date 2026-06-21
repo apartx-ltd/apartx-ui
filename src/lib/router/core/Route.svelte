@@ -1,11 +1,13 @@
 <script lang="ts">
   import { getContext, type Snippet } from 'svelte';
   import { ROUTER_CTX, type RouterContextValue, type RouteRecord } from './context';
+  import type { RouteLoader } from './lazy';
 
   let {
     path,
     exact = false,
     component,
+    loader,
     stableKey,
     back,
     props,
@@ -14,6 +16,8 @@
     path: string;
     exact?: boolean;
     component?: any;
+    /** Ленивый загрузчик чанка: `loader={() => import('./Page.svelte')}` (альтернатива component). */
+    loader?: RouteLoader;
     stableKey?: string;
     back?: string | ((params: Record<string, string>) => string);
     props?: Record<string, any>;
@@ -27,7 +31,7 @@
   // клиенте. <Route> НИЧЕГО не рендерит: победителя рисует <Router>. Поэтому двойной
   // рендер на SSR невозможен.
   // svelte-ignore state_referenced_locally
-  const record: RouteRecord = { path, exact, component, stableKey, back, props, snippet: children };
+  const record: RouteRecord = { path, exact, component, loader, stableKey, back, props, snippet: children };
   ctx.register(record);
 
   // Снятие регистрации при размонтировании (клиент; напр. teardown вложенного роутера).

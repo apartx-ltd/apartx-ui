@@ -14,6 +14,7 @@ export {
   matchRoute, matchParams, pick, rankRoute, stripBase, type MatchOptions,
 } from './core/match-route';
 export { setRouteBack, getRouteBack, subscribeRouteBack } from './core/active-route';
+export type { RouteLoader } from './core/lazy';
 
 // History seam
 export type { HistoryAdapter, Action } from './history/adapter';

@@ -4,12 +4,15 @@
   import { pick, stripBase, matchParams } from './match-route';
   import { ROUTER_CTX, type RouterContextValue, type RouteRecord } from './context';
   import { setRouteBack } from './active-route';
+  import { getCached, load } from './lazy';
 
   let {
     basepath,
     children,
     outlet,
     fallback,
+    loading,
+    error,
   }: {
     basepath?: string;
     /** <Route> декларации (регистрируются, рендерят пусто). */
@@ -18,6 +21,10 @@
     outlet?: Snippet<[{ render: Snippet; key: string }]>;
     /** Рендер, когда ни один роут не сматчился. */
     fallback?: Snippet;
+    /** Рендер во время загрузки чанка lazy-роута (`<Route loader>`), на первом визите. */
+    loading?: Snippet;
+    /** Рендер при ошибке загрузки чанка lazy-роута. */
+    error?: Snippet;
   } = $props();
 
   const router = useRouter();
@@ -53,7 +60,22 @@
 </script>
 
 {#snippet activeRender()}
-  {#if active?.component}
+  {#if active?.loader}
+    <!-- Lazy chunk: render synchronously once cached (no flicker on repeat
+         visits / back-forward); otherwise show `loading` while it resolves. -->
+    {@const Cached = getCached(active.loader)}
+    {#if Cached}
+      <Cached {params} {...(active.props ?? {})} />
+    {:else}
+      {#await load(active.loader)}
+        {@render loading?.()}
+      {:then Component}
+        <Component {params} {...(active.props ?? {})} />
+      {:catch}
+        {@render error?.()}
+      {/await}
+    {/if}
+  {:else if active?.component}
     {@const Component = active.component}
     <Component {params} {...(active.props ?? {})} />
   {:else if active?.snippet}
