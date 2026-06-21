@@ -22,6 +22,7 @@
 
   const router = useRouter();
   const parent = getContext<RouterContextValue | undefined>(ROUTER_CTX);
+  // svelte-ignore state_referenced_locally
   const base = basepath ?? parent?.base ?? '/';
 
   // Плоский (нереактивный) реестр: <Route> пушат в init ДО того, как ниже отрендерится

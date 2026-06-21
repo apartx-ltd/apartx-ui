@@ -26,6 +26,7 @@
   // Регистрируемся в INIT-фазе — синхронно, выполняется и на сервере (SSR), и на
   // клиенте. <Route> НИЧЕГО не рендерит: победителя рисует <Router>. Поэтому двойной
   // рендер на SSR невозможен.
+  // svelte-ignore state_referenced_locally
   const record: RouteRecord = { path, exact, component, stableKey, back, props, snippet: children };
   ctx.register(record);
 
