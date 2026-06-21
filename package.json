@@ -105,6 +105,7 @@
     "@yandex/ymaps3-types": "^1.0.19724900",
     "bits-ui": "^2.18.0",
     "cupertino-pane": "^1.5.0",
+    "jsdom": "^29.1.1",
     "marked": "^18.0.4",
     "svelte": "^5.55.5",
     "svelte-check": "^4.4.6",
