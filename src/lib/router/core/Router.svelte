@@ -13,6 +13,7 @@
     fallback,
     loading,
     error,
+    keyByMatch = false,
   }: {
     basepath?: string;
     /** <Route> декларации (регистрируются, рендерят пусто). */
@@ -25,6 +26,15 @@
     loading?: Snippet;
     /** Рендер при ошибке загрузки чанка lazy-роута. */
     error?: Snippet;
+    /**
+     * Ключевать `PageTransition` по ВЫИГРАВШЕМУ роуту, а не по pathname. Тогда переход
+     * внутри одной (в т.ч. префиксной) записи НЕ ре-анимирует outlet, а смена записи —
+     * анимирует, БЕЗ per-route `stableKey`. Для master/detail-роутеров (мастер-список,
+     * который держится при бурении в деталь) это убирает россыпь `stableKey`. Параметрические
+     * detail-роуты, которым нужен ремаунт на каждый id, помечаются `<Route volatileKey>`.
+     * Дефолт `false` → поведение прежнее (key = pathname). `stableKey` всегда приоритетнее.
+     */
+    keyByMatch?: boolean;
   } = $props();
 
   const router = useRouter();
@@ -36,9 +46,15 @@
   // outlet — поэтому на SSR список полон к моменту pick(). Роуты статичны на инстанс
   // (вложенный <Router> — свежий инстанс), список не мутирует после init.
   const records: RouteRecord[] = [];
+  // Монотонный id на инстанс роутера: стабилен per-record, не сбивается при
+  // unregister соседей. Под keyByMatch служит transition-key (идентичность роута).
+  let recordSeq = 0;
   setContext<RouterContextValue>(ROUTER_CTX, {
     base,
-    register: (r) => records.push(r),
+    register: (r) => {
+      r._recordId = '#' + recordSeq++;
+      records.push(r);
+    },
     unregister: (r) => {
       const i = records.indexOf(r);
       if (i >= 0) records.splice(i, 1);
@@ -48,8 +64,12 @@
   const localPath = $derived(stripBase(router.pathname, base));
   const active = $derived(pick(records, localPath));
   const params = $derived(active ? matchParams(localPath, active.path) : {});
-  // Стабильный ключ от активного роута (shell) — иначе pathname.
-  const key = $derived(active?.stableKey ?? router.pathname);
+  // Transition-key: явный stableKey > (keyByMatch ? идентичность выигравшего роута)
+  // > pathname. volatileKey возвращает роут на pathname-keying даже под keyByMatch.
+  const key = $derived(
+    active?.stableKey
+      ?? (keyByMatch && active && !active.volatileKey ? active._recordId! : router.pathname),
+  );
 
   // Логический родитель активного роута → модульный сигнал (для router.back()
   // fallback и видимости нативной суперап-кнопки). Резолвим функцию-форму с params.
