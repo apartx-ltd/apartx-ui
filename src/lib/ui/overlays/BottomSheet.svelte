@@ -13,6 +13,7 @@
   import { Dialog } from 'bits-ui'
   import { cn } from '../utils/cn'
   import { getPagePortalHost } from '../../navigation/context'
+  import { getOverlayLayer } from './layer-context'
 
   let {
     open = $bindable(false),
@@ -40,10 +41,18 @@
     class: className = '',
     onOpenChange = null,
     onSnapChange = null,
+    onWillPresent = null,  // open has begun (slide-in start) — content mounting
+    onDidPresent = null,   // fully open (enter transition settled)
     onWillDismiss = null,  // close has begun (slide-out start) — content still visible
     onDidDismiss = null,   // fully closed (unmounted) — cancelled if reopened first
     children,
   } = $props()
+
+  // Optional stacking band injected by a host that stacks overlays (modal
+  // registry's <ModalLayer>). Absent ⇒ keep the default z-40/z-50 classes.
+  const layer = getOverlayLayer()
+  const scrimZ = $derived(layer ? `z-index:${layer.z};` : '')
+  const contentZ = $derived(layer ? `z-index:${layer.z + 1};` : '')
 
   // Resolve the portal destination. For 'page', read the layer element from the
   // PageLayer context (a getter, so it tracks mount/unmount); `?? undefined` lets
@@ -84,6 +93,7 @@
   let rendered = $state(false)
   let backdropOn = $state(false)  // drives the backdrop fade in sync with the slide
   let closeTimer = null
+  let presentTimer = null         // fires onDidPresent after the enter slide settles
   let prevOpen = false            // plain mirror of last-seen `open` (guards the effect)
 
   const translateY = $derived(dragOffset ?? activeOffset)
@@ -302,10 +312,17 @@
       if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
       rendered = true
       dragging = false
+      // Open has begun: fire onWillPresent NOW (slide-in start), while content mounts.
+      untrack(() => onWillPresent?.())
       // Instant present (no slide): render straight at activeOffset. CSS transitions
       // don't run on a node's first paint, so the sheet just appears at its snap —
       // used to restore an already-open sheet without re-animating it.
-      if (!animate) { dragOffset = null; backdropOn = true; return }
+      if (!animate) {
+        dragOffset = null
+        backdropOn = true
+        untrack(() => onDidPresent?.())
+        return
+      }
       dragOffset = window.innerHeight                        // mount off-screen, below
       backdropOn = false                                     // backdrop starts transparent
       // Two rAFs: paint the off-screen frame first, THEN release to activeOffset so the
@@ -313,7 +330,15 @@
       requestAnimationFrame(() => requestAnimationFrame(() => {
         if (open) { dragging = false; dragOffset = null; backdropOn = true }
       }))
+      // onDidPresent after the slide-up settles (TRANSITION 500ms + slack), mirroring
+      // the onDidDismiss closeTimer. Cancelled if the sheet closes before it fires.
+      if (presentTimer) clearTimeout(presentTimer)
+      presentTimer = setTimeout(() => {
+        presentTimer = null
+        if (open) onDidPresent?.()
+      }, 540)
     } else {
+      if (presentTimer) { clearTimeout(presentTimer); presentTimer = null }
       // Close has begun: fire onWillDismiss NOW (slide-out start) while content is still
       // on screen. untrack so the callback identity isn't a dep of this effect.
       untrack(() => onWillDismiss?.())
@@ -353,9 +378,10 @@
     return () => {
       window.removeEventListener('resize', onResize)
       window.visualViewport?.removeEventListener('resize', onResize)
-      // Drop a pending close timer so onDidDismiss can't fire after the sheet unmounts
-      // (e.g. the host navigates away while the sheet is mid-slide-out).
+      // Drop pending timers so onDidDismiss/onDidPresent can't fire after the sheet
+      // unmounts (e.g. the host navigates away while the sheet is mid-slide).
       if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
+      if (presentTimer) { clearTimeout(presentTimer); presentTimer = null }
     }
   })
 
@@ -423,7 +449,7 @@
         <Dialog.Overlay
           forceMount
           class="fixed inset-0 z-40 bg-black"
-          style={`opacity:${backdropOn ? backdropOpacity : 0};transition:${animate ? 'opacity 0.3s ease' : 'none'};`}
+          style={`${scrimZ}opacity:${backdropOn ? backdropOpacity : 0};transition:${animate ? 'opacity 0.3s ease' : 'none'};`}
         />
       {/if}
       <!-- preventScroll={false}: bits-ui Dialog's default scroll-lock (RemoveScroll)
@@ -451,7 +477,7 @@
           squareTop && 'rounded-t-none',
           className,
         )}
-        style={`height:100dvh;transform:translate3d(0,${translateY}px,0);transition:${dragging || !animate ? 'none' : TRANSITION};touch-action:pan-y;overscroll-behavior:contain;`}
+        style={`${contentZ}height:100dvh;transform:translate3d(0,${translateY}px,0);transition:${dragging || !animate ? 'none' : TRANSITION};touch-action:pan-y;overscroll-behavior:contain;`}
       >
         {#if showHandle}
           <div class="mx-auto mt-2 mb-1 h-1.5 w-9 shrink-0 touch-none rounded-full bg-outline-variant"></div>

@@ -30,6 +30,10 @@
       "svelte": "./src/lib/ui/overlays/index.ts",
       "types": "./src/lib/ui/overlays/index.ts"
     },
+    "./modals": {
+      "svelte": "./src/lib/modals/index.ts",
+      "types": "./src/lib/modals/index.ts"
+    },
     "./navigation": {
       "svelte": "./src/lib/navigation/index.ts",
       "types": "./src/lib/navigation/index.ts"

@@ -21,6 +21,9 @@ export * from './ui/forms';
 // Overlays (incl. confirm service + ToasterMount)
 export * from './ui/overlays';
 
+// Modals (generic lazy registry: open/ModalOutlet/setModalRegistry)
+export * from './modals';
+
 // Hooks
 export * from './hooks';
 

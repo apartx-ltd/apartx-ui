@@ -3,6 +3,7 @@
   import type { TransitionConfig } from 'svelte/transition';
   import { cn } from '../utils/cn';
   import { overlayFade, dialogPop, sheet } from '../utils/motion';
+  import { getOverlayLayer } from './layer-context';
   import { faXmark } from '@fortawesome/free-solid-svg-icons';
   import Button from '../display/Button.svelte';
   import Icon from '../display/Icon.svelte';
@@ -18,6 +19,13 @@
     showCloseButton = true,
     onOpenChange,
     onclose,
+    // iOS-style lifecycle (see kit CLAUDE.md callback-naming). `will` = transition
+    // starting (content still visible); `did` = finished. onDidDismiss fires after
+    // the exit animation completes — the hook the modal registry uses for teardown.
+    onWillPresent,
+    onDidPresent,
+    onWillDismiss,
+    onDidDismiss,
     class: className,
     contentClass,
     overlayClass,
@@ -35,6 +43,10 @@
     showCloseButton?: boolean;
     onOpenChange?: (v: boolean) => void;
     onclose?: () => void;
+    onWillPresent?: () => void;
+    onDidPresent?: () => void;
+    onWillDismiss?: () => void;
+    onDidDismiss?: () => void;
     class?: string;
     contentClass?: string;
     overlayClass?: string;
@@ -43,11 +55,29 @@
     [key: string]: any;
   } = $props();
 
+  // Optional stacking band injected by a host that stacks overlays (modal
+  // registry's <ModalLayer>). Absent ⇒ keep the default z-40/z-50 classes.
+  const layer = getOverlayLayer();
+  const scrimZ = $derived(layer ? `z-index:${layer.z};` : '');
+  const contentZ = $derived(layer ? `z-index:${layer.z + 1};` : '');
+
   function handleOpenChange(v: boolean) {
     open = v;
     onOpenChange?.(v);
     if (!v) onclose?.();
   }
+
+  // Fire will-present / will-dismiss on the open edge (covers both host-driven
+  // prop changes and bits-ui-driven closes). `did` events hook the actual
+  // animation end below (onanimationend for enter, onoutroend for exit).
+  let prevOpen = false;
+  $effect(() => {
+    const o = open;
+    if (o === prevOpen) return;
+    prevOpen = o;
+    if (o) onWillPresent?.();
+    else onWillDismiss?.();
+  });
 
   // Exit only. Fullscreen dialogs slide down like a sheet; centered ones pop.
   // Enter is a CSS @keyframes class instead (see <style>): a Svelte `transition:`
@@ -102,6 +132,7 @@
           <div
             {...props}
             class={cn('dlg-scrim dlg-overlay-in fixed inset-0 z-40', overlayClass)}
+            style={scrimZ}
             out:overlayFade|global
           ></div>
         {/if}
@@ -120,6 +151,7 @@
               fullScreen ? '' : 'grid place-items-center p-4',
               'pointer-events-none',
             )}
+            style={contentZ}
           >
             <div
               {...props}
@@ -132,6 +164,13 @@
                 contentClass,
               )}
               out:contentTransition|global
+              onanimationend={(e) => {
+                // The panel's own enter keyframe (dlg-in-pop / dlg-in-sheet) has
+                // finished — present complete. Ignore animationend bubbling up from
+                // descendants.
+                if (e.target === e.currentTarget) onDidPresent?.();
+              }}
+              onoutroend={() => onDidDismiss?.()}
             >
               {@render panel()}
             </div>

@@ -82,7 +82,10 @@
     return loadedSrcs.has(s) ? 'loaded' : 'loading';
   }
 
-  let status = $state<ImageStatus>(initialStatus(src));
+  // Initial value only — `src` is read for the first paint; the $effect below
+  // re-derives status on every later src change. untrack keeps this intentional
+  // one-shot read from emitting the state_referenced_locally warning.
+  let status = $state<ImageStatus>(untrack(() => initialStatus(src)));
   let retryCount = $state(0);
 
   function setStatus(next: ImageStatus) {
