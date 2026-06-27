@@ -3,6 +3,15 @@
   import { cn } from '../utils/cn';
   import Icon from '../display/Icon.svelte';
   import { faChevronDown, faPlus } from '@fortawesome/free-solid-svg-icons';
+  import { getOverlayLayer } from '../overlays/layer-context';
+
+  // The dropdown portals to <body> at z-50 by default — fine standalone, but when
+  // this combobox lives inside a layered overlay (modal registry's <Dialog>, which
+  // renders at `layer.z + 1`), z-50 falls *behind* the dialog and the options become
+  // unclickable. Read the same overlay layer the Dialog uses and render the popup at
+  // `layer.z + 2` (above the dialog content, below any deeper modal). No layer ⇒
+  // keep the z-50 class (fully backwards-compatible). Mirrors Dialog/BottomSheet.
+  const overlayLayer = getOverlayLayer();
 
   type Option = { value: string; label: string; disabled?: boolean };
 
@@ -42,6 +51,7 @@
   } = $props();
 
   let search = $state('');
+  let open = $state(false);
 
   let filtered = $derived(
     search
@@ -54,7 +64,13 @@
   );
 
   // Show the selected option's label in the input when not actively searching.
+  // `defaultValue` on BitsCombobox.Input is non-reactive (set once at mount), so a
+  // value/options pair that resolves *after* mount (async fetch, edit-form seeding)
+  // would never display. Drive the input via the Root's reactive `inputValue` box
+  // instead: while the popup is open the user is searching → show their query; when
+  // closed → show the selected option's label (reactively, even if it arrives late).
   let selectedLabel = $derived(options.find((o) => o.value === value)?.label ?? '');
+  let displayValue = $derived(open ? search : selectedLabel);
 
   function handleInput(e: Event) {
     search = (e.target as HTMLInputElement).value;
@@ -73,7 +89,8 @@
     bind:value
     {disabled}
     {onValueChange}
-    onOpenChange={(o) => { if (!o) search = ''; }}
+    inputValue={displayValue}
+    onOpenChange={(o) => { open = o; search = ''; }}
     {...restProps}
   >
     <div
@@ -86,7 +103,6 @@
       )}
     >
       <BitsCombobox.Input
-        defaultValue={selectedLabel}
         oninput={handleInput}
         {placeholder}
         class="flex-1 bg-transparent border-none outline-none text-body-lg text-on-surface placeholder:text-on-surface-variant/60 min-w-0"
@@ -100,6 +116,7 @@
       <BitsCombobox.Content
         sideOffset={4}
         class="z-50 rounded-sm bg-surface shadow-level-2 border border-outline-variant overflow-hidden py-1 max-h-64"
+        style={overlayLayer ? `z-index:${overlayLayer.z + 2};` : ''}
       >
         <BitsCombobox.Viewport>
           {#each filtered as opt (opt.value)}
