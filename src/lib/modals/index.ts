@@ -10,7 +10,7 @@
 // `Modal.open('confirm', { text })` (named `open`, not `openModal`, but accessed
 // as `Modal.open` so it never shadows `window.open`).
 
-export { setModalRegistry, getModalRegistry, open, closeInstance, closeAll, stack, zForDepth } from './registry.svelte';
+export { setModalRegistry, getModalRegistry, loadModal, open, closeInstance, closeAll, stack, zForDepth } from './registry.svelte';
 export { default as ModalOutlet } from './ModalOutlet.svelte';
 export { default as ModalLayer } from './ModalLayer.svelte';
 export type { ModalEntry, ModalRegistry, OpenInstance } from './types';

@@ -4,6 +4,7 @@
   import { cn } from '../utils/cn';
   import Icon from '../display/Icon.svelte';
   import { faCalendar, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+  import { getOverlayLayer } from '../overlays/layer-context';
 
   type RangeStr = { start: string; end: string };
   type DateRange = { start: DateValue | undefined; end: DateValue | undefined };
@@ -35,13 +36,25 @@
     try { return parseDate(v); } catch { return undefined; }
   }
 
+  const overlayLayer = getOverlayLayer();
+
   let range = $state<DateRange>({ start: safeParse(value.start), end: safeParse(value.end) });
 
-  $effect(() => {
-    const next = { start: range.start ? range.start.toString() : '', end: range.end ? range.end.toString() : '' };
-    if (next.start !== value.start || next.end !== value.end) value = next;
-  });
+  // Single source of truth: the bits-ui Root owns the committed range and reports it via
+  // onValueChange; we mirror that into the bound string `value`. An earlier dual-$effect
+  // range↔value sync clobbered itself — when `value` changed, the range→value effect
+  // reverted it before the value→range effect could react — so a calendar pick never
+  // reached the consumer. onValueChange is the explicit commit hook and avoids the loop.
+  function onRangeChange(next: DateRange | undefined) {
+    const str = {
+      start: next?.start ? next.start.toString() : '',
+      end: next?.end ? next.end.toString() : '',
+    };
+    if (str.start !== value.start || str.end !== value.end) value = str;
+  }
 
+  // External (programmatic) value changes flow back into the internal range. The guard
+  // makes this a one-shot that ignores the echo of our own onRangeChange writes.
   $effect(() => {
     const cur = { start: range.start ? range.start.toString() : '', end: range.end ? range.end.toString() : '' };
     if (cur.start !== value.start || cur.end !== value.end) {
@@ -56,6 +69,7 @@
 <div class={cn('flex flex-col gap-1', className)}>
   <BitsRange.Root
     bind:value={range}
+    onValueChange={onRangeChange}
     {disabled}
     {numberOfMonths}
     minValue={minDV}
@@ -108,7 +122,8 @@
       </BitsRange.Trigger>
     </div>
 
-    <BitsRange.Content sideOffset={4} class="z-50 outline-none">
+    <BitsRange.Portal>
+    <BitsRange.Content sideOffset={4} class="z-50 outline-none" style={overlayLayer ? `z-index:${overlayLayer.z + 2};` : ''}>
       <div class="bg-surface shadow-level-3 rounded-md p-3 border border-outline-variant">
         <BitsRange.Calendar>
           {#snippet children({ months, weekdays })}
@@ -165,6 +180,7 @@
         </BitsRange.Calendar>
       </div>
     </BitsRange.Content>
+    </BitsRange.Portal>
   </BitsRange.Root>
 
   {#if error}

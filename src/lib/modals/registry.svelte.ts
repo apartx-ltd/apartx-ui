@@ -12,12 +12,32 @@ import type { ModalRegistry, OpenInstance } from './types';
 
 let registry: ModalRegistry | undefined;
 
+/**
+ * Memoized chunk loader: at most one `import()` per modal id, returning a STABLE
+ * promise identity. `<ModalOutlet>` awaits this in an `{#await}`; if it called the
+ * raw `load()` inline, every `stack` mutation (e.g. opening a nested modal) would
+ * hand `{#await}` a fresh promise and remount EVERY open modal — silently resetting
+ * the parent modal's state (a modal that opens a child would lose its in-progress
+ * edits). Caching the promise keeps each open modal mounted across stack changes.
+ */
+const _loaded = new Map<string, Promise<any>>();
+export function loadModal(id: string): Promise<any> | undefined {
+  const entry = registry?.[id];
+  if (!entry) return undefined;
+  let p = _loaded.get(id);
+  if (!p) {
+    p = entry.load();
+    _loaded.set(id, p);
+  }
+  return p;
+}
+
 /** Inject the host's registry config once near app startup. Warms `eager` chunks. */
 export function setModalRegistry(r: ModalRegistry): void {
   registry = r;
   // Kick off eager loads so the first open of those modals has no fetch gap.
   for (const id in r) {
-    if (r[id].eager) r[id].load().catch(() => {});
+    if (r[id].eager) loadModal(id)?.catch(() => {});
   }
 }
 

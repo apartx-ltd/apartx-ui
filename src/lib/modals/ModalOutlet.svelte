@@ -4,19 +4,10 @@
   // per modal, fetched on first open), and renders it with its props + a `close`
   // callback bound to that instance. Each instance is wrapped in a <ModalLayer>
   // so its overlay gets a depth-aware z band (deeper = on top).
-  import { stack, getModalRegistry, closeInstance, zForDepth } from './registry.svelte';
-  import ModalLayer from './ModalLayer.svelte';
-
-  const registry = getModalRegistry();
+  import { stack, zForDepth } from './registry.svelte';
+  import ModalHost from './ModalHost.svelte';
 </script>
 
 {#each stack as m, depth (m.key)}
-  <ModalLayer z={zForDepth(depth)}>
-    {#await registry?.[m.id]?.load() then mod}
-      {#if mod}
-        {@const ModalComponent = mod.default}
-        <ModalComponent {...m.props} close={(result: any) => closeInstance(m.key, result)} />
-      {/if}
-    {/await}
-  </ModalLayer>
+  <ModalHost instance={m} z={zForDepth(depth)} />
 {/each}

@@ -4,6 +4,7 @@
   import { cn } from '../utils/cn';
   import { faCalendar, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
   import Icon from '../display/Icon.svelte';
+  import { getOverlayLayer } from '../overlays/layer-context';
 
   let {
     value = $bindable(''),
@@ -31,6 +32,12 @@
     if (!v) return undefined;
     try { return parseDate(v); } catch { return undefined; }
   }
+
+  // The calendar Content portals to <body> at z-50 — fine standalone, but when this picker
+  // lives inside a layered overlay (modal registry <Dialog> at layer.z + 1) z-50 falls
+  // behind the dialog and day/Next clicks are intercepted. Render at layer.z + 2 when a
+  // layer is present; otherwise keep z-50. Mirrors Combobox / Dialog / BottomSheet.
+  const overlayLayer = getOverlayLayer();
 
   let dateValue = $state<DateValue | undefined>(safeParse(value));
 
@@ -95,7 +102,7 @@
     </BitsDatePicker.Input>
 
     <BitsDatePicker.Portal>
-    <BitsDatePicker.Content sideOffset={4} class="z-50 outline-none">
+    <BitsDatePicker.Content sideOffset={4} class="z-50 outline-none" style={overlayLayer ? `z-index:${overlayLayer.z + 2};` : ''}>
       <div class="bg-surface shadow-level-3 rounded-md p-3 border border-outline-variant">
         <BitsDatePicker.Calendar>
           {#snippet children({ months, weekdays })}
