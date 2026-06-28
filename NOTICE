@@ -1,0 +1,17 @@
+apartx-ui — third-party notices
+================================
+
+This kit is licensed under the MIT License (see LICENSE).
+
+It depends on Font Awesome Free (@fortawesome/*), which is distributed under
+multiple licenses:
+
+  - Icons:  CC BY 4.0  (https://creativecommons.org/licenses/by/4.0/)
+  - Fonts:  SIL OFL 1.1 (https://scripts.sil.org/OFL)
+  - Code:   MIT License
+
+When redistributing builds that embed Font Awesome icons, attribution to
+Font Awesome (https://fontawesome.com) is required under CC BY 4.0.
+
+Other bundled dependencies are MIT or Apache-2.0 licensed; see each package's
+own license in node_modules for details.
