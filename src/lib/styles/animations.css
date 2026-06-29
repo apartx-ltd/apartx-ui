@@ -131,3 +131,19 @@
     animation-duration: 1ms;
   }
 }
+
+/* ===== Progress (display/Progress.svelte) ===== */
+
+/* Indeterminate bar sweep. Referenced from the markup via the Tailwind
+   `animate-[kitIndeterminate_1.5s_ease-in-out_infinite]` utility — the keyframe MUST be
+   global so that utility resolves it (a component-scoped @keyframes would be renamed and
+   the utility's bare name wouldn't match). Namespaced (`kit*`) to avoid colliding with a
+   generic `indeterminate` keyframe elsewhere. */
+@keyframes kitIndeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}

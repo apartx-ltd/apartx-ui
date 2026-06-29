@@ -2,6 +2,26 @@
 
 ## 2026-06-29
 
+### Версия 0.1.25
+
+### Изменено
+
+* **Убраны последние `<style>`-блоки из компонентов — keyframes переехали в общий CSS.**
+  Продолжение 0.1.24: теперь ни один kit-`.svelte` не содержит `<style>` (нет per-component
+  scoped-CSS запроса в проде).
+  - **`PageLayer`** (движок page-transition: структура `.pt-layer`/`.pt-content` + keyframes
+    crossfade / iOS-push / Material shared-axis) → новый `styles/page-transitions.css` (plain
+    global; классы частично навешивает JS, поэтому и были `:global`). Поведение идентично.
+  - **`Progress`** → `@keyframes indeterminate` (scoped, generic-имя) → глобальный
+    `kitIndeterminate` в `styles/animations.css`; разметка `animate-[kitIndeterminate_…]`.
+    Побочно чинит латентный рассинхрон: scoped-keyframe переименовывался Svelte'ом, а TW-утилита
+    ссылалась на голое имя.
+  - Оба файла подключены в баррель `styles/index.css`.
+  **Миграция:** потребители, импортящие kit-стили поштучно (не баррель), добавляют
+  `@import 'apartx-ui/styles/page-transitions.css';` (как и `animations.css` в 0.1.24).
+
+## 2026-06-29
+
 ### Версия 0.1.24
 
 ### Изменено

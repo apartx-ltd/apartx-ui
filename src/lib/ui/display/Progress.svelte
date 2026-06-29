@@ -13,15 +13,10 @@
   {...restProps}
 >
   {#if indeterminate}
-    <div class="h-full bg-primary rounded-full animate-[indeterminate_1.5s_ease-in-out_infinite] w-1/3"></div>
+    <!-- keyframe `kitIndeterminate` is global (styles/animations.css) so this Tailwind
+         `animate-[…]` utility resolves it — a scoped @keyframes would be renamed. -->
+    <div class="h-full bg-primary rounded-full animate-[kitIndeterminate_1.5s_ease-in-out_infinite] w-1/3"></div>
   {:else}
     <div class="h-full bg-primary rounded-full transition-all duration-300" style:width="{pct}%"></div>
   {/if}
 </div>
-
-<style>
-  @keyframes indeterminate {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(400%); }
-  }
-</style>

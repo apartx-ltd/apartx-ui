@@ -1,0 +1,236 @@
+/*
+ * Kit page-transition engine CSS (navigation/PageLayer.svelte).
+ *
+ * The `.pt-layer` transform stage + `.pt-content` scroller structure and every
+ * enter/exit @keyframes (desktop crossfade, iOS opaque push, Material shared-axis).
+ * Plain GLOBAL CSS: the classes are added partly by JS (PageLayer adds `pt-out-*` at
+ * outro), so they were already `:global` — here they ship in the single consumer
+ * app.css instead of a per-component <style> block. Keyframe names are `pt*`-prefixed
+ * (collision-free). Duration/easing come from `--pt-d`/`--pt-e` set by PageTransition.
+ *
+ * Pulled in by the kit CSS barrel (styles/index.css). Consumers importing kit
+ * stylesheets individually (not the barrel) must add
+ * `@import 'apartx-ui/styles/page-transitions.css';`.
+ */
+
+.pt-layer {
+  position: absolute;
+  inset: 0;
+  /* The layer is a pure transform STAGE, not a scroller — per the kit's "only
+     <Content> scrolls" contract, scrolling lives on .pt-content below. Crucially
+     `overflow: visible` keeps the layer from being a scroll container, so a
+     position:fixed overlay portaled into it (<BottomSheet portalTarget="page">)
+     can't be yanked by a focus-driven scrollIntoView. The slide is clipped by the
+     PageTransition root (overflow: clip — also a non-scrollable clip, so the yank
+     can't relocate there either). */
+  overflow: visible;
+  /* Match the kit <Page> base (bg-background), NOT surface: the layer is the
+     stage *under* the page, so its fallback fill must equal the page's own
+     background or a seam shows wherever the page doesn't fully cover it. In
+     light themes background==surface (no-op); they diverge in dark/Telegram
+     themes (surface is lighter), which is where the old `surface` value bled
+     through as a mismatched tone. */
+  background: var(--color-background, #fff);
+}
+.pt-content {
+  /* The actual scroller (definite height so it can scroll; the layer it lives in
+     is inset:0 → definite). Pages that bring their own <Content> fill this and
+     scroll internally, leaving it dormant. */
+  height: 100%;
+  overflow-y: auto;
+  /* hide scrollbar so a stacked page doesn't flash one mid-slide */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.pt-content::-webkit-scrollbar {
+  display: none;
+}
+
+/* ===== Desktop default: crossfade ===== */
+.pt-in-fwd,
+.pt-in-back,
+.pt-in-fade {
+  animation: ptFadeIn var(--pt-d, 280ms) var(--pt-e, cubic-bezier(0.2, 0, 0, 1)) backwards;
+}
+.pt-out-fwd,
+.pt-out-back,
+.pt-out-fade {
+  animation: ptFadeOut var(--pt-d, 280ms) var(--pt-e, cubic-bezier(0.2, 0, 0, 1)) forwards;
+  pointer-events: none;
+}
+@keyframes ptFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ptFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ===== Mobile slide: style chosen by [data-slide-style] on the PageTransition
+   root (set from the OS-resolved `slideStyle` prop). Two variants below.
+   `:where()` wraps the attribute so these rules keep specificity 0,1,0 (just
+   `.pt-in-*`), letting the later reduced-motion override still win on mobile. ===== */
+@media (max-width: 640px) {
+  /* ---- iOS: full-width OPAQUE push (no opacity; covers the outgoing page
+     completely so nothing behind it bleeds through). ---- */
+  :where([data-slide-style='ios']) .pt-in-fwd {
+    animation-name: ptInFwd;
+    z-index: 2;
+    box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+  }
+  :where([data-slide-style='ios']) .pt-out-fwd {
+    animation-name: ptOutFwd;
+    z-index: 1;
+  }
+  :where([data-slide-style='ios']) .pt-in-back {
+    animation-name: ptInBack;
+    z-index: 1;
+  }
+  :where([data-slide-style='ios']) .pt-out-back {
+    animation-name: ptOutBack;
+    z-index: 2;
+    box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+  }
+
+  /* ---- Material shared-axis: short slide on the LAYER (which stays opaque) +
+     opacity fade on .pt-content. Fade on the content (not the layer) keeps the
+     layer's opaque background covering the outgoing page → no bleed-through.
+     Resting transform is translateZ(0), never `none`, so the layer stays a
+     containing block for a portaled position:fixed BottomSheet → no flash. ---- */
+  :where([data-slide-style='shared-axis']) .pt-in-fwd {
+    animation-name: ptSaInFwd;
+    z-index: 2;
+    box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+  }
+  :where([data-slide-style='shared-axis']) .pt-out-fwd {
+    animation-name: ptSaOutFwd;
+    z-index: 1;
+  }
+  :where([data-slide-style='shared-axis']) .pt-in-back {
+    animation-name: ptSaInBack;
+    z-index: 1;
+  }
+  :where([data-slide-style='shared-axis']) .pt-out-back {
+    animation-name: ptSaOutBack;
+    z-index: 2;
+    box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+  }
+  /* Both the entering (fwd-in) and leaving (back-out) leading pages fade at the
+     LAYER level — bg + content together (see ptSaInFwd / ptSaOutBack), matching
+     the classic Material shared-axis "page materializes / dissolves in place".
+     The underneath pages (out-fwd / in-back) just parallax, no fade.
+     TRADE-OFF: a layer-level fade means the leading page is semi-transparent
+     mid-transition, so on a forward push the outgoing screen shows through it
+     (e.g. a map under an open bottom-sheet). This is a deliberate product choice
+     favouring the softer look over the opaque iOS push (use slideStyle="ios" for
+     full opacity). translateZ(0) at rest still prevents the fixed-overlay flash. */
+}
+/* The settled transform is translateZ(0), NOT `none`: a layer with `transform:
+   none` stops being a containing block for its position:fixed descendants. A
+   <BottomSheet portalTarget="page"> portaled into a layer must keep a stable
+   containing block across the WHOLE animation — if a keyframe drops to `none`
+   (even just the `from` at t=0) the sheet re-roots between compositor layers for
+   one frame and the page behind it (e.g. a bottom nav) flashes through. translateZ(0)
+   is an identity transform (no visual offset) that keeps the layer a containing
+   block at every frame, matching the idle translateZ(0) set in the host CSS. */
+@keyframes ptInFwd {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateZ(0);
+  }
+}
+@keyframes ptOutFwd {
+  from {
+    transform: translateZ(0);
+  }
+  to {
+    transform: translateX(-12%);
+  }
+}
+@keyframes ptInBack {
+  from {
+    transform: translateX(-12%);
+  }
+  to {
+    transform: translateZ(0);
+  }
+}
+@keyframes ptOutBack {
+  from {
+    transform: translateZ(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* shared-axis layer keyframes — settled at translateZ(0) (see the note above the
+   iOS keyframes about why not `none`). The leading pages (in-fwd / out-back) fade
+   the whole layer; the underneath pages (out-fwd / in-back) stay opaque. */
+@keyframes ptSaInFwd {
+  from {
+    transform: translateX(30%);
+    opacity: 0;
+  }
+  to {
+    transform: translateZ(0);
+    opacity: 1;
+  }
+}
+@keyframes ptSaOutFwd {
+  from {
+    transform: translateZ(0);
+  }
+  to {
+    transform: translateX(-12%);
+  }
+}
+@keyframes ptSaInBack {
+  from {
+    transform: translateX(-12%);
+  }
+  to {
+    transform: translateZ(0);
+  }
+}
+/* back-exit: the whole leaving layer fades (bg + content together) while it
+   slides — dissolving to reveal the destination underneath. translateZ(0) (not
+   `none`) keeps the containing block stable; opacity rides with it. */
+@keyframes ptSaOutBack {
+  from {
+    transform: translateZ(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(30%);
+    opacity: 0;
+  }
+}
+
+/* ===== Reduced motion: quick opacity only, both viewports. Last wins. ===== */
+@media (prefers-reduced-motion: reduce) {
+  .pt-in-fwd,
+  .pt-in-back,
+  .pt-in-fade {
+    animation: ptFadeIn 120ms linear backwards;
+  }
+  .pt-out-fwd,
+  .pt-out-back,
+  .pt-out-fade {
+    animation: ptFadeOut 120ms linear forwards;
+    pointer-events: none;
+  }
+}
