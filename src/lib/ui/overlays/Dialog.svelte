@@ -187,7 +187,7 @@
               class={cn(
                 'pointer-events-auto flex flex-col bg-surface shadow-level-3 outline-none',
                 fullScreen
-                  ? 'absolute inset-0 rounded-none dlg-in-sheet'
+                  ? 'absolute inset-0 rounded-none dlg-in-sheet pt-[var(--safe-area-inset-top,0px)] pb-[var(--safe-area-inset-bottom,0px)]'
                   : 'max-w-lg w-full max-h-[85vh] rounded-xl overflow-hidden dlg-in-pop',
                 className,
                 contentClass,
