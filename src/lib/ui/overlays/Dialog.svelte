@@ -4,6 +4,7 @@
   import { cn } from '../utils/cn';
   import { overlayFade, dialogPop, sheet } from '../utils/motion';
   import { getOverlayLayer } from './layer-context';
+  import { openOverlay, closeOverlay } from '../../router/overlay/overlay-stack';
   import { faXmark } from '@fortawesome/free-solid-svg-icons';
   import Button from '../display/Button.svelte';
   import Icon from '../display/Icon.svelte';
@@ -60,6 +61,34 @@
   const layer = getOverlayLayer();
   const scrimZ = $derived(layer ? `z-index:${layer.z};` : '');
   const contentZ = $derived(layer ? `z-index:${layer.z + 1};` : '');
+
+  // History-back — ONLY when this Dialog is hosted by the kit modal registry (its
+  // <ModalLayer> provides the overlay layer above; standalone Dialogs have none and
+  // are untouched). Mirrors the open-state into the overlay-stack: opening pushes a
+  // synthetic history entry, and a browser/native BACK invokes our callback to flip
+  // `open=false` — so the SAME exit transition as an X/Esc close plays (no abrupt
+  // teardown). A non-back close (X/Esc/back-button/programmatic) removes the entry;
+  // idempotent, so a back press never double-pops history. The single back-interceptor
+  // this relies on is installed once by <ModalOutlet> via initOverlayStack().
+  let _overlayToken: number | null = null;
+  $effect(() => {
+    if (!layer) return;
+    const o = open;
+    if (o && _overlayToken === null) {
+      _overlayToken = openOverlay(() => { open = false; });
+    } else if (!o && _overlayToken !== null) {
+      closeOverlay(_overlayToken);
+      _overlayToken = null;
+    }
+  });
+  // Unmounted while still open (defensive): drop the entry WITHOUT an extra
+  // history.back — it is already buried under whatever navigation removed us.
+  $effect(() => () => {
+    if (_overlayToken !== null) {
+      closeOverlay(_overlayToken, { viaBack: true });
+      _overlayToken = null;
+    }
+  });
 
   function handleOpenChange(v: boolean) {
     open = v;
