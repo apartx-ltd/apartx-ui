@@ -180,14 +180,16 @@
               fullScreen ? '' : 'grid place-items-center p-4',
               'pointer-events-none',
             )}
-            style={contentZ}
+            style={fullScreen
+              ? contentZ
+              : `${contentZ}--safe-area-inset-top:0px;--safe-area-inset-bottom:0px;`}
           >
             <div
               {...props}
               class={cn(
                 'pointer-events-auto flex flex-col bg-surface shadow-level-3 outline-none',
                 fullScreen
-                  ? 'absolute inset-0 rounded-none dlg-in-sheet pt-[var(--safe-area-inset-top,0px)] pb-[var(--safe-area-inset-bottom,0px)]'
+                  ? 'absolute inset-0 rounded-none dlg-in-sheet'
                   : 'max-w-lg w-full max-h-[85vh] rounded-xl overflow-hidden dlg-in-pop',
                 className,
                 contentClass,
