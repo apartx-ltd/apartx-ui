@@ -32,7 +32,7 @@
      Toolbar nested in them doesn't double the inset (they reserve it themselves). A
      centered <Dialog> zeroes --safe-area-inset-top, collapsing this to 0. On web both
      vars are unset → 0. :global because the class is applied via cn() (not a literal),
-     so Svelte's scoped-CSS pruning would otherwise drop the rule. -->
+     so Svelte's scoped-CSS pruning would otherwise drop the rule. */
   :global(.kit-toolbar) {
     padding-top: var(--kit-safe-top, var(--safe-area-inset-top, 0px));
   }
