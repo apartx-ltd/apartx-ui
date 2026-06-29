@@ -1,0 +1,133 @@
+/*
+ * Kit keyframe animations + the classes that trigger them.
+ *
+ * Home for motion that CANNOT be expressed as a Tailwind utility (@keyframes,
+ * iOS-safe explicit-alpha scrims, animation-fill-mode tricks). Lives here as plain
+ * global CSS instead of per-component <style> blocks so it ships inside the single
+ * consumer app.css (Tailwind @import graph) — no extra scoped-CSS request per
+ * overlay. Class prefixes are component-unique (`dlg-*`, `dr-*`), so global scope
+ * is collision-free.
+ *
+ * Pulled in by the kit CSS barrel (styles/index.css). Consumers that import kit
+ * stylesheets individually (not the barrel) must add
+ * `@import 'apartx-ui/styles/animations.css';` to their Tailwind entry.
+ *
+ * Each enter animation uses `animation-fill-mode: backwards` so the `from` state is
+ * applied at the first style resolution (before paint) — no iOS first-frame flash —
+ * then reverts to the natural settled state, so a Svelte `out:` exit animates
+ * cleanly from there.
+ */
+
+/* ===== Dialog (overlays/Dialog.svelte) ===== */
+
+/* iOS-15-safe scrim: explicit alpha. Tailwind's `bg-scrim/40` compiles to
+   color-mix(), which iOS 15 Safari ignores, falling back to opaque black. */
+.dlg-scrim {
+  background-color: rgb(0 0 0 / 0.4);
+}
+.dlg-overlay-in {
+  animation: dlgOverlayIn 200ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+@keyframes dlgOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Centered dialog: fade + subtle rise & scale (mirrors motion.ts dialogPop). */
+.dlg-in-pop {
+  animation: dlgInPop 220ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+@keyframes dlgInPop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Fullscreen dialog: slide up from the bottom (mirrors motion.ts sheet bottom). */
+.dlg-in-sheet {
+  animation: dlgInSheet 260ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+@keyframes dlgInSheet {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dlg-overlay-in,
+  .dlg-in-pop,
+  .dlg-in-sheet {
+    animation-duration: 1ms;
+  }
+}
+
+/* ===== Drawer (overlays/Drawer.svelte) ===== */
+
+/* iOS-15-safe scrim: explicit alpha, no color-mix(). */
+.dr-scrim {
+  background-color: rgb(0 0 0 / 0.4);
+}
+/* Enter via @keyframes with backwards fill: the `from` (hidden) is applied before
+   paint — no first-frame flash. After the animation the element reverts to its
+   settled state, so the Svelte `out:` exit animates cleanly from there. */
+.dr-scrim-in {
+  animation: drScrimIn 200ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+@keyframes drScrimIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.dr-slide {
+  position: relative;
+  z-index: 10;
+  height: 100%;
+}
+.dr-slide-left {
+  margin-right: auto;
+  animation: drInLeft 260ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+.dr-slide-right {
+  margin-left: auto;
+  animation: drInRight 260ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+@keyframes drInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes drInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dr-scrim-in,
+  .dr-slide-left,
+  .dr-slide-right {
+    animation-duration: 1ms;
+  }
+}

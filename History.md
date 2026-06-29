@@ -2,6 +2,29 @@
 
 ## 2026-06-29
 
+### Версия 0.1.24
+
+### Изменено
+
+* **`<style>`-блоки убраны из `Header`/`Footer`/`Toolbar` — safe-area теперь на Tailwind.**
+  Per-component scoped-CSS давал лишний CSS-запрос в проде. Инсеты переписаны на TW
+  arbitrary-классы (едут в общий app.css потребителя):
+  - `Header`: `pt-[var(--safe-area-inset-top,0px)] [--kit-safe-top:0px]`;
+  - `Footer`: `pb-[var(--safe-area-inset-bottom,0px)] [--kit-safe-top:0px]`;
+  - `Toolbar`: `pt-[var(--kit-safe-top,var(--safe-area-inset-top,0px))]`; неиспользуемый
+    класс-хук `kit-toolbar` убран.
+  Каскад `--kit-safe-top` сохранён (custom-property ставится на сам элемент → наследуется в поддерево).
+
+* **Keyframe-анимации overlay'ев вынесены из `<style>` в общий `styles/animations.css`.**
+  `Dialog` (scrim + pop/sheet) и `Drawer` (scrim + slide) не выразить чистым TW (`@keyframes`,
+  iOS-safe `rgb()`-scrim, `animation-fill-mode: backwards`), поэтому их CSS переехал из
+  per-component `<style>` в новый plain-global файл — едет в едином app.css, без отдельного
+  scoped-запроса на overlay. Подключён в баррель `styles/index.css`.
+  **Миграция:** потребители, импортящие kit-стили поштучно (а не баррель `apartx-ui/styles`),
+  должны добавить `@import 'apartx-ui/styles/animations.css';`.
+
+## 2026-06-29
+
 ### Версия 0.1.23
 
 ### Изменено
