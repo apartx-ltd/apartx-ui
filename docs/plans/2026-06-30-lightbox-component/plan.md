@@ -137,11 +137,11 @@ Create `src/lib/lightbox/Lightbox.svelte` with exactly this content:
     images: LightboxImage[];
     /** Show/hide the viewer. Bindable — viewerjs-driven closes flip it back to false. */
     open?: boolean;
-    /** Active / starting image index. Bindable. */
+    /** Which image to open at (starting index). Bindable; not written back as the user navigates inside the viewer. */
     index?: number;
     /** Fires when the viewer closes (ESC / backdrop / close button / `open=false`). */
     onClose?: () => void;
-    /** Escape hatch: merged into `new Viewer(el, { ...defaults, ...options })`. */
+    /** Escape hatch merged into `new Viewer(el, { ...defaults, ...options })`. Pass a STABLE reference — read once when the viewer is built. */
     options?: Record<string, any>;
   } = $props();
 
@@ -174,16 +174,20 @@ Create `src/lib/lightbox/Lightbox.svelte` with exactly this content:
     onClose?.();
   }
 
+  // Show the viewer at image `i`, clamped into range. No-op for an empty set, so
+  // `shown` only ever flips true when the viewer actually showed (viewerjs's
+  // view() silently ignores out-of-range / empty indices, which would otherwise
+  // desync `shown` and wedge the open/close logic).
   function openAt(i: number) {
-    if (!viewer) return;
-    viewer.view(i); // in modal mode, view() shows the viewer at that image
+    if (!viewer || images.length === 0) return;
+    viewer.view(Math.max(0, Math.min(i, images.length - 1)));
     shown = true;
   }
 
   // (Re)build the Viewer when the ctor becomes ready, the gallery element exists,
-  // or the image set changes. `void images` registers the dependency so a changed
-  // image set tears down and rebuilds (the hidden <li> list has already been
-  // re-rendered by the time this effect runs).
+  // or the image set changes. Only `images` (plus ctor/element) is a dependency:
+  // `zIndex` and `options` are read via untrack so a layer-band change or a new
+  // inline `options` object can't tear down and rebuild a live viewer mid-use.
   $effect(() => {
     void images;
     const Ctor = ViewerCtor;
@@ -192,7 +196,7 @@ Create `src/lib/lightbox/Lightbox.svelte` with exactly this content:
 
     viewer?.destroy();
     shown = false;
-    viewer = new Ctor(el, { inline: false, focus: false, zIndex, ...options });
+    viewer = new Ctor(el, untrack(() => ({ inline: false, focus: false, zIndex, ...options })));
     el.addEventListener('hidden', onHidden);
 
     // Honour an `open` that was set before the instance existed.
@@ -206,16 +210,15 @@ Create `src/lib/lightbox/Lightbox.svelte` with exactly this content:
     };
   });
 
-  // React to open/index changes. Reads of `viewer`/`shown` are intentionally
-  // untracked (plain vars) so this effect's only deps are `open` and `index`.
+  // React to open/index changes. Reads of `viewer`/`shown`/`images` are
+  // intentionally untracked so this effect's only deps are `open` and `index`.
   $effect(() => {
     const o = open;
     const i = index;
     untrack(() => {
       if (!viewer) return;
-      if (o && !shown) openAt(i);
-      else if (o && shown) viewer.view(i); // already open → switch image
-      else if (!o && shown) viewer.hide();
+      if (o) openAt(i); // open at / switch to image i (clamped; sets shown)
+      else if (shown) viewer.hide();
     });
   });
 </script>
