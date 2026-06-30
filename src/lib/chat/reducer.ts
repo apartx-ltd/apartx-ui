@@ -37,3 +37,7 @@ export function applyOlderPage(w: MessageWindow, page: Message[], pageSize: numb
     olderStatus: page.length < pageSize ? 'exhausted' : 'idle',
   };
 }
+
+export function applyLiveUpsert(w: MessageWindow, message: Message): MessageWindow {
+  return { ...w, messages: mergeById(w.messages, [message]) };
+}

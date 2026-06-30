@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { emptyWindow, applyInitialPage, applyOlderPage } from './reducer';
+import { emptyWindow, applyInitialPage, applyOlderPage, applyLiveUpsert } from './reducer';
 import type { Message } from './types';
 
 const m = (id: string, seq: number): Message => ({ _id: id, chatId: 'c', seq, createdAt: new Date(seq * 1000) });
@@ -28,5 +28,20 @@ describe('reducer: pages', () => {
     w = applyOlderPage(w, [m('a', 1), m('b', 2)], 5); // 'b' overlaps
     expect(w.messages.map((x) => x._id)).to.deep.equal(['a', 'b', 'c']);
     expect(w.olderStatus).to.equal('exhausted');
+  });
+});
+
+describe('reducer: live upsert', () => {
+  it('inserts a new message in seq order', () => {
+    let w = applyInitialPage(emptyWindow(), [m('a', 1), m('c', 3)], 5);
+    w = applyLiveUpsert(w, m('b', 2));
+    expect(w.messages.map((x) => x._id)).to.deep.equal(['a', 'b', 'c']);
+  });
+
+  it('replaces an existing message by _id (e.g. delivery state change) without duplicating', () => {
+    let w = applyInitialPage(emptyWindow(), [m('a', 1)], 5);
+    w = applyLiveUpsert(w, { ...m('a', 1), delivery: 'read' });
+    expect(w.messages).to.have.length(1);
+    expect(w.messages[0].delivery).to.equal('read');
   });
 });
