@@ -182,9 +182,19 @@ export function createMockTransport(): MockController {
       liveIds.push(id);
       const answer = AI_ANSWERS[seq % AI_ANSWERS.length];
       const base = { _id: id, chatId: CHAT_ID, seq, userId: AI, type: 'ai', createdAt: new Date() } as const;
-      // Show "typing…" first, then live-upsert the same message with the answer.
+      const tokens = answer.split(' ');
+      const startDelay = 400;   // brief "typing…" before the first token
+      const perToken = 70;      // generation speed (ms per token)
+      // Show "typing…" first, then stream the answer token-by-token via repeated live-upserts of the same id.
       emit({ type: 'upsert', message: { ...base, text: '', meta: { pending: true } } });
-      timers.push(setTimeout(() => emit({ type: 'upsert', message: { ...base, text: answer } }), 1_200));
+      for (let i = 0; i < tokens.length; i++) {
+        const partial = tokens.slice(0, i + 1).join(' ');
+        const last = i === tokens.length - 1;
+        timers.push(setTimeout(
+          () => emit({ type: 'upsert', message: { ...base, text: partial, meta: last ? undefined : { streaming: true } } }),
+          startDelay + i * perToken,
+        ));
+      }
     },
     deleteNewest(hard: boolean) {
       const id = liveIds[liveIds.length - 1];
