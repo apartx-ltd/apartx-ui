@@ -67,6 +67,10 @@
       "svelte": "./src/lib/carousel/index.ts",
       "types": "./src/lib/carousel/index.ts"
     },
+    "./lightbox": {
+      "svelte": "./src/lib/lightbox/index.ts",
+      "types": "./src/lib/lightbox/index.ts"
+    },
     "./maps": {
       "svelte": "./src/lib/maps/index.ts",
       "types": "./src/lib/maps/index.ts"
@@ -106,6 +110,7 @@
     "svelte-sonner": "^1.1.0",
     "swiper": "^11.2.10",
     "tailwind-merge": "^3.5.0",
+    "viewerjs": "^1.11.6",
     "virtua": "^0.49.1",
     "zod": "^4.3.6"
   },
