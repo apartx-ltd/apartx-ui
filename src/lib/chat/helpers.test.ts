@@ -33,8 +33,10 @@ describe('grouping', () => {
     expect(groupStart(m({ userId: 'u1' }), null)).to.equal(true);
   });
   it('showDate true on a new calendar day', () => {
-    const prev = m({ createdAt: new Date('2026-06-29T23:00:00Z') });
-    expect(showDate(m({ createdAt: new Date('2026-06-30T01:00:00Z') }), prev)).to.equal(true);
-    expect(showDate(m({ createdAt: new Date('2026-06-29T23:30:00Z') }), prev)).to.equal(false);
+    // Build dates from LOCAL components (Date(y, monthIndex, d, h, m)) so the assertions are timezone-independent —
+    // showDate compares local date parts, so UTC `Z` literals would flip depending on the runner's timezone.
+    const prev = m({ createdAt: new Date(2026, 5, 29, 23, 0, 0) });        // Jun 29, 23:00 local
+    expect(showDate(m({ createdAt: new Date(2026, 5, 30, 1, 0, 0) }), prev)).to.equal(true);   // Jun 30 → new day
+    expect(showDate(m({ createdAt: new Date(2026, 5, 29, 23, 30, 0) }), prev)).to.equal(false); // same day
   });
 });
