@@ -1,15 +1,18 @@
 <script lang="ts">
   import MessagesList from '../virtual/MessagesList.svelte';
   import Message from './Message.svelte';
+  import { chatT } from './i18n';
   import type { ChatSession } from './session.svelte';
   import type { Message as ChatMessage } from './types';
 
-  let { session, meUserId, labelFor, readDebounceMs = 600 }:
+  let { session, meUserId, labelFor, deletedLabel = chatT('chat.message_deleted', { defaultValue: 'Message deleted' }), readDebounceMs = 600 }:
     {
       session: ChatSession;
       meUserId?: string;
       /** Per-message label provider (host formats time/date/author with its i18n). */
       labelFor?: (m: ChatMessage) => { timeLabel?: string; dateLabel?: string; authorName?: string };
+      /** Placeholder shown in place of a soft-deleted message's body. */
+      deletedLabel?: string;
       readDebounceMs?: number;
     } = $props();
 
@@ -49,6 +52,7 @@
       authorName={labels.authorName ?? ''}
       timeLabel={labels.timeLabel ?? ''}
       dateLabel={labels.dateLabel ?? ''}
+      {deletedLabel}
       onRead={noteRead}
     />
   {/snippet}

@@ -56,6 +56,9 @@ export function createMockTransport(): MockController {
   let emit: (e: LiveEvent) => void = () => {};
   let inboundTimer: ReturnType<typeof setInterval> | null = null;
   const timers: ReturnType<typeof setTimeout>[] = [];
+  // Ordered ids of live (non-deleted) messages, newest last — so deleteNewest targets the real newest
+  // regardless of whether it was sent (`s…`) or inbound (`in…`).
+  const liveIds: string[] = history.map((m) => m._id);
 
   const ctl: MockController = {
     failNextSend: false,
@@ -73,14 +76,19 @@ export function createMockTransport(): MockController {
         return () => { if (inboundTimer) clearInterval(inboundTimer); inboundTimer = null; emit = () => {}; };
       },
       async sendMessage(draft: OutgoingDraft) {
+        // Allocate the seq at submission time (mirrors a real server appending in submit order), BEFORE the
+        // network delay — otherwise an inbound arriving during the delay would grab a lower seq and sort above
+        // the message the user already hit Send on.
+        const seq = ++maxSeq;
+        const id = `s${seq}`;
         await delay(500);
         if (ctl.failNextSend) { ctl.failNextSend = false; throw new Error('mock send failure'); }
-        const seq = ++maxSeq;
         const server: Message = {
-          _id: `s${seq}`, chatId: CHAT_ID, seq, userId: ME, text: draft.text,
+          _id: id, chatId: CHAT_ID, seq, userId: ME, text: draft.text,
           createdAt: new Date(), delivery: 'sent',
           meta: { clientToken: draft.clientToken, replyMessageId: draft.replyMessageId },
         };
+        liveIds.push(id);
         timers.push(setTimeout(() => emit({ type: 'upsert', message: { ...server, delivery: 'delivered' } }), 900));
         timers.push(setTimeout(() => emit({ type: 'upsert', message: { ...server, delivery: 'read' } }), 2_400));
         return server;
@@ -89,13 +97,17 @@ export function createMockTransport(): MockController {
     },
     injectInbound(text?: string) {
       const seq = ++maxSeq;
+      const id = `in${seq}`;
+      liveIds.push(id);
       emit({
         type: 'upsert',
-        message: { _id: `in${seq}`, chatId: CHAT_ID, seq, userId: THEM, text: text ?? THEM_LINES[seq % THEM_LINES.length], createdAt: new Date() },
+        message: { _id: id, chatId: CHAT_ID, seq, userId: THEM, text: text ?? THEM_LINES[seq % THEM_LINES.length], createdAt: new Date() },
       });
     },
     deleteNewest(hard: boolean) {
-      const id = `s${maxSeq}`;
+      const id = liveIds[liveIds.length - 1];
+      if (!id) return;
+      if (hard) liveIds.pop();
       emit({ type: 'delete', targetId: id, hard });
     },
     dispose() {
