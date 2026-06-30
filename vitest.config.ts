@@ -1,8 +1,10 @@
 import { defineConfig } from 'vitest/config';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 
-// Pure-unit config: node env, no SvelteKit plugin (the util under test has no
-// Svelte/DOM deps). Component/visual checks live in svelte-check + the apps.
+// node env + svelte plugin: pure-.ts suites run as before; rune-bearing `.svelte.ts`
+// modules (composer/session) are compiled so their $state getters work under test.
 export default defineConfig({
+  plugins: [svelte()],
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],

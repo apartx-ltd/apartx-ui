@@ -34,6 +34,9 @@ export * from './theme';
 // re-exported here — import it from the `apartx-ui/virtual` subpath so the
 // `virtua` dependency stays out of bundles that don't need it.
 
+// Chat (message engine + components)
+export * from './chat';
+
 // Utils
 export { cn } from './ui/utils/cn';
 export * from './ui/utils/date';
