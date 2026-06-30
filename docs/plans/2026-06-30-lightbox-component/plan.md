@@ -82,10 +82,10 @@ Expected: `viewerjs` added to `node_modules`; `package-lock.json` updated; no er
 Run:
 
 ```bash
-ls node_modules/viewerjs/dist/viewer.css node_modules/viewerjs/dist/viewer.d.ts
+ls node_modules/viewerjs/dist/viewer.css node_modules/viewerjs/types/index.d.ts
 ```
 
-Expected: both paths print (CSS file the component imports + the bundled TS types exist).
+Expected: both paths print (CSS file the component imports + viewerjs's bundled TS types, declared via its package `types` field — auto-resolved by TS, no explicit path needed).
 
 - [ ] **Step 6: Commit**
 
@@ -242,7 +242,7 @@ Run:
 cd /Users/boomfly/Projects/apartx/projects/apartx-ui && npm run check 2>&1 | rg -i "lightbox" || echo "no lightbox-specific errors"
 ```
 
-Expected: `no lightbox-specific errors` (the kit has pre-existing type noise elsewhere; what matters is that `Lightbox.svelte` adds none). If a `viewerjs` type error appears, confirm `node_modules/viewerjs/dist/viewer.d.ts` exists (Task 1 Step 5).
+Expected: `no lightbox-specific errors` (the kit has pre-existing type noise elsewhere; what matters is that `Lightbox.svelte` adds none). If a `viewerjs` type error appears, confirm `node_modules/viewerjs/types/index.d.ts` exists (Task 1 Step 5) — TS resolves it via viewerjs's package `types` field automatically.
 
 - [ ] **Step 3: Full build gate**
 
