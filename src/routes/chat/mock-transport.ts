@@ -9,6 +9,8 @@ export interface MockController {
   transport: ChatTransport;
   /** Push a new incoming message from the other party. */
   injectInbound(text?: string): void;
+  /** Push a new incoming photo message (type 'image' with meta.images). */
+  injectPhoto(): void;
   /** When true, the next sendMessage() rejects (to demo failed → retry). */
   failNextSend: boolean;
   /** When true, the next fetchOlder() rejects (to demo olderStatus 'error'). */
@@ -25,6 +27,16 @@ const THEM_LINES = [
   'Thanks, see you then 👍',
 ];
 
+type Photo = { src: string; alt: string };
+const photo = (seed: string, alt: string): Photo => ({ src: `https://picsum.photos/seed/${seed}/480/360`, alt });
+
+// Reusable photo sets for the demo's media messages (single image and galleries).
+const PHOTO_SETS: Photo[][] = [
+  [photo('apartx-balcony', 'Balcony view')],
+  [photo('apartx-living', 'Living room'), photo('apartx-kitchen', 'Kitchen'), photo('apartx-bedroom', 'Bedroom')],
+  [photo('apartx-street', 'Street view'), photo('apartx-lobby', 'Lobby')],
+];
+
 function buildHistory(): Message[] {
   const now = Date.now();
   const out: Message[] = [];
@@ -39,6 +51,20 @@ function buildHistory(): Message[] {
     }
     if (seq === 8) {
       out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: ME, type: 'booking', text: 'Booking #A-1042', createdAt, delivery: 'read', meta: { checkIn: '2026-07-02', checkOut: '2026-07-09', guests: 2 } });
+      continue;
+    }
+    if (seq === 15) {
+      // An older media message (visible after scrolling up to load earlier pages).
+      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: THEM, type: 'image', text: 'Here is the view from the balcony 🌇', createdAt, meta: { images: PHOTO_SETS[0] } });
+      continue;
+    }
+    if (seq === 50) {
+      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: THEM, type: 'image', text: 'Here is the view from the balcony 🌇', createdAt, meta: { images: PHOTO_SETS[0] } });
+      continue;
+    }
+    if (seq === 54) {
+      // A gallery in the initial window so media is visible on load.
+      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: ME, type: 'image', text: 'Sending a few shots of the place', createdAt, delivery: 'read', meta: { images: PHOTO_SETS[1] } });
       continue;
     }
     out.push({
@@ -102,6 +128,15 @@ export function createMockTransport(): MockController {
       emit({
         type: 'upsert',
         message: { _id: id, chatId: CHAT_ID, seq, userId: THEM, text: text ?? THEM_LINES[seq % THEM_LINES.length], createdAt: new Date() },
+      });
+    },
+    injectPhoto() {
+      const seq = ++maxSeq;
+      const id = `in${seq}`;
+      liveIds.push(id);
+      emit({
+        type: 'upsert',
+        message: { _id: id, chatId: CHAT_ID, seq, userId: THEM, type: 'image', text: 'Sharing a couple of photos 📸', createdAt: new Date(), meta: { images: PHOTO_SETS[2] } },
       });
     },
     deleteNewest(hard: boolean) {

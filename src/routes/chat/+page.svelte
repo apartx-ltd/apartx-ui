@@ -7,6 +7,7 @@
   import { createMockTransport } from './mock-transport';
   import SystemSlotBody from './demo-renderers/SystemSlotBody.svelte';
   import BookingSlotBody from './demo-renderers/BookingSlotBody.svelte';
+  import MediaSlot from './demo-renderers/MediaSlot.svelte';
 
   setChatI18n((key, opts) => (opts?.defaultValue as string) ?? key);
 
@@ -14,6 +15,7 @@
   setMessageRendererRegistry({
     system: { header: null, body: SystemSlotBody, time: null },
     booking: { body: BookingSlotBody },
+    image: { media: MediaSlot },
   });
 
   const mock = createMockTransport();
@@ -64,6 +66,7 @@
   <aside class="hidden w-64 shrink-0 flex-col gap-2 sm:flex">
     <div class="text-label-lg text-on-surface-variant">Simulate</div>
     <button class="rounded-md bg-surface-variant px-3 py-2 text-left text-label-lg" onclick={() => mock.injectInbound()}>📥 Incoming message</button>
+    <button class="rounded-md bg-surface-variant px-3 py-2 text-left text-label-lg" onclick={() => mock.injectPhoto()}>🖼 Incoming photo</button>
     <button class="rounded-md bg-surface-variant px-3 py-2 text-left text-label-lg" onclick={() => (mock.failNextSend = true)}>💥 Fail next send (→ retry)</button>
     <button class="rounded-md bg-surface-variant px-3 py-2 text-left text-label-lg" onclick={() => (mock.failNextFetch = true)}>⛔ Fail next loadOlder</button>
     <button class="rounded-md bg-surface-variant px-3 py-2 text-left text-label-lg" onclick={() => mock.deleteNewest(false)}>🗑 Soft-delete newest</button>
