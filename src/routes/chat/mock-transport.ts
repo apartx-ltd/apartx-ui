@@ -1,0 +1,111 @@
+import type { ChatTransport, LiveEvent, Message, OutgoingDraft } from '$lib/chat';
+
+const CHAT_ID = 'demo-chat';
+const ME = 'me';
+const THEM = 'them';
+
+/** Controller exposing demo levers beyond the ChatTransport interface. */
+export interface MockController {
+  transport: ChatTransport;
+  /** Push a new incoming message from the other party. */
+  injectInbound(text?: string): void;
+  /** When true, the next sendMessage() rejects (to demo failed → retry). */
+  failNextSend: boolean;
+  /** When true, the next fetchOlder() rejects (to demo olderStatus 'error'). */
+  failNextFetch: boolean;
+  /** Emit a delete live-event for the newest message. */
+  deleteNewest(hard: boolean): void;
+  dispose(): void;
+}
+
+const THEM_LINES = [
+  'Hi! Is the apartment still available?',
+  'Great — what time can I check in?',
+  'Could you send the address again?',
+  'Thanks, see you then 👍',
+];
+
+function buildHistory(): Message[] {
+  const now = Date.now();
+  const out: Message[] = [];
+  const total = 60;
+  for (let i = 0; i < total; i++) {
+    const seq = i + 1;
+    const mine = i % 2 === 0;
+    const createdAt = new Date(now - (total - i) * 60_000);
+    if (seq === 3) {
+      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, type: 'system', text: 'Tenant joined the chat', createdAt });
+      continue;
+    }
+    if (seq === 8) {
+      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: ME, type: 'booking', text: 'Booking #A-1042', createdAt, delivery: 'read', meta: { checkIn: '2026-07-02', checkOut: '2026-07-09', guests: 2 } });
+      continue;
+    }
+    out.push({
+      _id: `h${seq}`, chatId: CHAT_ID, seq, userId: mine ? ME : THEM,
+      text: mine ? `Sure, message ${seq}.` : THEM_LINES[i % THEM_LINES.length],
+      createdAt, delivery: mine ? 'read' : undefined,
+    });
+  }
+  return out;
+}
+
+export function createMockTransport(): MockController {
+  const history = buildHistory();              // ascending by seq
+  let maxSeq = history.length;
+  let emit: (e: LiveEvent) => void = () => {};
+  let inboundTimer: ReturnType<typeof setInterval> | null = null;
+  const timers: ReturnType<typeof setTimeout>[] = [];
+
+  const ctl: MockController = {
+    failNextSend: false,
+    failNextFetch: false,
+    transport: {
+      async fetchOlder({ before, limit }) {
+        await delay(450);
+        if (ctl.failNextFetch) { ctl.failNextFetch = false; throw new Error('mock fetch failure'); }
+        const older = before ? history.filter((mm) => mm.createdAt < before!) : history;
+        return older.slice(Math.max(0, older.length - limit));
+      },
+      subscribeLive(_chatId, onEvent) {
+        emit = onEvent;
+        inboundTimer = setInterval(() => ctl.injectInbound(), 9_000);
+        return () => { if (inboundTimer) clearInterval(inboundTimer); inboundTimer = null; emit = () => {}; };
+      },
+      async sendMessage(draft: OutgoingDraft) {
+        await delay(500);
+        if (ctl.failNextSend) { ctl.failNextSend = false; throw new Error('mock send failure'); }
+        const seq = ++maxSeq;
+        const server: Message = {
+          _id: `s${seq}`, chatId: CHAT_ID, seq, userId: ME, text: draft.text,
+          createdAt: new Date(), delivery: 'sent',
+          meta: { clientToken: draft.clientToken, replyMessageId: draft.replyMessageId },
+        };
+        timers.push(setTimeout(() => emit({ type: 'upsert', message: { ...server, delivery: 'delivered' } }), 900));
+        timers.push(setTimeout(() => emit({ type: 'upsert', message: { ...server, delivery: 'read' } }), 2_400));
+        return server;
+      },
+      async markRead() { await delay(50); },
+    },
+    injectInbound(text?: string) {
+      const seq = ++maxSeq;
+      emit({
+        type: 'upsert',
+        message: { _id: `in${seq}`, chatId: CHAT_ID, seq, userId: THEM, text: text ?? THEM_LINES[seq % THEM_LINES.length], createdAt: new Date() },
+      });
+    },
+    deleteNewest(hard: boolean) {
+      const id = `s${maxSeq}`;
+      emit({ type: 'delete', targetId: id, hard });
+    },
+    dispose() {
+      if (inboundTimer) clearInterval(inboundTimer);
+      timers.forEach(clearTimeout);
+    },
+  };
+  return ctl;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
