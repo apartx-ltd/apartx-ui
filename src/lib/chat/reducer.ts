@@ -61,3 +61,11 @@ export function failSend(w: MessageWindow, tempId: string): MessageWindow {
     messages: w.messages.map((x) => (x._id === tempId ? { ...x, sendState: 'failed' } : x)),
   };
 }
+
+export function applyDelete(w: MessageWindow, targetId: string, hard: boolean): MessageWindow {
+  if (hard) return { ...w, messages: w.messages.filter((x) => x._id !== targetId) };
+  return {
+    ...w,
+    messages: w.messages.map((x) => (x._id === targetId ? { ...x, removedAt: new Date() } : x)),
+  };
+}

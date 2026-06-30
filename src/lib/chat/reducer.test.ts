@@ -46,7 +46,7 @@ describe('reducer: live upsert', () => {
   });
 });
 
-import { applyOptimisticSend, resolveSend, failSend } from './reducer';
+import { applyOptimisticSend, resolveSend, failSend, applyDelete } from './reducer';
 
 describe('reducer: optimistic send', () => {
   it('appends a sending message at the tail (no seq → newest)', () => {
@@ -75,5 +75,20 @@ describe('reducer: optimistic send', () => {
     let w = applyOptimisticSend(emptyWindow(), { _id: 'tmp1', chatId: 'c', text: 'hi', createdAt: new Date(1), sendState: 'sending', meta: { clientToken: 'tok1' } });
     w = failSend(w, 'tmp1');
     expect(w.messages[0].sendState).to.equal('failed');
+  });
+});
+
+describe('reducer: delete', () => {
+  it('soft delete marks removedAt but keeps the message', () => {
+    let w = applyInitialPage(emptyWindow(), [m('a', 1), m('b', 2)], 5);
+    w = applyDelete(w, 'a', false);
+    expect(w.messages).to.have.length(2);
+    expect(w.messages[0].removedAt).to.be.instanceOf(Date);
+  });
+
+  it('hard delete drops the message', () => {
+    let w = applyInitialPage(emptyWindow(), [m('a', 1), m('b', 2)], 5);
+    w = applyDelete(w, 'a', true);
+    expect(w.messages.map((x) => x._id)).to.deep.equal(['b']);
   });
 });
