@@ -1,6 +1,10 @@
 @import 'tailwindcss';
 @import '$lib/styles/tokens.css';
 @import '$lib/styles/typescale.css';
+/* Global rules PageTransition/PageLayer rely on (.pt-layer absolute inset:0,
+   .pt-content height:100%, slide/fade keyframes). Without this, fill-height pages
+   (e.g. /chat) collapse to content height and transitions don't animate. */
+@import '$lib/styles/page-transitions.css';
 
 /* Scan the library and the demo routes for Tailwind class usage. */
 @source './lib/**/*.{svelte,ts}';
