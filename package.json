@@ -75,6 +75,10 @@
       "svelte": "./src/lib/maps/index.ts",
       "types": "./src/lib/maps/index.ts"
     },
+    "./chat": {
+      "svelte": "./src/lib/chat/index.ts",
+      "types": "./src/lib/chat/index.ts"
+    },
     "./styles": "./src/lib/styles/index.css",
     "./styles/*": "./src/lib/styles/*"
   },
