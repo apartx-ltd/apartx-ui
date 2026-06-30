@@ -13,6 +13,8 @@ export interface MockController {
   injectPhoto(): void;
   /** Push a new incoming video message (type 'video' with meta { src, poster, mime }). */
   injectVideo(): void;
+  /** Push an AI assistant message: shows "typing…" then live-upserts the answer. */
+  injectAi(): void;
   /** When true, the next sendMessage() rejects (to demo failed → retry). */
   failNextSend: boolean;
   /** When true, the next fetchOlder() rejects (to demo olderStatus 'error'). */
@@ -27,6 +29,13 @@ const THEM_LINES = [
   'Great — what time can I check in?',
   'Could you send the address again?',
   'Thanks, see you then 👍',
+];
+
+const AI = 'ai-assistant';
+const AI_ANSWERS = [
+  'Check-in is from 14:00. The lockbox code will be sent 1 hour before arrival.',
+  'The apartment is a 7-minute walk from the metro. I can share a map pin if helpful.',
+  'Yes, early check-in is possible for an extra fee — would you like me to request it?',
 ];
 
 type Photo = { src: string; alt: string };
@@ -79,6 +88,11 @@ function buildHistory(): Message[] {
     if (seq === 57) {
       // A video message in the initial window.
       out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: THEM, type: 'video', text: 'Quick walkthrough of the apartment 🎬', createdAt, meta: VIDEO });
+      continue;
+    }
+    if (seq === 58) {
+      // An AI assistant message in the initial window.
+      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: AI, type: 'ai', text: AI_ANSWERS[0], createdAt });
       continue;
     }
     out.push({
@@ -161,6 +175,16 @@ export function createMockTransport(): MockController {
         type: 'upsert',
         message: { _id: id, chatId: CHAT_ID, seq, userId: THEM, type: 'video', text: 'Sending a short clip 🎬', createdAt: new Date(), meta: VIDEO },
       });
+    },
+    injectAi() {
+      const seq = ++maxSeq;
+      const id = `in${seq}`;
+      liveIds.push(id);
+      const answer = AI_ANSWERS[seq % AI_ANSWERS.length];
+      const base = { _id: id, chatId: CHAT_ID, seq, userId: AI, type: 'ai', createdAt: new Date() } as const;
+      // Show "typing…" first, then live-upsert the same message with the answer.
+      emit({ type: 'upsert', message: { ...base, text: '', meta: { pending: true } } });
+      timers.push(setTimeout(() => emit({ type: 'upsert', message: { ...base, text: answer } }), 1_200));
     },
     deleteNewest(hard: boolean) {
       const id = liveIds[liveIds.length - 1];
