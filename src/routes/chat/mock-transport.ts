@@ -11,6 +11,8 @@ export interface MockController {
   injectInbound(text?: string): void;
   /** Push a new incoming photo message (type 'image' with meta.images). */
   injectPhoto(): void;
+  /** Push a new incoming video message (type 'video' with meta { src, poster, mime }). */
+  injectVideo(): void;
   /** When true, the next sendMessage() rejects (to demo failed → retry). */
   failNextSend: boolean;
   /** When true, the next fetchOlder() rejects (to demo olderStatus 'error'). */
@@ -36,6 +38,13 @@ const PHOTO_SETS: Photo[][] = [
   [photo('apartx-living', 'Living room'), photo('apartx-kitchen', 'Kitchen'), photo('apartx-bedroom', 'Bedroom')],
   [photo('apartx-street', 'Street view'), photo('apartx-lobby', 'Lobby')],
 ];
+
+// A public sample clip for the demo's video messages.
+const VIDEO = {
+  src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+  poster: 'https://picsum.photos/seed/apartx-tour/480/270',
+  mime: 'video/mp4',
+};
 
 function buildHistory(): Message[] {
   const now = Date.now();
@@ -65,6 +74,11 @@ function buildHistory(): Message[] {
     if (seq === 54) {
       // A gallery in the initial window so media is visible on load.
       out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: ME, type: 'image', text: 'Sending a few shots of the place', createdAt, delivery: 'read', meta: { images: PHOTO_SETS[1] } });
+      continue;
+    }
+    if (seq === 57) {
+      // A video message in the initial window.
+      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: THEM, type: 'video', text: 'Quick walkthrough of the apartment 🎬', createdAt, meta: VIDEO });
       continue;
     }
     out.push({
@@ -137,6 +151,15 @@ export function createMockTransport(): MockController {
       emit({
         type: 'upsert',
         message: { _id: id, chatId: CHAT_ID, seq, userId: THEM, type: 'image', text: 'Sharing a couple of photos 📸', createdAt: new Date(), meta: { images: PHOTO_SETS[2] } },
+      });
+    },
+    injectVideo() {
+      const seq = ++maxSeq;
+      const id = `in${seq}`;
+      liveIds.push(id);
+      emit({
+        type: 'upsert',
+        message: { _id: id, chatId: CHAT_ID, seq, userId: THEM, type: 'video', text: 'Sending a short clip 🎬', createdAt: new Date(), meta: VIDEO },
       });
     },
     deleteNewest(hard: boolean) {

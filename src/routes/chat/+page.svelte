@@ -8,6 +8,7 @@
   import SystemSlotBody from './demo-renderers/SystemSlotBody.svelte';
   import BookingSlotBody from './demo-renderers/BookingSlotBody.svelte';
   import MediaSlot from './demo-renderers/MediaSlot.svelte';
+  import VideoSlot from './demo-renderers/VideoSlot.svelte';
 
   setChatI18n((key, opts) => (opts?.defaultValue as string) ?? key);
 
@@ -16,6 +17,7 @@
     system: { header: null, body: SystemSlotBody, time: null },
     booking: { body: BookingSlotBody },
     image: { media: MediaSlot },
+    video: { media: VideoSlot },
   });
 
   const mock = createMockTransport();
@@ -67,6 +69,7 @@
     <div class="text-label-lg text-on-surface-variant">Simulate</div>
     <button class="rounded-md bg-surface-variant px-3 py-2 text-left text-label-lg" onclick={() => mock.injectInbound()}>📥 Incoming message</button>
     <button class="rounded-md bg-surface-variant px-3 py-2 text-left text-label-lg" onclick={() => mock.injectPhoto()}>🖼 Incoming photo</button>
+    <button class="rounded-md bg-surface-variant px-3 py-2 text-left text-label-lg" onclick={() => mock.injectVideo()}>🎬 Incoming video</button>
     <button class="rounded-md bg-surface-variant px-3 py-2 text-left text-label-lg" onclick={() => (mock.failNextSend = true)}>💥 Fail next send (→ retry)</button>
     <button class="rounded-md bg-surface-variant px-3 py-2 text-left text-label-lg" onclick={() => (mock.failNextFetch = true)}>⛔ Fail next loadOlder</button>
     <button class="rounded-md bg-surface-variant px-3 py-2 text-left text-label-lg" onclick={() => mock.deleteNewest(false)}>🗑 Soft-delete newest</button>
