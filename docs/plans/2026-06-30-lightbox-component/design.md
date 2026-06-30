@@ -2,15 +2,21 @@
 
 Date: 2026-06-30
 Repo: apartx-ui (Svelte 5 UI Kit) — github apartx-ltd/apartx-ui
-Consumer migration: apartx-cabinet `feature/self-checkin-svelte`
 
 ## Goal
 
 Add a reusable image **Lightbox** to the kit so all consumers (verification,
 chat attachments, property photos, …) share one styled, accessible image viewer
-instead of each wiring `viewerjs` by hand. Then migrate the cabinet check-in
-modal (`CheckinDetailsModal.svelte`) off its raw `viewerjs` usage onto the new
-kit component.
+instead of each wiring `viewerjs` by hand.
+
+## Scope
+
+**This task: the kit component only — no consumer migration.** The cabinet
+check-in modal (`CheckinDetailsModal.svelte`) currently wires `viewerjs` by hand;
+migrating it onto this component is deferred to a separate follow-up change and is
+explicitly out of scope here. The component is designed to support that future
+migration (see "Future consumer migration" below), but nothing in the cabinet is
+touched now.
 
 ## Approach decision — wrap viewerjs (not build-native)
 
@@ -59,16 +65,15 @@ surface area minimal.
   - `!open && shown` → `viewer.hide()`
 - `viewerjs` `hidden` event → set `open = false` + call `onClose?.()`, so ESC /
   backdrop / close-button all flow back through the binding.
-- `$effect` rebuilds the `Viewer` when `images` changes (mirrors the cabinet's
-  current `void imageUrls.length` re-instantiate); `viewer.destroy()` on
+- `$effect` rebuilds the `Viewer` when `images` changes; `viewer.destroy()` on
   teardown.
 - **Layer-aware z-index:** read `getOverlayLayer()` and pass viewerjs
   `zIndex: layer ? Math.max(2015, layer.z + 10) : 2015`. viewerjs's default 2015
   already beats the kit's small overlay z-bands (modal registry: BASE 60, STEP
   10), but this makes "always above the dialog that opened it" explicit and
   robust against hosts that set a high z.
-- `import 'viewerjs/dist/viewer.css'` inside the component → self-contained; the
-  cabinet can later drop the global import from `client/main.coffee`.
+- `import 'viewerjs/dist/viewer.css'` inside the component → self-contained (no
+  global CSS import required of consumers).
 - Svelte 5 runes only ($state/$derived/$effect/$props). M3/Tailwind for the
   minimal hidden wrapper.
 
@@ -86,35 +91,24 @@ surface area minimal.
   — subpath only), so the dep stays out of bundles that don't use it.
 - Demo: `src/routes/lightbox/+page.svelte` playground (live verify target).
 
-## Cabinet migration — `CheckinDetailsModal.svelte`
+## Future consumer migration (out of scope, for reference)
 
-Path: `worktrees/apartx-cabinet/self-checkin-svelte/imports/ui/pages/property/details-page/booking-tab/CheckinDetailsModal.svelte`
-(kit consumed there as the `imports/lib/apartx-ui` submodule).
-
-- Remove `import Viewer from 'viewerjs'`, the `galleryEl` / `viewer` state, and
-  the `$effect` that builds/destroys the Viewer (lines ~50, ~155–169).
-- Add `import { Lightbox } from 'apartx-ui/lightbox'` and
-  `let lightboxOpen = $state(false); let lightboxIndex = $state(0);`.
-- Keep the `grid grid-cols-3` thumbnail markup. Drop `bind:this={galleryEl}`;
-  each thumbnail button gets `onclick={() => { lightboxIndex = index; lightboxOpen = true; }}`.
-- Render `<Lightbox images={imageUrls.map((src) => ({ src }))} bind:open={lightboxOpen} bind:index={lightboxIndex} />`.
-- `getImageUrl` is **untouched** (ostrio FileCursor `.link('original','/')`).
+Not done in this task. Captured so the component's API is validated against the
+first real consumer. The cabinet check-in modal
+(`CheckinDetailsModal.svelte`, kit consumed there as the `imports/lib/apartx-ui`
+submodule) would later: drop `import Viewer from 'viewerjs'` + its `galleryEl` /
+`viewer` state + the build/destroy `$effect`; add
+`let lightboxOpen = $state(false); let lightboxIndex = $state(0);`; keep the
+`grid grid-cols-3` thumbnail markup but have each thumbnail set `lightboxIndex` +
+`lightboxOpen`; render
+`<Lightbox images={imageUrls.map((src) => ({ src }))} bind:open={lightboxOpen} bind:index={lightboxIndex} />`.
+`getImageUrl` stays untouched. That change lands separately and bumps the cabinet
+submodule pointer — none of it happens here.
 
 ## Gates / workflow
 
 - Build in the standalone `projects/apartx-ui` checkout. `npm run build` is the
   real compile gate (must pass); `npm run check` for (mostly pre-existing) type
   noise.
-- Do NOT `npm install` inside the cabinet's nested `imports/lib/apartx-ui`
-  submodule — it creates a nested `svelte` and breaks the dockerized cabinet
-  (#app empty). If a nested install ever happens, `rm -rf` the nested
-  node_modules and restart the wt instance.
-- After bumping the submodule pointer in cabinet, restart the wt instance
-  (`./scripts/wt restart apartx-cabinet self-checkin-svelte`) to clear the
-  dockerized rspack stale cache, then verify the check-in modal lightbox live in
-  the cabinet preview.
-- Land as a normal apartx-ui change/MR per repo conventions; then bump the
-  submodule pointer on cabinet `feature/self-checkin-svelte`. **Do not push
-  until reviewed.**
-- This lightbox work is independent of the in-flight self-checkin Svelte port
-  and must not block that QA loop.
+- Land as a normal apartx-ui change/MR per repo conventions. **Do not push until
+  reviewed.**
