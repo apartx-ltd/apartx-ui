@@ -41,3 +41,23 @@ export function applyOlderPage(w: MessageWindow, page: Message[], pageSize: numb
 export function applyLiveUpsert(w: MessageWindow, message: Message): MessageWindow {
   return { ...w, messages: mergeById(w.messages, [message]) };
 }
+
+export function applyOptimisticSend(w: MessageWindow, optimistic: Message): MessageWindow {
+  return { ...w, messages: mergeById(w.messages, [optimistic]) };
+}
+
+/**
+ * Replace the optimistic temp message with the server message. Removes the temp by _id, then upserts the real one
+ * (dedupe handles the case where its live upsert already landed via clientToken).
+ */
+export function resolveSend(w: MessageWindow, tempId: string, serverMessage: Message): MessageWindow {
+  const without = w.messages.filter((x) => x._id !== tempId);
+  return { ...w, messages: mergeById(without, [{ ...serverMessage, sendState: undefined }]) };
+}
+
+export function failSend(w: MessageWindow, tempId: string): MessageWindow {
+  return {
+    ...w,
+    messages: w.messages.map((x) => (x._id === tempId ? { ...x, sendState: 'failed' } : x)),
+  };
+}

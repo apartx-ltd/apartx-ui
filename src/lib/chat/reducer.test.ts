@@ -45,3 +45,35 @@ describe('reducer: live upsert', () => {
     expect(w.messages[0].delivery).to.equal('read');
   });
 });
+
+import { applyOptimisticSend, resolveSend, failSend } from './reducer';
+
+describe('reducer: optimistic send', () => {
+  it('appends a sending message at the tail (no seq → newest)', () => {
+    let w = applyInitialPage(emptyWindow(), [m('a', 1)], 5);
+    w = applyOptimisticSend(w, { _id: 'tmp1', chatId: 'c', text: 'hi', createdAt: new Date(9_000_000), sendState: 'sending', meta: { clientToken: 'tok1' } });
+    expect(w.messages.map((x) => x._id)).to.deep.equal(['a', 'tmp1']);
+    expect(w.messages[1].sendState).to.equal('sending');
+  });
+
+  it('resolveSend swaps the temp message for the real one (state cleared), no duplicate', () => {
+    let w = applyOptimisticSend(emptyWindow(), { _id: 'tmp1', chatId: 'c', text: 'hi', createdAt: new Date(1), sendState: 'sending', meta: { clientToken: 'tok1' } });
+    w = resolveSend(w, 'tmp1', { _id: 'real1', chatId: 'c', seq: 5, text: 'hi', createdAt: new Date(2), meta: { clientToken: 'tok1' } });
+    expect(w.messages.map((x) => x._id)).to.deep.equal(['real1']);
+    expect(w.messages[0].sendState).to.equal(undefined);
+  });
+
+  it('resolveSend is idempotent if the live upsert of the real message already landed', () => {
+    let w = applyOptimisticSend(emptyWindow(), { _id: 'tmp1', chatId: 'c', text: 'hi', createdAt: new Date(1), sendState: 'sending', meta: { clientToken: 'tok1' } });
+    // live upsert of real message arrives first (same clientToken)
+    w = applyLiveUpsert(w, { _id: 'real1', chatId: 'c', seq: 5, text: 'hi', createdAt: new Date(2), meta: { clientToken: 'tok1' } });
+    w = resolveSend(w, 'tmp1', { _id: 'real1', chatId: 'c', seq: 5, text: 'hi', createdAt: new Date(2), meta: { clientToken: 'tok1' } });
+    expect(w.messages.map((x) => x._id)).to.deep.equal(['real1']); // tmp removed, no dup
+  });
+
+  it('failSend marks the temp message failed (retry affordance)', () => {
+    let w = applyOptimisticSend(emptyWindow(), { _id: 'tmp1', chatId: 'c', text: 'hi', createdAt: new Date(1), sendState: 'sending', meta: { clientToken: 'tok1' } });
+    w = failSend(w, 'tmp1');
+    expect(w.messages[0].sendState).to.equal('failed');
+  });
+});
