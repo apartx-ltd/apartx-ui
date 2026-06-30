@@ -60,6 +60,7 @@
     { path: '/forms', label: 'Forms' },
     { path: '/overlays', label: 'Overlays' },
     { path: '/maps', label: 'Maps' },
+    { path: '/lightbox', label: 'Lightbox' },
     { path: '/hooks', label: 'Hooks' },
   ];
 
