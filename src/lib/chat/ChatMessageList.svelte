@@ -12,16 +12,19 @@
     deletedLabel = chatT('chat.message_deleted', { defaultValue: 'Message deleted' }),
     unreadLabel = chatT('chat.unread_messages', { defaultValue: 'Unread messages' }),
     onContextMenu, menuOnClick = false, readDebounceMs = 600,
+    class: className,
   }:
     {
       session: ChatSession;
       meUserId?: string;
-      labelFor?: (m: ChatMessage) => { timeLabel?: string; dateLabel?: string; authorName?: string };
+      labelFor?: (m: ChatMessage) => { timeLabel?: string; dateLabel?: string; authorName?: string; serviceLabel?: string };
       deletedLabel?: string;
       unreadLabel?: string;
       onContextMenu?: (info: { message: ChatMessage; x: number; y: number }) => void;
       menuOnClick?: boolean;
       readDebounceMs?: number;
+      /** Applied to the scroll container — hosts add horizontal padding etc. (e.g. "px-2"). */
+      class?: string;
     } = $props();
 
   let listCmp = $state<MessagesList | null>(null);
@@ -56,6 +59,7 @@
 
 <MessagesList
   bind:this={listCmp}
+  class={className}
   data={messages}
   getKey={(m) => m._id}
   hasMore={hasMore}
@@ -70,6 +74,7 @@
       authorName={labels.authorName ?? ''}
       timeLabel={labels.timeLabel ?? ''}
       dateLabel={labels.dateLabel ?? ''}
+      serviceLabel={labels.serviceLabel ?? ''}
       {deletedLabel}
       {unreadLabel}
       isUnread={m._id === unreadId}
