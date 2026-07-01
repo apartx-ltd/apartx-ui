@@ -78,6 +78,9 @@
   >
     {#snippet children(m, i)}
       {@const labels = labelFor?.(m) ?? {}}
+      <!-- Bottom gap lives on the LAST item (measured by virtua) — padding the scroll viewport
+           instead would inflate getScrollSize() and break stick-to-bottom / scroll-away detection. -->
+      <div class={i === messages.length - 1 ? 'pb-2' : undefined}>
       <Message
         message={m}
         prev={messages[i - 1] ?? null}
@@ -94,6 +97,7 @@
         {menuOnClick}
         onRead={noteRead}
       />
+      </div>
     {/snippet}
   </MessagesList>
 
