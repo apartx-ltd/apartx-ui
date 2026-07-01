@@ -1,5 +1,50 @@
 # История изменений — apartx-ui
 
+## 2026-07-01
+
+### Версия 0.1.34
+
+Новый модуль **`apartx-ui/chat`** — переиспользуемое ядро чата (Svelte 5, без Meteor/i18n) и его shell; выносится из cabinet/admin ради единого чат-клиента. Плюс серия фиксов паритета и QA по ходу адаптации в `apartx-admin` (0.1.27 → 0.1.34).
+
+### Добавлено
+
+* **Чат-ядро `apartx-ui/chat`.** Reducer оконной модели сообщений за швом `ChatTransport`
+  (`fetchOlder`/`subscribeLive`/`sendMessage`/`markRead`); `ChatSession` (subscribe-then-fetch,
+  оптимистичная отправка, `loadOlder`, `markRead`); slice `composer` (draft + reply-snapshot +
+  debounced-persist через `DraftStore`); реестр рендереров по типу сообщения
+  (`setMessageRendererRegistry`/`setDefaultSlots`/`registerChatDefaults`) — зеркало modal-registry;
+  i18n-шов (`setChatI18n`) и чистые helpers (`deliveryTick`, группировка, `showDate`). Покрыто
+  vitest, ноль зависимостей от Meteor/i18next.
+* **Svelte-shell чата.** `ChatMessageList` (виртуализация поверх `virtua`, read-watermark с
+  debounce, дивайдер непрочитанного, начальный скролл к непрочитанному), `Message` (группировка,
+  дивайдеры даты/непрочитанного, hook контекстного меню `onContextMenu`/`menuOnClick`),
+  `MessageInput` (autosize-textarea, Enter=отправка / Ctrl-Enter=перенос, `onTyping`, snippet'ы
+  `leading`/`gate`, превью вложений), `MessageRenderer` (равномерный набор slot-пропсов +
+  вычисляемый per-message `me`).
+* **Шов `setSlotContext`** — хост инжектит непрозрачный объект, который раскладывается во все
+  slot-компоненты, чтобы бизнес-рендереры получали `t`/`peer`/`chat` без связывания kit с Meteor.
+* **`ChatSessionOptions.authorNameOf`** — резолвер имени автора для превью reply.
+* **Центрированные сервисные сообщения (`type==='service'`)** — отдельная ветка в `Message`:
+  системная заметка по центру (текст переводит хост), без пузыря.
+* **`class`-passthrough у `ChatMessageList`** — прокидывается на скролл-контейнер (например `px-2`).
+
+### Изменено
+
+* **`markRead` принимает watermark-сообщение** (seq-or-createdAt), а не числовой `uptoSeq` —
+  совместимо с сервером без `seq`.
+* **Кнопка отправки — только иконка** (paper-plane); `sendLabel` теперь `aria-label`/`title`.
+
+### Исправлено
+
+* **Скроллбар не показывается на программных скроллах.** `VirtualList` больше не «раскрывает»
+  нативный скроллбар при stick-to-bottom / scroll-to-index на монтировании — только на реальном
+  пользовательском скролле (счётчик программных скроллов). Аналогично `Content`: программный
+  scroll-restore (возврат назад к сохранённой позиции) флагает узел `__scrollRestoring`, а
+  обработчик раскрытия его игнорирует.
+* **Реактивность composer.** Черновик и reply читаются через `$derived` — программный
+  `setDraft`/`setReply` (быстрый ответ, prefill reply из контекстного меню) теперь рендерятся:
+  `value={composer.draft}` как plain-const компилировался в одноразовый атрибут и не обновлялся.
+
 ## 2026-06-30
 
 ### Версия 0.1.26
