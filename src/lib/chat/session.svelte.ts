@@ -33,7 +33,7 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
     key: `${opts.draftKeyPrefix ?? 'chat-draft'}:${opts.chatId}`,
     store: opts.draftStore,
     debounceMs: opts.draftDebounceMs,
-    authorNameOf: (m) => m.userId ?? '',
+    authorNameOf: opts.authorNameOf ?? ((m) => m.userId ?? ''),
   });
 
   async function open() {

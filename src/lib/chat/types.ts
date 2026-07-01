@@ -72,6 +72,8 @@ export interface ChatSessionOptions {
   draftKeyPrefix?: string;
   /** Debounce ms for persisting composer drafts. Default 400. */
   draftDebounceMs?: number;
+  /** Resolve a display name for reply previews (composer reply bar). Default: the raw userId. */
+  authorNameOf?: (message: Message) => string;
 }
 
 /** Renderer registry slot set — one component per slot, all optional. */
