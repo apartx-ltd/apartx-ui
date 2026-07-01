@@ -64,7 +64,7 @@
       oncontextmenu={onContextMenu ? openMenu : undefined}
       onclick={menuOnClick && onContextMenu ? openMenu : undefined}
     >
-      <MessageRenderer {message} {meUserId} {authorName} {timeLabel} />
+      <MessageRenderer {message} {meUserId} {authorName} {timeLabel} {isGroupStart} />
     </div>
   {/if}
 </div>
