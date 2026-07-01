@@ -53,6 +53,19 @@ export function firstUnreadId(messages: readonly Message[], meUserId?: string): 
   return null;
 }
 
+/** Count of incoming unread messages (skip own + `type==='service'`) — same predicate as
+ *  `firstUnreadId`. Drives the unread badge on the scroll-to-bottom button. */
+export function countUnread(messages: readonly Message[], meUserId?: string): number {
+  let n = 0;
+  for (const msg of messages) {
+    if (msg.userId === meUserId) continue;
+    if (msg.type === 'service') continue;
+    const unread = Array.isArray(msg.read) ? !msg.read.includes(meUserId ?? '') : msg.read === false;
+    if (unread) n++;
+  }
+  return n;
+}
+
 /** Newer of two read-watermark candidates: by `seq` when both have it, else by `createdAt`. */
 export function newerWatermark(a: Message | null, b: Message): Message {
   if (!a) return b;

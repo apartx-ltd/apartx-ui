@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deliveryTick, isReadByOther, groupStart, showDate, firstUnreadId, newerWatermark } from './helpers';
+import { deliveryTick, isReadByOther, groupStart, showDate, firstUnreadId, countUnread, newerWatermark } from './helpers';
 import type { Message } from './types';
 
 const m = (over: Partial<Message> = {}): Message => ({ _id: 'm', chatId: 'c', userId: 'u1', createdAt: new Date('2026-06-30T10:00:00Z'), ...over });
@@ -63,6 +63,21 @@ describe('firstUnreadId', () => {
   });
   it('treats undefined read as read (parity with admin) → null', () => {
     expect(firstUnreadId([mu({ userId: 'them' })], 'me')).toBeNull();
+  });
+});
+
+describe('countUnread', () => {
+  it('counts incoming unread, skipping own + service + read', () => {
+    const msgs = [
+      mu({ _id: 'a', userId: 'me', read: false }),        // own → skip
+      mu({ _id: 'b', userId: 'them', type: 'service', read: false }), // service → skip
+      mu({ _id: 'c', userId: 'them', read: true }),        // read → skip
+      mu({ _id: 'd', userId: 'them', read: false }),       // unread → count
+      mu({ _id: 'e', userId: 'them', read: ['other'] }),   // not by me → count
+      mu({ _id: 'f', userId: 'them', read: ['me'] }),      // by me → skip
+      mu({ _id: 'g', userId: 'them' }),                    // undefined read → read → skip
+    ];
+    expect(countUnread(msgs, 'me')).toBe(2);
   });
 });
 

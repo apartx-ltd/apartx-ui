@@ -30,6 +30,11 @@
     /** Pixels from the bottom still considered "stuck" to the bottom. */
     stickThreshold = 1.5,
     onStickChange,
+    /** Distance from the bottom (px) past which `onScrollAwayChange(true)` fires — drives a
+     *  host scroll-to-bottom button. Larger than `stickThreshold` so the button only shows
+     *  after a deliberate scroll up, not on a hair off the bottom. */
+    scrollAwayThreshold = 100,
+    onScrollAwayChange,
     class: className,
     ...restProps
   }: {
@@ -42,6 +47,8 @@
     loadOlderThreshold?: number;
     stickThreshold?: number;
     onStickChange?: (stuck: boolean) => void;
+    scrollAwayThreshold?: number;
+    onScrollAwayChange?: (away: boolean) => void;
     class?: string;
     [key: string]: any;
   } = $props();
@@ -55,6 +62,7 @@
   let shouldStick = true;
   let prevLen = 0;
   let fetchingOlder = false;
+  let prevAway = false;
 
   export function scrollToBottom() {
     if (list && rows.length) list.scrollToIndex(rows.length - 1, { align: 'end' });
@@ -89,6 +97,10 @@
     const stuck = offset - scrollSize + viewport >= -stickThreshold;
     if (stuck !== shouldStick) onStickChange?.(stuck);
     shouldStick = stuck;
+
+    // "Scrolled away from bottom" for the host's scroll-to-bottom button (coarser threshold).
+    const away = scrollSize - viewport - offset > scrollAwayThreshold;
+    if (away !== prevAway) { prevAway = away; onScrollAwayChange?.(away); }
 
     // Near the top → load older items, keeping position via `shift`.
     if (offset < loadOlderThreshold && !fetchingOlder && hasMore) {
