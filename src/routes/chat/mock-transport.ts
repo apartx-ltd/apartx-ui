@@ -95,6 +95,11 @@ function buildHistory(): Message[] {
       out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: AI, type: 'ai', text: AI_ANSWERS[0], createdAt });
       continue;
     }
+    if (!mine && (seq === 56 || seq === 60)) {
+      // The two newest incoming plain messages, seeded unread so the unread divider shows on load.
+      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: THEM, text: THEM_LINES[i % THEM_LINES.length], createdAt, read: false });
+      continue;
+    }
     out.push({
       _id: `h${seq}`, chatId: CHAT_ID, seq, userId: mine ? ME : THEM,
       text: mine ? `Sure, message ${seq}.` : THEM_LINES[i % THEM_LINES.length],
@@ -147,7 +152,7 @@ export function createMockTransport(): MockController {
         timers.push(setTimeout(() => emit({ type: 'upsert', message: { ...server, delivery: 'read' } }), 2_400));
         return server;
       },
-      async markRead() { await delay(50); },
+      async markRead() { await delay(50); }, // receives { chatId, message }
     },
     injectInbound(text?: string) {
       const seq = ++maxSeq;

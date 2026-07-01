@@ -43,6 +43,17 @@
       authorName: m.userId === 'me' ? 'You' : 'Tenant',
     };
   }
+
+  let menu = $state<{ message: Message; x: number; y: number } | null>(null);
+  function onContextMenu(info: { message: Message; x: number; y: number }) { menu = info; }
+
+  let pending = $state<{ id: string; name: string; previewUrl?: string }[]>([]);
+  function onPickFiles(files: FileList) {
+    for (const f of Array.from(files)) {
+      pending.push({ id: `${f.name}-${f.size}`, name: f.name, previewUrl: f.type.startsWith('image/') ? URL.createObjectURL(f) : undefined });
+    }
+  }
+  function onRemoveAttachment(id: string) { pending = pending.filter((a) => a.id !== id); }
 </script>
 
 <div class="mx-auto flex h-full max-w-5xl gap-6">
@@ -60,11 +71,11 @@
       <div class="grid flex-1 place-items-center text-error">Failed to load chat.</div>
     {:else}
       <div class="min-h-0 flex-1">
-        <ChatMessageList {session} meUserId="me" {labelFor} />
+        <ChatMessageList {session} meUserId="me" {labelFor} {onContextMenu} menuOnClick={false} />
       </div>
     {/if}
 
-    <MessageInput {session} placeholder="Type a message…" sendLabel="Send" />
+    <MessageInput {session} placeholder="Type a message…" sendLabel="Send" {onPickFiles} pendingAttachments={pending} {onRemoveAttachment} />
   </div>
 
   <aside class="hidden w-64 shrink-0 flex-col gap-2 sm:flex">
@@ -85,3 +96,13 @@
     </div>
   </aside>
 </div>
+
+{#if menu}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="fixed inset-0 z-50" onclick={() => (menu = null)}>
+    <div class="absolute rounded-lg border border-outline-variant bg-surface-container p-2 text-sm shadow" style="left:{menu.x}px; top:{menu.y}px">
+      Context menu for: {menu.message._id}
+    </div>
+  </div>
+{/if}
