@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { faPaperPlane } from '@fortawesome/free-solid-svg-icons';
+  import Icon from '../ui/display/Icon.svelte';
   import type { ChatSession } from './session.svelte';
 
   /** A host-opaque pending attachment for the default preview strip. */
@@ -91,7 +93,15 @@
         oninput={(e) => { composer.setDraft((e.target as HTMLTextAreaElement).value); autosize(); }}
         onkeydown={onKeydown}
       ></textarea>
-      <button type="button" class="rounded-full bg-primary px-4 py-2 text-on-primary" onclick={submit}>{sendLabel}</button>
+      <button
+        type="button"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary"
+        onclick={submit}
+        aria-label={sendLabel}
+        title={sendLabel}
+      >
+        <Icon icon={faPaperPlane} />
+      </button>
     </div>
   </div>
 {/if}
