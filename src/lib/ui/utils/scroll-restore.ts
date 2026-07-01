@@ -26,7 +26,13 @@ export const scrollRestore: Action<HTMLElement, string | undefined> = (node, par
   // >0 while a restore is in flight. Assigning `scrollTop` fires a `scroll`
   // event, which would otherwise call `save()` with the (momentarily clamped)
   // value and clobber the stored target — so saves are suppressed meanwhile.
+  // Also mirrored onto the node as `__scrollRestoring` so a host's own scroll
+  // handler (e.g. the kit Content's scrollbar-reveal) can tell this programmatic
+  // scroll apart from a genuine user scroll.
   let restoring = 0;
+  const syncRestoringFlag = () => {
+    (node as HTMLElement & { __scrollRestoring?: boolean }).__scrollRestoring = restoring > 0;
+  };
 
   // Scroll events are the single source of truth: they fire on every user
   // scroll, so the last one before navigation holds the position to remember.
@@ -47,9 +53,11 @@ export const scrollRestore: Action<HTMLElement, string | undefined> = (node, par
     const y = positions.get(k) ?? 0;
     let tries = 0;
     restoring++;
+    syncRestoringFlag();
     const apply = () => {
       if (key !== k) {
         restoring--;
+        syncRestoringFlag();
         return;
       }
       node.scrollTop = y;
@@ -58,7 +66,7 @@ export const scrollRestore: Action<HTMLElement, string | undefined> = (node, par
         return;
       }
       // Re-enable saves once the scroll events from our assignments have flushed.
-      setTimeout(() => restoring--, 0);
+      setTimeout(() => { restoring--; syncRestoringFlag(); }, 0);
     };
     requestAnimationFrame(apply);
   };

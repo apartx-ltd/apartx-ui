@@ -30,7 +30,10 @@
     className
   )}
   onscroll={(e) => {
-    scrolled = true;
+    // A programmatic scroll-restore assignment fires `scroll` too; don't let it
+    // count as the first *user* scroll that reveals the bar (scrollRestore flags
+    // the node while restoring). Mirrors VirtualList's programmatic-scroll guard.
+    if (!(e.currentTarget).__scrollRestoring) scrolled = true;
     onscroll?.(e);
   }}
   use:scrollRestore={scrollKey}
