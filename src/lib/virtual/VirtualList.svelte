@@ -124,21 +124,38 @@
     tick().then(() => requestAnimationFrame(apply));
   });
 
+  // Imperative scrolls (stick-to-bottom on mount, scroll-to-unread, prepend-shift)
+  // fire virtua's onscroll a frame later — they must NOT count as the "first user
+  // scroll" that reveals the scrollbar, or a chat that sticks to bottom on mount
+  // reveals it immediately. Bump a counter around each imperative call and clear it
+  // after virtua has emitted the resulting onscroll (two frames covers an instant
+  // scroll). Only a genuine wheel/touch/keyboard scroll lands with the counter at 0.
+  let programmaticScrolls = 0;
+  function markProgrammatic() {
+    programmaticScrolls++;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => { if (programmaticScrolls > 0) programmaticScrolls--; })
+    );
+  }
+
   function onScrollInternal(offset: number) {
-    // A genuine user scroll reveals the scrollbar; the programmatic restore
-    // scroll (guarded by `restoring`) must not.
-    if (!restoring) scrolled = true;
+    // A genuine user scroll reveals the scrollbar; programmatic scrolls (the `name`
+    // restore, plus the imperative API below) must not.
+    if (!restoring && programmaticScrolls === 0) scrolled = true;
     if (name && !restoring) scrollSnapshots.set(name, { offset, cache: vlist?.getCache?.() });
     onscroll?.(offset);
   }
 
   export function scrollToIndex(index: number, opts?: { align?: 'start' | 'center' | 'end'; smooth?: boolean }) {
+    markProgrammatic();
     vlist?.scrollToIndex(index, opts);
   }
   export function scrollTo(offset: number) {
+    markProgrammatic();
     vlist?.scrollTo(offset);
   }
   export function scrollBy(offset: number) {
+    markProgrammatic();
     vlist?.scrollBy(offset);
   }
   export function getScrollSize(): number {
