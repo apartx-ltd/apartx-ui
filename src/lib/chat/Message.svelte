@@ -3,10 +3,18 @@
   import MessageRenderer from './MessageRenderer.svelte';
   import { groupStart, showDate } from './helpers';
 
-  let { message, prev = null, meUserId, authorName = '', timeLabel = '', dateLabel = '', deletedLabel = 'Message deleted', onRead }:
+  let {
+    message, prev = null, meUserId,
+    authorName = '', timeLabel = '', dateLabel = '',
+    deletedLabel = 'Message deleted', unreadLabel = 'Unread messages',
+    isUnread = false, onContextMenu, menuOnClick = false, onRead,
+  }:
     {
       message: Message; prev?: Message | null; meUserId?: string;
-      authorName?: string; timeLabel?: string; dateLabel?: string; deletedLabel?: string;
+      authorName?: string; timeLabel?: string; dateLabel?: string;
+      deletedLabel?: string; unreadLabel?: string; isUnread?: boolean;
+      onContextMenu?: (info: { message: Message; x: number; y: number }) => void;
+      menuOnClick?: boolean;
       onRead?: (m: Message) => void;
     } = $props();
 
@@ -15,18 +23,26 @@
   const isGroupStart = $derived(groupStart(message, prev));
   const separator = $derived(showDate(message, prev));
 
-  // Read-on-render: notify when an incoming, unread message mounts. The host (via ChatMessageList) debounces these
-  // into a single markRead(watermark) server call. Soft-deleted messages carry no unread weight — skip them.
+  // Read-on-render: notify when an incoming, unread message mounts. Skip soft-deleted (no unread weight).
   $effect(() => {
     if (!message || mine || removed || !onRead) return;
     if (message.read === true) return;
     if (Array.isArray(message.read) && message.read.includes(meUserId ?? '')) return;
     onRead(message);
   });
+
+  function openMenu(e: MouseEvent) {
+    e.preventDefault();
+    onContextMenu?.({ message, x: e.clientX, y: e.clientY });
+  }
 </script>
 
 {#if separator}
   <div class="my-2 text-center text-xs text-on-surface-variant">{dateLabel}</div>
+{/if}
+
+{#if isUnread}
+  <div class="my-1 text-center text-xs text-on-surface-variant bg-surface-container rounded-lg py-1">{unreadLabel}</div>
 {/if}
 
 <div class="flex {mine ? 'justify-end' : 'justify-start'} {isGroupStart ? 'mt-2' : 'mt-0.5'}">
@@ -35,7 +51,13 @@
       {deletedLabel}
     </div>
   {:else}
-    <div class="max-w-[80%] rounded-2xl px-3 py-1.5 {mine ? 'bg-primary-container' : 'bg-surface-container'}">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div
+      class="max-w-[80%] rounded-2xl px-3 py-1.5 {mine ? 'bg-primary-container' : 'bg-surface-container'}"
+      oncontextmenu={onContextMenu ? openMenu : undefined}
+      onclick={menuOnClick && onContextMenu ? openMenu : undefined}
+    >
       <MessageRenderer {message} {meUserId} {authorName} {timeLabel} />
     </div>
   {/if}
