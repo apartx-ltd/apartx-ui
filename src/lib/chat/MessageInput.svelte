@@ -26,6 +26,12 @@
     } = $props();
 
   const composer = session.composer;
+  // Bridge the composer's getter-state into reactive reads. `composer` is a plain (non-$state)
+  // const, so `composer.draft`/`composer.replyTo` read directly in the template compile to a
+  // one-time attribute — a programmatic setDraft/setReply (e.g. a quick reply) would update the
+  // signal but never re-render. `$derived` tracks the underlying $state so the view stays live.
+  const draftValue = $derived(composer.draft);
+  const replyTo = $derived(composer.replyTo);
   let ta = $state<HTMLTextAreaElement | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
 
@@ -34,6 +40,9 @@
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
   }
+  // Re-fit height whenever the draft changes — covers programmatic setDraft (quick reply,
+  // draft restore) where there's no input event to trigger autosize().
+  $effect(() => { draftValue; autosize(); });
   async function submit() {
     if (!composer.draft.trim()) return;
     await session.send();
@@ -55,11 +64,11 @@
   {@render gate()}
 {:else}
   <div class="flex flex-col gap-1 border-t border-outline-variant p-2">
-    {#if composer.replyTo}
+    {#if replyTo}
       <div class="flex items-center gap-2 rounded bg-surface-container px-2 py-1 text-xs">
         <div class="flex-1 truncate">
-          <span class="font-medium">{replyToLabel} {composer.replyTo.authorName}</span>
-          <span class="text-on-surface-variant"> {composer.replyTo.textPreview}</span>
+          <span class="font-medium">{replyToLabel} {replyTo.authorName}</span>
+          <span class="text-on-surface-variant"> {replyTo.textPreview}</span>
         </div>
         <button type="button" class="text-on-surface-variant" onclick={() => composer.clearReply()} aria-label={cancelReplyLabel}>✕</button>
       </div>
@@ -89,7 +98,7 @@
         class="flex-1 resize-none rounded-2xl bg-surface-container px-3 py-2 outline-none"
         rows="1"
         {placeholder}
-        value={composer.draft}
+        value={draftValue}
         oninput={(e) => { composer.setDraft((e.target as HTMLTextAreaElement).value); autosize(); }}
         onkeydown={onKeydown}
       ></textarea>
