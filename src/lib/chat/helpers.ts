@@ -37,3 +37,25 @@ export function showDate(message: Message, prev: Message | null): boolean {
   const a = message.createdAt, b = prev.createdAt;
   return a.getFullYear() !== b.getFullYear() || a.getMonth() !== b.getMonth() || a.getDate() !== b.getDate();
 }
+
+/**
+ * First incoming unread message id (for the unread divider), else null. Parity with the admin store:
+ * skip own messages and `type==='service'`; unread = `read[]` without me, or boolean `read === false`
+ * (an absent `read` counts as read — matches admin's `_updateUnreadIndex`).
+ */
+export function firstUnreadId(messages: readonly Message[], meUserId?: string): string | null {
+  for (const msg of messages) {
+    if (msg.userId === meUserId) continue;
+    if (msg.type === 'service') continue;
+    const unread = Array.isArray(msg.read) ? !msg.read.includes(meUserId ?? '') : msg.read === false;
+    if (unread) return msg._id;
+  }
+  return null;
+}
+
+/** Newer of two read-watermark candidates: by `seq` when both have it, else by `createdAt`. */
+export function newerWatermark(a: Message | null, b: Message): Message {
+  if (!a) return b;
+  if (a.seq != null && b.seq != null) return b.seq > a.seq ? b : a;
+  return b.createdAt.getTime() > a.createdAt.getTime() ? b : a;
+}
