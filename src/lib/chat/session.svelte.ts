@@ -13,7 +13,7 @@ export interface ChatSession {
   open(): Promise<void>;
   loadOlder(): Promise<void>;
   read(message: Message): void;
-  markRead(uptoSeq: number): Promise<void>;
+  markRead(message: Message): Promise<void>;
   send(): Promise<void>;
   retry(message: Message): Promise<void>;
   dispose(): void;
@@ -74,8 +74,8 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
     // Kept as a no-op hook so shells can call it uniformly; override via host if a local flag is needed.
   }
 
-  async function markRead(uptoSeq: number) {
-    await transport.markRead({ chatId: opts.chatId, uptoSeq });
+  async function markRead(message: Message) {
+    await transport.markRead({ chatId: opts.chatId, message });
   }
 
   async function send() {

@@ -72,12 +72,13 @@ describe('ChatSession', () => {
     expect(s.olderStatus).to.equal('exhausted');
   });
 
-  it('markRead(seq) calls the transport', async () => {
+  it('markRead(message) forwards the message to the transport', async () => {
     const markRead = vi.fn(async () => {});
     const { transport } = fakeTransport({ markRead });
     const s = createChatSession(transport, { chatId: 'c', meUserId: 'me' });
     await s.open();
-    await s.markRead(7);
-    expect(markRead).toHaveBeenCalledWith({ chatId: 'c', uptoSeq: 7 });
+    const wm = { _id: 'w', chatId: 'c', createdAt: new Date(5000), seq: 7 };
+    await s.markRead(wm);
+    expect(markRead).toHaveBeenCalledWith({ chatId: 'c', message: wm });
   });
 });

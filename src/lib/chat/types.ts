@@ -38,7 +38,7 @@ export interface ChatTransport {
   fetchOlder(args: { chatId: string; before?: Date; limit: number }): Promise<Message[]>;
   subscribeLive(chatId: string, onEvent: (e: LiveEvent) => void): () => void; // returns unsubscribe
   sendMessage(draft: OutgoingDraft): Promise<Message>;
-  markRead(args: { chatId: string; uptoSeq: number }): Promise<void>;
+  markRead(args: { chatId: string; message: Message }): Promise<void>;
 }
 
 /** Persistence seam for composer drafts. Synchronous, localStorage-shaped. */
