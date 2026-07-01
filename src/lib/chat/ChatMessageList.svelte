@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import { faChevronDown } from '@fortawesome/free-solid-svg-icons';
   import MessagesList from '../virtual/MessagesList.svelte';
+  import { cn } from '../ui/utils/cn';
   import Icon from '../ui/display/Icon.svelte';
   import Message from './Message.svelte';
   import { chatT } from './i18n';
@@ -27,7 +28,8 @@
       onContextMenu?: (info: { message: ChatMessage; x: number; y: number }) => void;
       menuOnClick?: boolean;
       readDebounceMs?: number;
-      /** Applied to the scroll container — hosts add horizontal padding etc. (e.g. "px-2"). */
+      /** Merged over the scroll container's defaults (kit default `px-2`) via `cn`/tailwind-merge —
+       *  a consumer's conflicting utility wins (e.g. pass `px-4` or `px-0` to override the padding). */
       class?: string;
     } = $props();
 
@@ -67,7 +69,7 @@
 <div class="relative h-full min-h-0">
   <MessagesList
     bind:this={listCmp}
-    class={className}
+    class={cn('px-2', className)}
     data={messages}
     getKey={(m) => m._id}
     hasMore={hasMore}
