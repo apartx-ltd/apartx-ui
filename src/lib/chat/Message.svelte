@@ -1,16 +1,16 @@
 <script lang="ts">
   import type { Message } from './types';
   import MessageRenderer from './MessageRenderer.svelte';
-  import { groupStart, showDate } from './helpers';
+  import { groupStart, groupEnd, showDate } from './helpers';
 
   let {
-    message, prev = null, meUserId,
+    message, prev = null, next = null, meUserId,
     authorName = '', timeLabel = '', dateLabel = '', serviceLabel = '',
     deletedLabel = 'Message deleted', unreadLabel = 'Unread messages',
     isUnread = false, onContextMenu, menuOnClick = false, onRead,
   }:
     {
-      message: Message; prev?: Message | null; meUserId?: string;
+      message: Message; prev?: Message | null; next?: Message | null; meUserId?: string;
       authorName?: string; timeLabel?: string; dateLabel?: string;
       /** Host-translated text for a `type==='service'` system note (rendered centered). Falls back to message.text. */
       serviceLabel?: string;
@@ -24,7 +24,23 @@
   const removed = $derived(!!message.removedAt);
   const isService = $derived(message.type === 'service');
   const isGroupStart = $derived(groupStart(message, prev));
+  const isGroupEnd = $derived(groupEnd(message, next));
   const separator = $derived(showDate(message, prev));
+
+  // Group-aware corner squaring: on the speaker's side (right for me, left for others) square the top
+  // corner when this isn't the group's first message and the bottom corner when it isn't the last, so a
+  // run of same-author messages reads as one stacked block. Mirrors the pre-kit shell's bubbleRadius.
+  const bubbleRadius = $derived.by(() => {
+    const cls = ['rounded-2xl'];
+    if (mine) {
+      if (!isGroupStart) cls.push('rounded-tr-sm');
+      if (!isGroupEnd) cls.push('rounded-br-sm');
+    } else {
+      if (!isGroupStart) cls.push('rounded-tl-sm');
+      if (!isGroupEnd) cls.push('rounded-bl-sm');
+    }
+    return cls.join(' ');
+  });
 
   // Read-on-render: notify when an incoming, unread message mounts. Skip soft-deleted + service (no unread weight).
   $effect(() => {
@@ -60,11 +76,11 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div
-      class="max-w-[80%] rounded-2xl px-3 py-1.5 {mine ? 'bg-primary-container' : 'bg-surface-container'}"
+      class="max-w-[80%] {bubbleRadius} px-3 py-1.5 {mine ? 'bg-primary-container' : 'bg-surface-container'}"
       oncontextmenu={onContextMenu ? openMenu : undefined}
       onclick={menuOnClick && onContextMenu ? openMenu : undefined}
     >
-      <MessageRenderer {message} {meUserId} {authorName} {timeLabel} {isGroupStart} />
+      <MessageRenderer {message} {meUserId} {authorName} {timeLabel} {isGroupStart} {isGroupEnd} />
     </div>
   {/if}
 </div>

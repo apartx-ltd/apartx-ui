@@ -31,6 +31,12 @@ export function groupStart(message: Message, prev: Message | null): boolean {
   return message.userId !== prev.userId;
 }
 
+/** Last message of a visual group (author changes on the next message, or none follows). */
+export function groupEnd(message: Message, next: Message | null): boolean {
+  if (!next) return true;
+  return message.userId !== next.userId;
+}
+
 /** Show a date separator when this message is on a different calendar day than the previous. */
 export function showDate(message: Message, prev: Message | null): boolean {
   if (!prev) return true;

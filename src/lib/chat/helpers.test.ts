@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deliveryTick, isReadByOther, groupStart, showDate, firstUnreadId, countUnread, newerWatermark } from './helpers';
+import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark } from './helpers';
 import type { Message } from './types';
 
 const m = (over: Partial<Message> = {}): Message => ({ _id: 'm', chatId: 'c', userId: 'u1', createdAt: new Date('2026-06-30T10:00:00Z'), ...over });
@@ -31,6 +31,12 @@ describe('grouping', () => {
     expect(groupStart(m({ userId: 'u2' }), prev)).to.equal(true);
     expect(groupStart(m({ userId: 'u1' }), prev)).to.equal(false);
     expect(groupStart(m({ userId: 'u1' }), null)).to.equal(true);
+  });
+  it('groupEnd true when next author differs or none follows', () => {
+    const cur = m({ userId: 'u1' });
+    expect(groupEnd(cur, m({ userId: 'u2' }))).to.equal(true);
+    expect(groupEnd(cur, m({ userId: 'u1' }))).to.equal(false);
+    expect(groupEnd(cur, null)).to.equal(true);
   });
   it('showDate true on a new calendar day', () => {
     // Build dates from LOCAL components (Date(y, monthIndex, d, h, m)) so the assertions are timezone-independent —

@@ -79,6 +79,7 @@
       <Message
         message={m}
         prev={messages[i - 1] ?? null}
+        next={messages[i + 1] ?? null}
         {meUserId}
         authorName={labels.authorName ?? ''}
         timeLabel={labels.timeLabel ?? ''}
