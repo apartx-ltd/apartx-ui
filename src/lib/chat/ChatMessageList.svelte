@@ -1,18 +1,26 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import MessagesList from '../virtual/MessagesList.svelte';
   import Message from './Message.svelte';
   import { chatT } from './i18n';
+  import { firstUnreadId, newerWatermark } from './helpers';
   import type { ChatSession } from './session.svelte';
   import type { Message as ChatMessage } from './types';
 
-  let { session, meUserId, labelFor, deletedLabel = chatT('chat.message_deleted', { defaultValue: 'Message deleted' }), readDebounceMs = 600 }:
+  let {
+    session, meUserId, labelFor,
+    deletedLabel = chatT('chat.message_deleted', { defaultValue: 'Message deleted' }),
+    unreadLabel = chatT('chat.unread_messages', { defaultValue: 'Unread messages' }),
+    onContextMenu, menuOnClick = false, readDebounceMs = 600,
+  }:
     {
       session: ChatSession;
       meUserId?: string;
-      /** Per-message label provider (host formats time/date/author with its i18n). */
       labelFor?: (m: ChatMessage) => { timeLabel?: string; dateLabel?: string; authorName?: string };
-      /** Placeholder shown in place of a soft-deleted message's body. */
       deletedLabel?: string;
+      unreadLabel?: string;
+      onContextMenu?: (info: { message: ChatMessage; x: number; y: number }) => void;
+      menuOnClick?: boolean;
       readDebounceMs?: number;
     } = $props();
 
@@ -20,18 +28,28 @@
 
   const messages = $derived(session.messages as ChatMessage[]);
   const hasMore = $derived(session.olderStatus !== 'exhausted');
+  const unreadId = $derived(firstUnreadId(messages, meUserId));
 
-  // Debounce read-on-render: track the max seq seen, flush one markRead per readDebounceMs.
-  let pendingMaxSeq = 0;
+  // Debounce read-on-render into one markRead per readDebounceMs, watermarking by seq-or-createdAt.
+  let pendingWatermark: ChatMessage | null = null;
   let readTimer: ReturnType<typeof setTimeout> | null = null;
   function noteRead(m: ChatMessage) {
-    if (m.seq && m.seq > pendingMaxSeq) pendingMaxSeq = m.seq;
+    pendingWatermark = newerWatermark(pendingWatermark, m);
     if (readTimer) return;
     readTimer = setTimeout(() => {
       readTimer = null;
-      if (pendingMaxSeq > 0) session.markRead(pendingMaxSeq);
+      if (pendingWatermark) { session.markRead(pendingWatermark); pendingWatermark = null; }
     }, readDebounceMs);
   }
+
+  // First load: jump to the unread divider, else the bottom (MessagesList sticks to bottom by default).
+  let initialScrollDone = false;
+  $effect(() => {
+    if (initialScrollDone || session.status !== 'ready' || !messages.length || !listCmp) return;
+    initialScrollDone = true;
+    const idx = unreadId ? messages.findIndex((m) => m._id === unreadId) : -1;
+    tick().then(() => { if (idx > 0) listCmp!.scrollToIndex(idx, { align: 'end' }); });
+  });
 
   export function scrollToBottom() { listCmp?.scrollToBottom(); }
 </script>
@@ -53,6 +71,10 @@
       timeLabel={labels.timeLabel ?? ''}
       dateLabel={labels.dateLabel ?? ''}
       {deletedLabel}
+      {unreadLabel}
+      isUnread={m._id === unreadId}
+      {onContextMenu}
+      {menuOnClick}
       onRead={noteRead}
     />
   {/snippet}
