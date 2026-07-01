@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setMessageRendererRegistry, setDefaultSlots, resolveComponents } from './registry.svelte';
+import { setSlotContext, getSlotContext } from './registry.svelte';
 
 const A = { name: 'A' } as any, B = { name: 'B' } as any, DEF = { name: 'DEF' } as any;
 
@@ -20,5 +21,17 @@ describe('renderer registry', () => {
   });
   it('undefined type falls back to defaults', () => {
     expect(resolveComponents(undefined).body).to.equal(DEF);
+  });
+});
+
+describe('slot context seam', () => {
+  it('defaults to an empty object', () => {
+    setSlotContext(() => ({}));
+    expect(getSlotContext()).toEqual({});
+  });
+  it('returns the host-injected object', () => {
+    const ctx = { t: (k: string) => k, peer: { _id: 'p' } };
+    setSlotContext(() => ctx);
+    expect(getSlotContext()).toBe(ctx);
   });
 });

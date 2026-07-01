@@ -26,3 +26,8 @@ export function resolveComponents(type?: string): SlotSet {
   const slots = (type && registry[type]) || {};
   return { ...defaults, ...slots };
 }
+
+/** Host-injected opaque slot context (e.g. {t, peer, store}). Spread into every slot by MessageRenderer. */
+let slotContext: () => Record<string, any> = () => ({});
+export function setSlotContext(fn: () => Record<string, any>): void { slotContext = fn; }
+export function getSlotContext(): Record<string, any> { return slotContext(); }
