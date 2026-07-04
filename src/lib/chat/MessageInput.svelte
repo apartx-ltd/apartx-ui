@@ -46,6 +46,9 @@
   // Re-fit height whenever the draft changes — covers programmatic setDraft (quick reply,
   // draft restore) where there's no input event to trigger autosize().
   $effect(() => { draftValue; autosize(); });
+  // Focus the composer when a reply is attached (e.g. from the context-menu "Reply") so the user
+  // can type immediately. Guarded on `replyTo` so clearing the reply doesn't grab focus.
+  $effect(() => { if (replyTo) ta?.focus(); });
   async function submit() {
     if (!composer.draft.trim()) return;
     await session.send();
