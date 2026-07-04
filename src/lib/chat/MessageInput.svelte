@@ -25,11 +25,14 @@
       gate?: Snippet;
     } = $props();
 
-  const composer = session.composer;
-  // Bridge the composer's getter-state into reactive reads. `composer` is a plain (non-$state)
-  // const, so `composer.draft`/`composer.replyTo` read directly in the template compile to a
-  // one-time attribute — a programmatic setDraft/setReply (e.g. a quick reply) would update the
-  // signal but never re-render. `$derived` tracks the underlying $state so the view stays live.
+  // Track the composer of the CURRENT session. If the host swaps the `session` prop (e.g. rebuilds it),
+  // a plain `const composer = session.composer` would stay pinned to the old session — the textarea would
+  // write into the disposed composer while `session.send()` reads the new (empty) one, so sending silently
+  // no-ops until remount. `$derived` keeps `composer` and `session.send()` on the same instance.
+  const composer = $derived(session.composer);
+  // Bridge the composer's getter-state into reactive reads. Reading `composer.draft`/`composer.replyTo`
+  // directly in the template would compile to a one-time attribute — a programmatic setDraft/setReply
+  // (e.g. a quick reply) updates the signal but never re-renders. `$derived` tracks the underlying $state.
   const draftValue = $derived(composer.draft);
   const replyTo = $derived(composer.replyTo);
   let ta = $state<HTMLTextAreaElement | null>(null);
