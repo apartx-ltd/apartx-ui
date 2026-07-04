@@ -79,6 +79,10 @@
       "svelte": "./src/lib/chat/index.ts",
       "types": "./src/lib/chat/index.ts"
     },
+    "./sync": {
+      "svelte": "./src/lib/sync/index.ts",
+      "types": "./src/lib/sync/index.ts"
+    },
     "./styles": "./src/lib/styles/index.css",
     "./styles/*": "./src/lib/styles/*"
   },
@@ -111,6 +115,7 @@
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.20",
+    "dexie": "^4.0.11",
     "svelte-sonner": "^1.1.0",
     "swiper": "^11.2.10",
     "tailwind-merge": "^3.5.0",
@@ -127,6 +132,7 @@
     "@yandex/ymaps3-types": "^1.0.19724900",
     "bits-ui": "^2.18.0",
     "cupertino-pane": "^1.5.0",
+    "fake-indexeddb": "^6",
     "jsdom": "^29.1.1",
     "marked": "^18.0.4",
     "svelte": "^5.55.5",
