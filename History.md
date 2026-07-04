@@ -2,6 +2,25 @@
 
 ## 2026-07-04
 
+### Версия 0.1.44
+
+### Добавлено
+
+* **Анимация появления и закрытия `Popover`.** Плавающая поверхность (контекстное меню сообщения,
+  дропдауны и т.п.) теперь и появляется, и закрывается с fade + лёгким scale относительно угла-якоря,
+  а не мгновенно — по образцу `Dialog`. Обе фазы — чистый CSS, управляемый нативным для bits-ui
+  атрибутом `data-state` (`open`/`closed`) на `Popover.Content`: класс `pop-anim` (styles/animations.css)
+  вешает keyframe `popIn` на `[data-state='open']` и `popOut` на `[data-state='closed']`.
+  * **Почему без forceMount/`out:`-транзишна:** presence-менеджер bits-ui сам держит элемент в DOM после
+    закрытия, пока не завершатся его CSS-анимации (ждёт `getAnimations()`), и лишь затем размонтирует —
+    поэтому exit реально проигрывается, а внутренний lifecycle bits-ui не рвётся (ручной `forceMount`+`child`
+    ронял `derived_inert`-варнинги из text-selection-layer).
+  * `transform-origin: var(--bits-popover-content-transform-origin)` — меню растёт/сжимается к своему
+    триггеру. Enter c `animation-fill-mode: backwards` (нет вспышки на первом кадре iOS), exit — `forwards`
+    (держит faded-out состояние до размонтирования).
+  * `transform` на Content безопасен: bits-ui держит позиционирующий `transform: translate()` на
+    wrapper-элементе, а не на Content. Обе фазы уважают `prefers-reduced-motion`.
+
 ### Версия 0.1.43
 
 ### Исправлено

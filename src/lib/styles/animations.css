@@ -132,6 +132,58 @@
   }
 }
 
+/* ===== Popover (display/Popover.svelte) ===== */
+
+/* Anchored surface: fade + subtle scale from the anchor corner, on BOTH enter and
+   exit. bits-ui puts the floating positioning `transform: translate()` on the WRAPPER
+   element, so the Content we animate carries no positioning transform — a
+   `transform: scale()` here doesn't fight it. `transform-origin` follows the floating
+   middleware's resolved origin (the "beak" toward the anchor) so the menu grows out of
+   its trigger, not its centre.
+
+   Driven by bits-ui's `data-state` (open/closed): its presence manager keeps the
+   element mounted on close until these CSS animations finish (it waits on
+   `getAnimations()`), then unmounts — so the exit actually plays, no forceMount needed.
+   Enter uses `backwards` fill so the `from` state applies before the first paint (no
+   iOS first-frame flash); exit uses `forwards` so it holds the faded-out state for the
+   frame between animation end and unmount. */
+.pop-anim {
+  transform-origin: var(--bits-popover-content-transform-origin);
+}
+.pop-anim[data-state='open'] {
+  animation: popIn 140ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+.pop-anim[data-state='closed'] {
+  animation: popOut 120ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes popOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pop-anim[data-state='open'],
+  .pop-anim[data-state='closed'] {
+    animation-duration: 1ms;
+  }
+}
+
 /* ===== Progress (display/Progress.svelte) ===== */
 
 /* Indeterminate bar sweep. Referenced from the markup via the Tailwind

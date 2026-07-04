@@ -155,6 +155,13 @@
       {trapFocus}
       class={cn(
         'z-50 rounded-sm bg-surface shadow-level-3 border border-outline-variant overflow-hidden',
+        // Enter + exit animation (fade + scale from the anchor corner), driven by bits-ui's
+        // `data-state` (open/closed). bits-ui's presence manager keeps this element mounted
+        // on close until the `[data-state=closed]` CSS animation finishes, then unmounts — so
+        // no forceMount/child gymnastics are needed. The keyframes live in
+        // styles/animations.css; a `transform` here is safe because bits-ui keeps the floating
+        // positioning transform on the WRAPPER element, not this one.
+        'pop-anim',
         // Stay within the viewport: bits-ui's floating size middleware exposes the
         // space available on the chosen side (flip already picks the larger side)
         // as a CSS var — cap the height to it and scroll the overflow instead of
