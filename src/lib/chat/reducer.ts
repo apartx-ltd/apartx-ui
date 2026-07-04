@@ -5,15 +5,29 @@ export function emptyWindow(): MessageWindow {
 }
 
 /**
- * Order key: seq when present (gap-free iron-core), else createdAt (legacy/optimistic).
- * Optimistic messages (no seq) sort to the tail by createdAt — they are always the newest.
+ * Chronological order: primarily by `createdAt`, with `seq` as a stable tiebreaker for
+ * same-instant server messages (gap-free iron-core). This interleaves seq-less server
+ * messages (service/system notes inserted outside the event log) at their real time.
+ *
+ * Optimistic (not-yet-acked) messages carry `sendState` and always sort to the tail —
+ * they are the newest and must not jump above acked messages on client clock skew.
  */
-function orderKey(m: Message): number {
-  return m.seq ?? Number.MAX_SAFE_INTEGER - (Date.now() - m.createdAt.getTime());
+function isPending(m: Message): boolean {
+  return m.sendState != null;
+}
+
+function compareMessages(a: Message, b: Message): number {
+  const pa = isPending(a) ? 1 : 0;
+  const pb = isPending(b) ? 1 : 0;
+  if (pa !== pb) return pa - pb;
+  const ta = a.createdAt.getTime();
+  const tb = b.createdAt.getTime();
+  if (ta !== tb) return ta - tb;
+  return (a.seq ?? Number.MAX_SAFE_INTEGER) - (b.seq ?? Number.MAX_SAFE_INTEGER);
 }
 
 function sortByOrder(list: Message[]): Message[] {
-  return [...list].sort((a, b) => orderKey(a) - orderKey(b));
+  return [...list].sort(compareMessages);
 }
 
 /** Merge `incoming` into `base` deduping by _id (incoming wins), then sort. */

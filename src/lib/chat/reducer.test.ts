@@ -44,6 +44,15 @@ describe('reducer: live upsert', () => {
     expect(w.messages).to.have.length(1);
     expect(w.messages[0].delivery).to.equal('read');
   });
+
+  it('interleaves a seq-less service message chronologically, not at the tail', () => {
+    // service/system messages are inserted outside the event log → no seq, but a real createdAt.
+    const service: Message = { _id: 'svc', chatId: 'c', type: 'service', createdAt: new Date(2_500), meta: {} };
+    let w = applyInitialPage(emptyWindow(), [m('a', 1), m('b', 2), m('c', 3)], 5);
+    w = applyLiveUpsert(w, service);
+    // createdAt 2500 sits between seq 2 (createdAt 2000) and seq 3 (createdAt 3000).
+    expect(w.messages.map((x) => x._id)).to.deep.equal(['a', 'b', 'svc', 'c']);
+  });
 });
 
 import { applyOptimisticSend, resolveSend, failSend, applyDelete } from './reducer';
