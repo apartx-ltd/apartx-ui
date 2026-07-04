@@ -1,5 +1,15 @@
 # История изменений — apartx-ui
 
+## 2026-07-05
+
+### Версия 0.2.0
+
+### Добавлено
+
+* **`apartx-ui/sync` (движок репликации) + слой репликации чата** (`createChatReplication`,
+  `ReplicatedTransport` за существующим `ChatTransport`, `createDialogsStore`). Сессия/reducer
+  не тронуты.
+
 ## 2026-07-04
 
 ### Версия 0.1.44

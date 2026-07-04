@@ -7,6 +7,7 @@ export * from './registry.svelte';
 export * from './register-defaults';
 export * from './i18n';
 export * from './helpers';
+export * from './replication';
 export { default as MessageRenderer } from './MessageRenderer.svelte';
 export { default as Message } from './Message.svelte';
 export { default as ChatMessageList } from './ChatMessageList.svelte';
