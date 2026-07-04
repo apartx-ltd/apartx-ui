@@ -72,6 +72,34 @@ describe('ChatSession', () => {
     expect(s.olderStatus).to.equal('exhausted');
   });
 
+  const mu = (id: string, seq: number, over: Partial<Message> = {}): Message => ({ _id: id, chatId: 'c', seq, createdAt: new Date(seq * 1000), userId: 'them', ...over });
+
+  it('unreadAnchorId freezes the first incoming unread from the entry page', async () => {
+    const { transport } = fakeTransport({ fetchOlder: async () => [mu('a', 1, { read: true }), mu('b', 2, { read: false }), mu('c', 3, { read: false })] });
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me' });
+    await s.open();
+    expect(s.unreadAnchorId).to.equal('b');
+  });
+
+  it('unreadAnchorId is null when nothing was unread on entry, and a later live message does NOT set it', async () => {
+    const { transport, emit } = fakeTransport({ fetchOlder: async () => [mu('a', 1, { read: true })] });
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me' });
+    await s.open();
+    expect(s.unreadAnchorId).to.equal(null);
+    emit({ type: 'upsert', message: mu('d', 4, { read: false }) });
+    expect(s.messages.map((x) => x._id)).to.deep.equal(['a', 'd']);
+    expect(s.unreadAnchorId).to.equal(null); // divider does not appear on live arrivals
+  });
+
+  it('a live message arriving after open does NOT move the frozen unreadAnchorId', async () => {
+    const { transport, emit } = fakeTransport({ fetchOlder: async () => [mu('a', 1, { read: false })] });
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me' });
+    await s.open();
+    expect(s.unreadAnchorId).to.equal('a');
+    emit({ type: 'upsert', message: mu('d', 4, { read: false }) });
+    expect(s.unreadAnchorId).to.equal('a'); // stays put, does not jump to 'd'
+  });
+
   it('markRead(message) forwards the message to the transport', async () => {
     const markRead = vi.fn(async () => {});
     const { transport } = fakeTransport({ markRead });

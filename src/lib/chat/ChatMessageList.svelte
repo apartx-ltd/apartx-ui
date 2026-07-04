@@ -6,7 +6,7 @@
   import Icon from '../ui/display/Icon.svelte';
   import Message from './Message.svelte';
   import { chatT } from './i18n';
-  import { firstUnreadId, countUnread, newerWatermark } from './helpers';
+  import { countUnread, newerWatermark } from './helpers';
   import type { ChatSession } from './session.svelte';
   import type { Message as ChatMessage } from './types';
 
@@ -39,7 +39,9 @@
 
   const messages = $derived(session.messages as ChatMessage[]);
   const hasMore = $derived(session.olderStatus !== 'exhausted');
-  const unreadId = $derived(firstUnreadId(messages, meUserId));
+  // Divider anchor is FROZEN at open() by the session — it marks where you left off on entry and
+  // does not chase live messages (which get read on render). See ChatSession.unreadAnchorId.
+  const unreadId = $derived(session.unreadAnchorId);
   const unreadCount = $derived(countUnread(messages, meUserId));
 
   // Debounce read-on-render into one markRead per readDebounceMs, watermarking by seq-or-createdAt.

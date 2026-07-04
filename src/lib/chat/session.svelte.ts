@@ -3,12 +3,21 @@ import {
   emptyWindow, applyInitialPage, applyOlderPage, applyLiveUpsert,
   applyOptimisticSend, resolveSend, failSend, applyDelete,
 } from './reducer';
+import { firstUnreadId } from './helpers';
 import { createComposer, type Composer } from './composer.svelte';
 
 export interface ChatSession {
   readonly status: 'loading' | 'ready' | 'error';
   readonly messages: readonly Message[];
   readonly olderStatus: 'idle' | 'loading' | 'exhausted' | 'error';
+  /**
+   * The "Unread messages" divider anchor, FROZEN at open() from the entry state — the id of the
+   * first incoming unread message present when the chat was opened, or null if none were unread.
+   * Deliberately not re-derived from live `messages`: once you are in the chat, arriving messages
+   * are read on render, so a live-derived anchor would flash the divider onto each new message and
+   * yank it away a tick later. Freezing it means the divider marks only where you left off on entry.
+   */
+  readonly unreadAnchorId: string | null;
   readonly composer: Composer;
   open(): Promise<void>;
   loadOlder(): Promise<void>;
@@ -27,6 +36,7 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
 
   let win = $state(emptyWindow());
   let status = $state<'loading' | 'ready' | 'error'>('loading');
+  let unreadAnchorId = $state<string | null>(null);
   let unsub: (() => void) | null = null;
 
   const composer = createComposer({
@@ -50,6 +60,9 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
       const arrivedDuringFetch = win.messages;
       win = applyInitialPage(win, page, pageSize);
       for (const msg of arrivedDuringFetch) win = applyLiveUpsert(win, msg);
+      // Freeze the unread divider from the entry state (once). Subsequent live messages are read on
+      // render and must NOT move this anchor. Re-open (a fresh session) recomputes it.
+      unreadAnchorId = firstUnreadId(win.messages, opts.meUserId);
       status = 'ready';
     } catch {
       status = 'error';
@@ -119,6 +132,7 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
     get status() { return status; },
     get messages() { return win.messages; },
     get olderStatus() { return win.olderStatus; },
+    get unreadAnchorId() { return unreadAnchorId; },
     composer,
     open, loadOlder, read, markRead, send, retry, dispose,
   };
