@@ -102,3 +102,16 @@ describe('newerWatermark', () => {
     expect(newerWatermark(a, b)).toBe(b);
   });
 });
+
+describe('deliveryTick — prefers server delivery over read[]', () => {
+  it("returns 'read' from delivery even when read[] is empty", () => {
+    expect(deliveryTick({ _id: 'a', createdAt: new Date(), delivery: 'read', read: [] } as any, 'me')).toBe('read');
+  });
+  it("returns 'delivered' from delivery even if read[] wrongly contains another user", () => {
+    expect(deliveryTick({ _id: 'a', createdAt: new Date(), delivery: 'delivered', read: ['other'] } as any, 'me')).toBe('delivered');
+  });
+  it('falls back to read[] only when delivery is absent', () => {
+    expect(deliveryTick({ _id: 'a', createdAt: new Date(), read: ['other'] } as any, 'me')).toBe('read');
+    expect(deliveryTick({ _id: 'a', createdAt: new Date() } as any, 'me')).toBe('sent');
+  });
+});
