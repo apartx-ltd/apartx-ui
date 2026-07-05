@@ -62,7 +62,7 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
       for (const msg of arrivedDuringFetch) win = applyLiveUpsert(win, msg);
       // Freeze the unread divider from the entry state (once). Subsequent live messages are read on
       // render and must NOT move this anchor. Re-open (a fresh session) recomputes it.
-      unreadAnchorId = firstUnreadId(win.messages, opts.meUserId);
+      unreadAnchorId = firstUnreadId(win.messages, opts.meUserId, opts.lastReadSeq?.() ?? null);
       status = 'ready';
     } catch {
       status = 'error';

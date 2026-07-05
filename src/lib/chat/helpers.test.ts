@@ -67,8 +67,8 @@ describe('firstUnreadId', () => {
     ];
     expect(firstUnreadId(msgs, 'me')).toBe('c');
   });
-  it('treats undefined read as read (parity with admin) → null', () => {
-    expect(firstUnreadId([mu({ userId: 'them' })], 'me')).toBeNull();
+  it('treats undefined read on an incoming message as UNREAD (isReadByMe legacy fallback: !!read) → hit', () => {
+    expect(firstUnreadId([mu({ _id: 'z', userId: 'them' })], 'me')).toBe('z');
   });
 });
 
@@ -81,9 +81,9 @@ describe('countUnread', () => {
       mu({ _id: 'd', userId: 'them', read: false }),       // unread → count
       mu({ _id: 'e', userId: 'them', read: ['other'] }),   // not by me → count
       mu({ _id: 'f', userId: 'them', read: ['me'] }),      // by me → skip
-      mu({ _id: 'g', userId: 'them' }),                    // undefined read → read → skip
+      mu({ _id: 'g', userId: 'them' }),                    // undefined read → isReadByMe !!read → unread → count
     ];
-    expect(countUnread(msgs, 'me')).toBe(2);
+    expect(countUnread(msgs, 'me')).toBe(3);
   });
 });
 

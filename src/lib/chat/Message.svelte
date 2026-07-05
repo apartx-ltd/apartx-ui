@@ -7,7 +7,7 @@
     message, prev = null, next = null, meUserId,
     authorName = '', timeLabel = '', dateLabel = '', serviceLabel = '',
     deletedLabel = 'Message deleted', unreadLabel = 'Unread messages',
-    isUnread = false, onContextMenu, menuOnClick = false, onRead,
+    isUnread = false, onContextMenu, menuOnClick = false, onRead, readByMe = false,
   }:
     {
       message: Message; prev?: Message | null; next?: Message | null; meUserId?: string;
@@ -18,6 +18,7 @@
       onContextMenu?: (info: { message: Message; x: number; y: number }) => void;
       menuOnClick?: boolean;
       onRead?: (m: Message) => void;
+      readByMe?: boolean;
     } = $props();
 
   const mine = $derived(!!meUserId && message.userId === meUserId);
@@ -45,8 +46,7 @@
   // Read-on-render: notify when an incoming, unread message mounts. Skip soft-deleted + service (no unread weight).
   $effect(() => {
     if (!message || mine || removed || isService || !onRead) return;
-    if (message.read === true) return;
-    if (Array.isArray(message.read) && message.read.includes(meUserId ?? '')) return;
+    if (readByMe) return;
     onRead(message);
   });
 

@@ -2,6 +2,16 @@
 
 ## 2026-07-05
 
+### Версия 0.2.1
+
+### Добавлено
+
+* **Слой read-watermark в репликации чата (B3).** `read-state.ts` (`isReadByMe`) — единый предикат
+  «прочитано мной»: для событийных сообщений с `seq` через `seq <= lastReadSeq` (per-user watermark),
+  фолбэк на легаси `read[]` только для дособытийных сообщений без `seq`. `lastReadSeq` прокинут в
+  `session.svelte.ts`, `ChatMessageList.svelte`, `Message.svelte` (гейт read-on-render), `types.ts`,
+  `helpers.ts`. Тесты `read-state.test.ts` + `read-state-live.test.ts` (vitest, зелёные).
+
 ### Версия 0.2.0
 
 ### Добавлено

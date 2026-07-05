@@ -7,11 +7,12 @@
   import Message from './Message.svelte';
   import { chatT } from './i18n';
   import { countUnread, newerWatermark } from './helpers';
+  import { isReadByMe } from './replication/read-state';
   import type { ChatSession } from './session.svelte';
   import type { Message as ChatMessage } from './types';
 
   let {
-    session, meUserId, labelFor,
+    session, meUserId, lastReadSeq = null, labelFor,
     deletedLabel = chatT('chat.message_deleted', { defaultValue: 'Message deleted' }),
     unreadLabel = chatT('chat.unread_messages', { defaultValue: 'Unread messages' }),
     scrollToBottomLabel = chatT('chat.scroll_to_bottom', { defaultValue: 'Scroll to bottom' }),
@@ -21,6 +22,7 @@
     {
       session: ChatSession;
       meUserId?: string;
+      lastReadSeq?: number | null;
       labelFor?: (m: ChatMessage) => { timeLabel?: string; dateLabel?: string; authorName?: string; serviceLabel?: string };
       deletedLabel?: string;
       unreadLabel?: string;
@@ -42,7 +44,7 @@
   // Divider anchor is FROZEN at open() by the session — it marks where you left off on entry and
   // does not chase live messages (which get read on render). See ChatSession.unreadAnchorId.
   const unreadId = $derived(session.unreadAnchorId);
-  const unreadCount = $derived(countUnread(messages, meUserId));
+  const unreadCount = $derived(countUnread(messages, meUserId, lastReadSeq));
 
   // Debounce read-on-render into one markRead per readDebounceMs, watermarking by seq-or-createdAt.
   let pendingWatermark: ChatMessage | null = null;
@@ -95,6 +97,7 @@
         {deletedLabel}
         {unreadLabel}
         isUnread={m._id === unreadId}
+        readByMe={isReadByMe(m as any, meUserId ?? '', lastReadSeq)}
         {onContextMenu}
         {menuOnClick}
         onRead={noteRead}

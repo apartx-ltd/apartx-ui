@@ -74,6 +74,9 @@ export interface ChatSessionOptions {
   draftDebounceMs?: number;
   /** Resolve a display name for reply previews (composer reply bar). Default: the raw userId. */
   authorNameOf?: (message: Message) => string;
+  /** Optional live per-user read watermark for THIS chat's dialog (event-sourced
+   *  lastReadSeq). Read at open() to freeze the unread divider. Omit → legacy read[] fallback. */
+  lastReadSeq?: () => number | null;
 }
 
 /** Renderer registry slot set — one component per slot, all optional. */

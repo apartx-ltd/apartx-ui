@@ -1,4 +1,5 @@
 import type { Message } from './types';
+import { isReadByMe } from './replication/read-state';
 
 export type DeliveryTick = 'sent' | 'delivered' | 'read' | 'failed';
 
@@ -49,25 +50,23 @@ export function showDate(message: Message, prev: Message | null): boolean {
  * skip own messages and `type==='service'`; unread = `read[]` without me, or boolean `read === false`
  * (an absent `read` counts as read — matches admin's `_updateUnreadIndex`).
  */
-export function firstUnreadId(messages: readonly Message[], meUserId?: string): string | null {
+export function firstUnreadId(messages: readonly Message[], meUserId?: string, lastReadSeq?: number | null): string | null {
   for (const msg of messages) {
     if (msg.userId === meUserId) continue;
     if (msg.type === 'service') continue;
-    const unread = Array.isArray(msg.read) ? !msg.read.includes(meUserId ?? '') : msg.read === false;
-    if (unread) return msg._id;
+    if (!isReadByMe(msg as any, meUserId ?? '', lastReadSeq)) return msg._id;
   }
   return null;
 }
 
 /** Count of incoming unread messages (skip own + `type==='service'`) — same predicate as
  *  `firstUnreadId`. Drives the unread badge on the scroll-to-bottom button. */
-export function countUnread(messages: readonly Message[], meUserId?: string): number {
+export function countUnread(messages: readonly Message[], meUserId?: string, lastReadSeq?: number | null): number {
   let n = 0;
   for (const msg of messages) {
     if (msg.userId === meUserId) continue;
     if (msg.type === 'service') continue;
-    const unread = Array.isArray(msg.read) ? !msg.read.includes(meUserId ?? '') : msg.read === false;
-    if (unread) n++;
+    if (!isReadByMe(msg as any, meUserId ?? '', lastReadSeq)) n++;
   }
   return n;
 }
