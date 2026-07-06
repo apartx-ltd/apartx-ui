@@ -45,11 +45,14 @@ export function createReplicatedTransport(deps: ReplicatedTransportDeps): ChatTr
         if (cached === 0 && deps.seedNewest) {
           try {
             const newest = await deps.seedNewest(limit);
-            if (newest.length) await db.chatMessages.bulkPut(newest as unknown as StoredMessage[]);
+            if (newest.length) {
+              const rows = newest.map((m) => ({ ...m, updatedAt: (m as any).updatedAt ?? m.createdAt })) as unknown as StoredMessage[];
+              await db.chatMessages.bulkPut(rows);
+            }
           } catch { /* offline cold cache — nothing to seed; live sync fills later */ }
         }
         const scope = replication.messages.getScope(chatId);
-        if (!scope || scope.lastSyncAt == null) void replication.messages.executePull(chatId);
+        if (!scope || scope.lastSyncAt == null) void replication.messages.executePull(chatId).catch(() => {});
       }
       let rows = await db.chatMessages.where('chatId').equals(chatId).sortBy('createdAt');
       if (before) rows = rows.filter((r) => r.createdAt.getTime() < before.getTime());

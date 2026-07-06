@@ -128,6 +128,34 @@ describe('replicated-transport cold-cache seed + non-blocking backfill', () => {
     closeChatDb(userId);
   });
 
+  it('cold cache with empty history: seedNewest resolves [], returns [] and still fires executePull once', async () => {
+    const userId = 'user-rt-emptyseed';
+    const db = getChatDb(userId);
+    const executePull = vi.fn(() => new Promise<number>(() => {})); // never resolves
+    const replication = {
+      db,
+      messages: {
+        getScope: () => ({ lastSyncAt: null }), // never synced → background pull fires
+        executePull,
+        setActiveScopes: () => {},
+      },
+      setActiveChats: () => {},
+    } as unknown as ChatReplication;
+
+    const seedNewest = vi.fn(async () => [] as any);
+    const transport = createReplicatedTransport({
+      chatId: CHAT, replication, send: async () => ({} as any), markReadOnServer: async () => {}, seedNewest,
+    });
+
+    const page = await transport.fetchOlder({ chatId: CHAT, limit: 25 });
+    expect(seedNewest).toHaveBeenCalledWith(25);
+    expect(page).toEqual([]);
+    expect(await db.chatMessages.where('chatId').equals(CHAT).count()).toBe(0);
+    expect(executePull).toHaveBeenCalledOnce();
+
+    closeChatDb(userId);
+  });
+
   it('warm cache: returns newest `limit` from Dexie WITHOUT calling seedNewest', async () => {
     const userId = 'user-rt-warmseed';
     const { replication, db } = fakeReplication(userId);
