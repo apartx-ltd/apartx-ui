@@ -1,5 +1,11 @@
 // Chat-core types. Pure data contracts — NO Meteor, NO svelte imports.
 
+export interface ChannelDelivery {
+  channel: string;
+  state: 'queued' | 'sent' | 'delivered' | 'read' | 'failed';
+  error?: string;
+}
+
 /** A chat message as the kit sees it. The host maps its own docs onto this shape. */
 export interface Message {
   _id: string;
@@ -12,6 +18,8 @@ export interface Message {
   createdAt: Date;
   read?: boolean | string[];  // legacy read[] array OR boolean (host-projected)
   delivery?: 'queued' | 'sent' | 'delivered' | 'read' | 'failed'; // server delivery projection (feature B)
+  /** Per-external-channel (WhatsApp/Telegram) delivery status, independent of the in-app tick. */
+  channels?: ChannelDelivery[];
   removedAt?: Date | null;    // soft-deleted
   meta?: Record<string, any>; // includes replyMessageId, clientToken, messenger, fileId, …
   /** Client-only optimistic state; absent for server messages. */
