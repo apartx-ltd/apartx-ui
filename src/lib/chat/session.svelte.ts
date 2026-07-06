@@ -60,9 +60,28 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
       const arrivedDuringFetch = win.messages;
       win = applyInitialPage(win, page, pageSize);
       for (const msg of arrivedDuringFetch) win = applyLiveUpsert(win, msg);
+      // Size the initial window to include the unread region so the divider anchor is renderable.
+      // Expand backward until the oldest loaded message crosses into read territory (oldest.seq <= lastReadSeq),
+      // bounded by MAX_INITIAL / a hard guard for pathological huge-unread chats.
+      const lrs = opts.lastReadSeq?.() ?? null;
+      if (lrs != null) {
+        const MAX_INITIAL = 200;
+        let guard = 0;
+        while (
+          win.olderStatus !== 'exhausted' &&
+          win.messages.length < MAX_INITIAL &&
+          (win.messages[0]?.seq ?? Infinity) > lrs &&
+          guard++ < 12
+        ) {
+          const before = win.messages[0]?.createdAt;
+          const older = await transport.fetchOlder({ chatId: opts.chatId, before, limit: pageSize });
+          if (!older.length) break;
+          win = applyOlderPage(win, older, pageSize);
+        }
+      }
       // Freeze the unread divider from the entry state (once). Subsequent live messages are read on
       // render and must NOT move this anchor. Re-open (a fresh session) recomputes it.
-      unreadAnchorId = firstUnreadId(win.messages, opts.meUserId, opts.lastReadSeq?.() ?? null);
+      unreadAnchorId = firstUnreadId(win.messages, opts.meUserId, lrs);
       status = 'ready';
     } catch {
       status = 'error';

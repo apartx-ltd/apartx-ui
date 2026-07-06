@@ -109,4 +109,90 @@ describe('ChatSession', () => {
     await s.markRead(wm);
     expect(markRead).toHaveBeenCalledWith({ chatId: 'c', message: wm });
   });
+
+  // Paged fake transport over a fixed ascending array: fetchOlder returns the newest `limit`
+  // messages older than `before` (or the newest `limit` when `before` is undefined), oldest→newest.
+  function pagedTransport(all: Message[]): ChatTransport {
+    return {
+      fetchOlder: async ({ before, limit }) => {
+        const pool = before ? all.filter((x) => x.createdAt.getTime() < before.getTime()) : all;
+        return pool.slice(Math.max(0, pool.length - limit)); // oldest→newest tail
+      },
+      subscribeLive: () => () => {},
+      sendMessage: async (d) => ({ _id: 'real-' + d.clientToken, chatId: d.chatId, seq: 999, text: d.text, createdAt: new Date(), meta: { clientToken: d.clientToken } }),
+      markRead: async () => {},
+    };
+  }
+
+  // seq 1..n, userId 'other' (incoming), ascending createdAt.
+  const chatOf = (n: number): Message[] => Array.from({ length: n }, (_, i) => mu(`m${i + 1}`, i + 1));
+
+  it('expands the initial window backward to include the unread region', async () => {
+    const transport = pagedTransport(chatOf(40));
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', pageSize: 25, lastReadSeq: () => 5 });
+    await s.open();
+    // Oldest loaded crossed into read territory (seq <= 5) instead of stopping at seq 16.
+    expect(s.messages[0]!.seq).to.be.at.most(5);
+    expect(s.messages.map((x) => x._id)).to.contain('m6');
+    expect(s.unreadAnchorId).to.equal('m6'); // first unread
+  });
+
+  it('does not over-expand when the unread region already fits the first page', async () => {
+    const transport = pagedTransport(chatOf(40));
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', pageSize: 25, lastReadSeq: () => 30 });
+    await s.open();
+    expect(s.messages.length).to.equal(25); // one page — oldest loaded seq 16 <= 30 already
+  });
+
+  it('no expansion when lastReadSeq is absent', async () => {
+    // read:true messages → firstUnreadId is null under the legacy (no-lastReadSeq) predicate.
+    const allRead = Array.from({ length: 40 }, (_, i) => mu(`m${i + 1}`, i + 1, { read: true }));
+    const transport = pagedTransport(allRead);
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', pageSize: 25 });
+    await s.open();
+    expect(s.messages.length).to.equal(25); // no expansion — lastReadSeq getter absent
+    expect(s.unreadAnchorId).to.equal(null);
+  });
+
+  it('an exhausted first page stops the loop (all-unread short chat)', async () => {
+    const transport = pagedTransport(chatOf(10));
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', pageSize: 25, lastReadSeq: () => 0 });
+    await s.open();
+    expect(s.messages.length).to.equal(10); // first page returned all → exhausted, no spin
+    expect(s.olderStatus).to.equal('exhausted');
+  });
+
+  it('a live upsert landing mid-expansion is NOT clobbered by applyOlderPage (fresh read after await)', async () => {
+    // Capture the live callback so the expansion fetch can emit through it synchronously.
+    let onEvent: (e: LiveEvent) => void = () => {};
+    const all = chatOf(40);
+    let call = 0;
+    const transport: ChatTransport = {
+      fetchOlder: async ({ before, limit }) => {
+        call++;
+        // On the FIRST expansion fetch (2nd call, before is set), emit a live upsert BEFORE resolving.
+        // seq 41 is newer than the loaded window; it must survive the applyOlderPage merge that follows.
+        if (call === 2) onEvent({ type: 'upsert', message: mu('m41', 41) });
+        const pool = before ? all.filter((x) => x.createdAt.getTime() < before.getTime()) : all;
+        return pool.slice(Math.max(0, pool.length - limit));
+      },
+      subscribeLive: (_id, cb) => { onEvent = cb; return () => {}; },
+      sendMessage: async (d) => ({ _id: 'real-' + d.clientToken, chatId: d.chatId, seq: 999, text: d.text, createdAt: new Date(), meta: { clientToken: d.clientToken } }),
+      markRead: async () => {},
+    };
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', pageSize: 25, lastReadSeq: () => 5 });
+    await s.open();
+    expect(s.messages.map((x) => x._id)).to.contain('m41'); // live upsert preserved through expansion
+    expect(s.messages[0]!.seq).to.be.at.most(5);            // expansion still crossed into read territory
+  });
+
+  it('a huge-unread chat (>MAX_INITIAL) degrades gracefully — caps the window, anchors at the top', async () => {
+    const transport = pagedTransport(chatOf(260));
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', pageSize: 25, lastReadSeq: () => 1 });
+    await s.open();
+    expect(s.status).to.equal('ready');            // no throw / no spin
+    expect(s.messages.length).to.equal(200);       // MAX_INITIAL cap: 25 + 7×25 = 200
+    expect(s.unreadAnchorId).to.not.equal(null);   // loop stopped before read territory → oldest loaded is unread
+    expect(s.unreadAnchorId).to.equal(s.messages[0]!._id); // divider anchors at the top of the loaded window
+  });
 });
