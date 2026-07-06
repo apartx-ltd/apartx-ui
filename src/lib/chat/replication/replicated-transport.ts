@@ -9,7 +9,7 @@ export interface ReplicatedTransportDeps {
   /** Backward history page: newest `limit` messages with createdAt < before (before omitted = newest). */
   fetchHistory: (a: { chatId: string; before?: Date; limit: number }) => Promise<Message[]>;
   /** Forward tail (Task 2): messages with createdAt > since. */
-  fetchUpdates: (a: { chatId: string; since?: Date; limit: number }) => Promise<Message[]>;
+  fetchUpdates: (a: { chatId: string; since?: Date; sinceId?: string; limit: number }) => Promise<Message[]>;
   send: (draft: OutgoingDraft) => Promise<Message>;
   markReadOnServer: (a: { chatId: string; toCreatedAt: Date }) => Promise<void>;
   /** Host push signal — invoke onNews(chatId) when the server has new/changed messages (Task 2). */
@@ -71,9 +71,10 @@ export function createReplicatedTransport(deps: ReplicatedTransportDeps): ChatTr
         },
       });
 
-      // Forward tail: pull messages updated since the watermark on live signal + poll.
-      // fetchUpdates returns messages with updatedAt > since (INCLUDING tombstones) — catches new/edited/deleted.
-      let tailWatermark: Date | undefined;
+      // Forward tail: pull messages updated since the (updatedAt,_id) cursor on live signal + poll.
+      // fetchUpdates returns messages after the compound cursor (INCLUDING tombstones) — catches new/edited/deleted.
+      let cursorAt: Date | undefined;
+      let cursorId: string | undefined;
       let tailing = false;
       let pending = false;
       const tailSync = async () => {
@@ -84,12 +85,27 @@ export function createReplicatedTransport(deps: ReplicatedTransportDeps): ChatTr
         try {
           do {
             pending = false;
-            // Watermark cursor is strict updatedAt > since. Edge: if >pageSize messages share an identical updatedAt ms and the page boundary falls exactly on that ms, a sibling equal to the watermark is excluded and not re-fetched by later tails (they also use strict >). Extremely rare (needs a burst > pageSize with a duplicate ms at the boundary); recovered on chat re-open (fresh pull). A fully robust fix needs a compound (updatedAt,_id) cursor coordinated with the server — out of scope.
-            const upd = await deps.fetchUpdates({ chatId, since: tailWatermark, limit: pageSize });
-            if (upd.length) {
+            // Drain to a partial page. The server pages with a compound (updatedAt,_id) cursor
+            // (mirrors pullByCheckpoint): a read that bumps MANY messages to one identical
+            // updatedAt is walked gap-free and bounded to pageSize per round-trip, instead of
+            // stranding the tie-group beyond a strict `updatedAt > since` limit (read tick stuck
+            // grey until reload) or pulling the whole group unbounded. `sinceId` breaks the tie.
+            let full = true;
+            while (full) {
+              const upd = await deps.fetchUpdates({ chatId, since: cursorAt, sinceId: cursorId, limit: pageSize });
+              full = upd.length === pageSize;
+              if (!upd.length) break;
               const rows = upd.map((m) => ({ ...m, updatedAt: (m as any).updatedAt ?? m.createdAt })) as unknown as StoredMessage[];
               await db.chatMessages.bulkPut(rows);
-              for (const r of rows) if (!tailWatermark || r.updatedAt.getTime() > tailWatermark.getTime()) tailWatermark = r.updatedAt;
+              // Advance to the max (updatedAt,_id) tuple seen — order-independent, so it holds
+              // whichever order the server returns the page in.
+              for (const r of rows) {
+                const rt = r.updatedAt.getTime();
+                const ct = cursorAt ? cursorAt.getTime() : -1;
+                if (!cursorAt || rt > ct || (rt === ct && (cursorId == null || r._id > cursorId))) {
+                  cursorAt = r.updatedAt; cursorId = r._id;
+                }
+              }
             }
           } while (pending);
         } catch (e) { logUnexpected('tailSync', chatId, e); } finally { tailing = false; }

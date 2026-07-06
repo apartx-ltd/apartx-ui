@@ -269,6 +269,40 @@ describe('ReplicatedTransport.subscribeLive — forward tail (signal + poll)', (
     closeChatDb(userId);
   });
 
+  it('drains a full page: a read that bumps > pageSize messages is walked gap-free with the compound (updatedAt,_id) cursor until a partial page', async () => {
+    const userId = 'user-rt-tail-drain';
+    const db = getChatDb(userId);
+    // A single read stamps 5 messages with ONE identical updatedAt. With pageSize 2 the server
+    // returns them in three round-trips: [m1,m2], [m3,m4], [m5]. The client must advance by the
+    // compound cursor (since=updatedAt, sinceId=last _id) and keep pulling until the short page,
+    // NOT stop after the first full page (which would strand m3..m5 — the "blue tick stuck grey
+    // until reload" regression).
+    const bump = new Date(BASE + 500_000);
+    const all = [1, 2, 3, 4, 5].map((i) => mkMsg(i, { updatedAt: bump }));
+    const fetchUpdates = vi.fn(async (a: { since?: Date; sinceId?: string; limit: number }) => {
+      const after = all.filter((m) => {
+        if (!a.since) return true;
+        const dt = m.updatedAt.getTime() - a.since.getTime();
+        if (dt > 0) return true;
+        return dt === 0 && (a.sinceId == null || m._id > a.sinceId);
+      });
+      return after.slice(0, a.limit) as unknown as Message[];
+    });
+
+    const { transport } = build(userId, { db, fetchUpdates, pageSize: 2 });
+    const unsub = transport.subscribeLive(CHAT, () => {});
+    await tick();
+
+    // 3 pages: [m1,m2] full → [m3,m4] full → [m5] partial (stop). All 5 land, none stranded.
+    expect(fetchUpdates).toHaveBeenCalledTimes(3);
+    expect(fetchUpdates.mock.calls[1][0]).toMatchObject({ since: bump, sinceId: 'm002' });
+    expect(fetchUpdates.mock.calls[2][0]).toMatchObject({ since: bump, sinceId: 'm004' });
+    expect(await db.chatMessages.where('chatId').equals(CHAT).count()).toBe(5);
+
+    unsub();
+    closeChatDb(userId);
+  });
+
   it('tail on poll: self-reschedules — advancing pollIntervalMs re-calls fetchUpdates', async () => {
     vi.useFakeTimers();
     try {
