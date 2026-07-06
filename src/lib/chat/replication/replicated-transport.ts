@@ -96,12 +96,17 @@ export function createReplicatedTransport(deps: ReplicatedTransportDeps): ChatTr
       };
       const offSignal = deps.subscribeSignal((cid) => { if (cid === chatId) void tailSync(); });
       let pollTimer: ReturnType<typeof setTimeout> | null = null;
-      const schedulePoll = () => { pollTimer = setTimeout(async () => { await tailSync(); schedulePoll(); }, pollIntervalMs); };
+      let stopped = false; // set on unsubscribe; guards poll re-arming (below) and backfill
+      // Guard both entry and re-arm: without the `if (stopped)` checks, a tick already awaiting
+      // tailSync() at unsubscribe would spawn a fresh timer that nothing clears → orphan poll.
+      const schedulePoll = () => {
+        if (stopped) return;
+        pollTimer = setTimeout(async () => { await tailSync(); if (!stopped) schedulePoll(); }, pollIntervalMs);
+      };
       void tailSync();
       schedulePoll();
 
       // Background backward fill for full offline (throttled, self-stopping on unsubscribe or exhaustion).
-      let stopped = false;
       const backfill = async () => {
         try {
           let cursor = (await db.chatMessages
