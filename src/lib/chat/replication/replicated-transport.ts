@@ -21,6 +21,15 @@ export interface ReplicatedTransportDeps {
 
 const toMessage = (d: StoredMessage): Message => d as unknown as Message;
 
+// The transport's fetch/store loops fail silently while OFFLINE by design (a later signal/poll retries).
+// But a store-side fault that persists regardless of connectivity — e.g. a non-structured-cloneable value
+// reaching Dexie's bulkPut (DataCloneError) — would otherwise be swallowed forever, leaving the chat blank.
+// Surface such errors when the browser believes it is online; stay quiet on genuine offline failures.
+const logUnexpected = (where: string, chatId: string, e: unknown): void => {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  console.error(`[chat] ${where} failed`, chatId, e);
+};
+
 export function createReplicatedTransport(deps: ReplicatedTransportDeps): ChatTransport {
   const { db, chatId } = deps;
   const pageSize = deps.pageSize ?? 25;
@@ -83,7 +92,7 @@ export function createReplicatedTransport(deps: ReplicatedTransportDeps): ChatTr
               for (const r of rows) if (!tailWatermark || r.updatedAt.getTime() > tailWatermark.getTime()) tailWatermark = r.updatedAt;
             }
           } while (pending);
-        } catch { /* offline — retry on next signal/poll */ } finally { tailing = false; }
+        } catch (e) { logUnexpected('tailSync', chatId, e); } finally { tailing = false; }
       };
       const offSignal = deps.subscribeSignal((cid) => { if (cid === chatId) void tailSync(); });
       let pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -107,7 +116,7 @@ export function createReplicatedTransport(deps: ReplicatedTransportDeps): ChatTr
             cursor = rows.reduce((min, r) => (r.createdAt.getTime() < min.getTime() ? r.createdAt : min), rows[0].createdAt);
             await new Promise((r) => setTimeout(r, 250));
           }
-        } catch { /* offline — a later open retries */ }
+        } catch (e) { logUnexpected('backfill', chatId, e); }
       };
       // Defer the background fill until the window is ready (handles BOTH call orders — subscribe-before-fetch
       // AND subscribe-after-fetch). fetchOlder invokes the deferred hook once it establishes windowReady.
@@ -130,7 +139,7 @@ export function createReplicatedTransport(deps: ReplicatedTransportDeps): ChatTr
             await db.chatMessages.bulkPut(rows);
             page = await readDexie(before, limit);
           }
-        } catch { /* offline — return the Dexie slice we have */ }
+        } catch (e) { logUnexpected('fetchOlder', chatId, e); }
       }
       if (page.length) {
         const oldest = page[0].createdAt;
