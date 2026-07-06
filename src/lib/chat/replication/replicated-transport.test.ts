@@ -91,6 +91,61 @@ describe('ReplicatedTransport.fetchOlder paging (deterministic, no live snapshot
   });
 });
 
+describe('replicated-transport cold-cache seed + non-blocking backfill', () => {
+  it('cold cache: seeds newest page via seedNewest, returns it WITHOUT awaiting full executePull', async () => {
+    const userId = 'user-rt-coldseed';
+    const db = getChatDb(userId);
+    // seedNewest returns newest-first (as a real network "newest page" would); transport must
+    // store them and return the page oldest→newest.
+    const seeded: StoredMessage[] = [
+      mkMsg(2, { _id: 'm2', text: 'newer', createdAt: new Date(2000), updatedAt: new Date(2000) }),
+      mkMsg(1, { _id: 'm1', text: 'older', createdAt: new Date(1000), updatedAt: new Date(1000) }),
+    ];
+    // executePull NEVER resolves → asserts fetchOlder does not await it.
+    const executePull = vi.fn(() => new Promise<number>(() => {}));
+    const replication = {
+      db,
+      messages: {
+        getScope: () => ({ lastSyncAt: null }), // never synced → background pull would fire
+        executePull,
+        setActiveScopes: () => {},
+      },
+      setActiveChats: () => {},
+    } as unknown as ChatReplication;
+
+    const seedNewest = vi.fn(async () => seeded as unknown as StoredMessage[] as any);
+    const transport = createReplicatedTransport({
+      chatId: CHAT, replication, send: async () => ({} as any), markReadOnServer: async () => {}, seedNewest,
+    });
+
+    // Must resolve despite executePull hanging forever.
+    const page = await transport.fetchOlder({ chatId: CHAT, limit: 25 });
+    expect(seedNewest).toHaveBeenCalledWith(25);
+    expect(page.map((m) => m._id)).toEqual(['m1', 'm2']); // oldest→newest
+    expect(await db.chatMessages.where('chatId').equals(CHAT).count()).toBe(2);
+    expect(executePull).toHaveBeenCalledOnce();
+
+    closeChatDb(userId);
+  });
+
+  it('warm cache: returns newest `limit` from Dexie WITHOUT calling seedNewest', async () => {
+    const userId = 'user-rt-warmseed';
+    const { replication, db } = fakeReplication(userId);
+    await db.chatMessages.bulkPut([mkMsg(1), mkMsg(2)]);
+
+    const seedNewest = vi.fn(async () => [] as any);
+    const transport = createReplicatedTransport({
+      chatId: CHAT, replication, send: async () => ({} as any), markReadOnServer: async () => {}, seedNewest,
+    });
+
+    const page = await transport.fetchOlder({ chatId: CHAT, limit: 25 });
+    expect(seedNewest).not.toHaveBeenCalled();
+    expect(page.map((m) => m._id)).toEqual(['m001', 'm002']);
+
+    closeChatDb(userId);
+  });
+});
+
 describe('ReplicatedTransport live behavior driven through the real ChatSession', () => {
   it('reflects the Dexie snapshot, then live upsert / soft-delete / hard-delete', async () => {
     const userId = 'user-rt-live';

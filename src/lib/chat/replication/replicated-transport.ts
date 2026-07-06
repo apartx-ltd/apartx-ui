@@ -9,6 +9,9 @@ export interface ReplicatedTransportDeps {
   replication: ChatReplication;
   send: (draft: OutgoingDraft) => Promise<Message>;
   markReadOnServer: (args: { chatId: string; toCreatedAt: Date }) => Promise<void>;
+  /** Cold-cache fast path: fetch the newest `limit` messages from the network. Called ONLY
+   *  when Dexie has no messages for this chat. */
+  seedNewest?: (limit: number) => Promise<Message[]>;
   pageSize?: number;
 }
 
@@ -38,8 +41,15 @@ export function createReplicatedTransport(deps: ReplicatedTransportDeps): ChatTr
 
     async fetchOlder({ before, limit }) {
       if (!before) {
+        const cached = await db.chatMessages.where('chatId').equals(chatId).count();
+        if (cached === 0 && deps.seedNewest) {
+          try {
+            const newest = await deps.seedNewest(limit);
+            if (newest.length) await db.chatMessages.bulkPut(newest as unknown as StoredMessage[]);
+          } catch { /* offline cold cache — nothing to seed; live sync fills later */ }
+        }
         const scope = replication.messages.getScope(chatId);
-        if (!scope || scope.lastSyncAt == null) await replication.messages.executePull(chatId);
+        if (!scope || scope.lastSyncAt == null) void replication.messages.executePull(chatId);
       }
       let rows = await db.chatMessages.where('chatId').equals(chatId).sortBy('createdAt');
       if (before) rows = rows.filter((r) => r.createdAt.getTime() < before.getTime());
