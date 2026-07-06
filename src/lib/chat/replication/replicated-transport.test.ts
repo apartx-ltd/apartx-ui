@@ -1,9 +1,9 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, vi } from 'vitest';
-import { createReplicatedTransport } from './replicated-transport';
+import { createReplicatedTransport, type ReplicatedTransportDeps } from './replicated-transport';
 import { createChatSession } from '../session.svelte';
-import { getChatDb, closeChatDb, type StoredMessage } from './chat-db';
-import type { ChatReplication } from './chat-replication';
+import { getChatDb, closeChatDb, type ChatDatabase, type StoredMessage } from './chat-db';
+import type { Message } from '../types';
 
 const tick = (ms = 25) => new Promise((r) => setTimeout(r, ms));
 
@@ -14,161 +14,114 @@ const mkMsg = (i: number, extra: Partial<StoredMessage> = {}): StoredMessage => 
   return { _id: `m${String(i).padStart(3, '0')}`, chatId: CHAT, userId: 'other', text: `msg ${i}`, createdAt: d, updatedAt: d, ...extra };
 };
 
-/** A fake ChatReplication whose db is the real seeded Dexie and whose message scope reports synced. */
-function fakeReplication(userId: string): { replication: ChatReplication; db: ReturnType<typeof getChatDb>; executePull: ReturnType<typeof vi.fn> } {
+/** Build a transport over the NEW deps: a real fake-indexeddb Dexie + injected closures. */
+function build(
+  userId: string,
+  overrides: Partial<ReplicatedTransportDeps> = {},
+): { db: ChatDatabase; fetchHistory: ReturnType<typeof vi.fn>; deps: ReplicatedTransportDeps; transport: ReturnType<typeof createReplicatedTransport> } {
   const db = getChatDb(userId);
-  const executePull = vi.fn(async () => 0);
-  const replication = {
+  const fetchHistory = vi.fn(async () => [] as Message[]);
+  const deps: ReplicatedTransportDeps = {
     db,
-    messages: {
-      // lastSyncAt set → transport treats the scope as already-synced (executePull is a no-op).
-      getScope: (_id: string) => ({ lastSyncAt: new Date() }),
-      executePull,
-      setActiveScopes: () => {},
-    },
-    setActiveChats: () => {},
-  } as unknown as ChatReplication;
-  return { replication, db, executePull };
+    chatId: CHAT,
+    fetchHistory,
+    fetchUpdates: async () => [],
+    send: async () => ({} as any),
+    markReadOnServer: async () => {},
+    subscribeSignal: () => () => {},
+    ...overrides,
+  };
+  const transport = createReplicatedTransport(deps);
+  return { db, fetchHistory, deps, transport };
 }
 
-describe('ReplicatedTransport.fetchOlder paging (deterministic, no live snapshot)', () => {
-  it('returns the newest page first, then older pages via `before`, and reports the initial-sync no-op', async () => {
-    const userId = 'user-rt-page';
-    const { replication, db, executePull } = fakeReplication(userId);
-    await db.chatMessages.bulkPut(Array.from({ length: 60 }, (_, i) => mkMsg(i + 1)));
+describe('ReplicatedTransport.fetchOlder — backward paginator on fetchHistory contract', () => {
+  it('cold: empty Dexie → fetchHistory once, bulkPuts, returns page oldest→newest', async () => {
+    const userId = 'user-rt-cold';
+    // Server `before` query returns the newest `limit` messages, newest-first.
+    const server = Array.from({ length: 25 }, (_, i) => mkMsg(i + 1)).reverse() as unknown as Message[];
+    const fetchHistory = vi.fn(async () => server);
+    const { db, transport } = build(userId, { fetchHistory });
 
-    const transport = createReplicatedTransport({
-      chatId: CHAT, replication,
-      send: async () => ({} as any), markReadOnServer: async () => {}, pageSize: 25,
+    const page = await transport.fetchOlder({ chatId: CHAT, limit: 25 });
+    expect(fetchHistory).toHaveBeenCalledOnce();
+    expect(fetchHistory).toHaveBeenCalledWith({ chatId: CHAT, before: undefined, limit: 25 });
+    expect(page.map((x) => x._id)).toEqual(
+      Array.from({ length: 25 }, (_, i) => `m${String(1 + i).padStart(3, '0')}`),
+    );
+    expect(await db.chatMessages.where('chatId').equals(CHAT).count()).toBe(25);
+
+    closeChatDb(userId);
+  });
+
+  it('warm: Dexie already has the newest page → returns from Dexie, fetchHistory NOT called', async () => {
+    const userId = 'user-rt-warm';
+    const { db, fetchHistory, transport } = build(userId);
+    await db.chatMessages.bulkPut(Array.from({ length: 25 }, (_, i) => mkMsg(i + 1)));
+
+    const page = await transport.fetchOlder({ chatId: CHAT, limit: 25 });
+    expect(fetchHistory).not.toHaveBeenCalled();
+    expect(page.map((x) => x._id)).toEqual(
+      Array.from({ length: 25 }, (_, i) => `m${String(1 + i).padStart(3, '0')}`),
+    );
+
+    closeChatDb(userId);
+  });
+
+  it('gap fallback: partial Dexie slice → fetchHistory fills the gap, returns contiguous older run (no skip)', async () => {
+    const userId = 'user-rt-gap';
+    // Full history m001..m010. Only the newest 2 (m009, m010) are cached.
+    const full = Array.from({ length: 10 }, (_, i) => mkMsg(i + 1));
+    const { db, transport } = build(userId, {
+      // Server returns the newest `limit` with createdAt < before, newest-first.
+      fetchHistory: vi.fn(async ({ before, limit }) => {
+        const older = full.filter((m) => !before || m.createdAt.getTime() < before.getTime());
+        return older.slice(-limit).reverse() as unknown as Message[];
+      }),
     });
+    await db.chatMessages.bulkPut([mkMsg(9), mkMsg(10)]);
 
-    // Initial page = newest 25 (m036..m060). Scope reports synced → executePull NOT called.
+    const oldestSeeded = mkMsg(9).createdAt;
+    // Ask for the page BEFORE m009 — Dexie has nothing older → fetchHistory fills m001..m008.
+    const page = await transport.fetchOlder({ chatId: CHAT, before: oldestSeeded, limit: 5 });
+    // Contiguous older run of 5 immediately before m009: m004..m008.
+    expect(page.map((x) => x._id)).toEqual(['m004', 'm005', 'm006', 'm007', 'm008']);
+
+    closeChatDb(userId);
+  });
+
+  it('gap fallback calls fetchHistory with the requested `before`', async () => {
+    const userId = 'user-rt-gap2';
+    const full = Array.from({ length: 10 }, (_, i) => mkMsg(i + 1));
+    const fetchHistory = vi.fn(async ({ before, limit }: { before?: Date; limit: number }) => {
+      const older = full.filter((m) => !before || m.createdAt.getTime() < before.getTime());
+      return older.slice(-limit).reverse() as unknown as Message[];
+    });
+    const { db, transport } = build(userId, { fetchHistory });
+    await db.chatMessages.bulkPut([mkMsg(9), mkMsg(10)]);
+
+    const oldestSeeded = mkMsg(9).createdAt;
+    await transport.fetchOlder({ chatId: CHAT, before: oldestSeeded, limit: 5 });
+    expect(fetchHistory).toHaveBeenCalledWith({ chatId: CHAT, before: oldestSeeded, limit: 5 });
+
+    closeChatDb(userId);
+  });
+
+  it('exhaustion: fetchHistory returns < limit once → later fetchOlder past oldest returns [] without re-calling', async () => {
+    const userId = 'user-rt-exhaust';
+    // Only 3 messages exist server-side; limit is 25 → short page marks exhausted.
+    const server = Array.from({ length: 3 }, (_, i) => mkMsg(i + 1)).reverse() as unknown as Message[];
+    const fetchHistory = vi.fn(async () => server);
+    const { transport } = build(userId, { fetchHistory });
+
     const p1 = await transport.fetchOlder({ chatId: CHAT, limit: 25 });
-    expect(p1.map((x) => x._id)).toEqual(
-      Array.from({ length: 25 }, (_, i) => `m${String(36 + i).padStart(3, '0')}`),
-    );
-    expect(executePull).not.toHaveBeenCalled();
+    expect(fetchHistory).toHaveBeenCalledOnce();
+    expect(p1.map((x) => x._id)).toEqual(['m001', 'm002', 'm003']);
 
-    // Older page = previous 25 (m011..m035).
+    // Now ask for a page BEFORE the oldest → Dexie short + exhausted → no further network.
     const p2 = await transport.fetchOlder({ chatId: CHAT, before: p1[0].createdAt, limit: 25 });
-    expect(p2.map((x) => x._id)).toEqual(
-      Array.from({ length: 25 }, (_, i) => `m${String(11 + i).padStart(3, '0')}`),
-    );
-
-    // Final page = remaining 10 (m001..m010) → fewer than pageSize (exhausted signal for the reducer).
-    const p3 = await transport.fetchOlder({ chatId: CHAT, before: p2[0].createdAt, limit: 25 });
-    expect(p3.map((x) => x._id)).toEqual(
-      Array.from({ length: 10 }, (_, i) => `m${String(1 + i).padStart(3, '0')}`),
-    );
-    expect(p3.length).toBeLessThan(25);
-
-    closeChatDb(userId);
-  });
-
-  it('runs executePull on the very first fetch when the scope has never synced', async () => {
-    const userId = 'user-rt-firstpull';
-    const db = getChatDb(userId);
-    const executePull = vi.fn(async () => {
-      await db.chatMessages.put(mkMsg(1));
-      return 1;
-    });
-    const replication = {
-      db,
-      messages: {
-        getScope: () => ({ lastSyncAt: null }), // never synced
-        executePull,
-        setActiveScopes: () => {},
-      },
-      setActiveChats: () => {},
-    } as unknown as ChatReplication;
-
-    const transport = createReplicatedTransport({ chatId: CHAT, replication, send: async () => ({} as any), markReadOnServer: async () => {}, pageSize: 25 });
-    const page = await transport.fetchOlder({ chatId: CHAT, limit: 25 });
-    expect(executePull).toHaveBeenCalledOnce();
-    expect(page.map((x) => x._id)).toEqual(['m001']);
-
-    closeChatDb(userId);
-  });
-});
-
-describe('replicated-transport cold-cache seed + non-blocking backfill', () => {
-  it('cold cache: seeds newest page via seedNewest, returns it WITHOUT awaiting full executePull', async () => {
-    const userId = 'user-rt-coldseed';
-    const db = getChatDb(userId);
-    // seedNewest returns newest-first (as a real network "newest page" would); transport must
-    // store them and return the page oldest→newest.
-    const seeded: StoredMessage[] = [
-      mkMsg(2, { _id: 'm2', text: 'newer', createdAt: new Date(2000), updatedAt: new Date(2000) }),
-      mkMsg(1, { _id: 'm1', text: 'older', createdAt: new Date(1000), updatedAt: new Date(1000) }),
-    ];
-    // executePull NEVER resolves → asserts fetchOlder does not await it.
-    const executePull = vi.fn(() => new Promise<number>(() => {}));
-    const replication = {
-      db,
-      messages: {
-        getScope: () => ({ lastSyncAt: null }), // never synced → background pull would fire
-        executePull,
-        setActiveScopes: () => {},
-      },
-      setActiveChats: () => {},
-    } as unknown as ChatReplication;
-
-    const seedNewest = vi.fn(async () => seeded as unknown as StoredMessage[] as any);
-    const transport = createReplicatedTransport({
-      chatId: CHAT, replication, send: async () => ({} as any), markReadOnServer: async () => {}, seedNewest,
-    });
-
-    // Must resolve despite executePull hanging forever.
-    const page = await transport.fetchOlder({ chatId: CHAT, limit: 25 });
-    expect(seedNewest).toHaveBeenCalledWith(25);
-    expect(page.map((m) => m._id)).toEqual(['m1', 'm2']); // oldest→newest
-    expect(await db.chatMessages.where('chatId').equals(CHAT).count()).toBe(2);
-    expect(executePull).toHaveBeenCalledOnce();
-
-    closeChatDb(userId);
-  });
-
-  it('cold cache with empty history: seedNewest resolves [], returns [] and still fires executePull once', async () => {
-    const userId = 'user-rt-emptyseed';
-    const db = getChatDb(userId);
-    const executePull = vi.fn(() => new Promise<number>(() => {})); // never resolves
-    const replication = {
-      db,
-      messages: {
-        getScope: () => ({ lastSyncAt: null }), // never synced → background pull fires
-        executePull,
-        setActiveScopes: () => {},
-      },
-      setActiveChats: () => {},
-    } as unknown as ChatReplication;
-
-    const seedNewest = vi.fn(async () => [] as any);
-    const transport = createReplicatedTransport({
-      chatId: CHAT, replication, send: async () => ({} as any), markReadOnServer: async () => {}, seedNewest,
-    });
-
-    const page = await transport.fetchOlder({ chatId: CHAT, limit: 25 });
-    expect(seedNewest).toHaveBeenCalledWith(25);
-    expect(page).toEqual([]);
-    expect(await db.chatMessages.where('chatId').equals(CHAT).count()).toBe(0);
-    expect(executePull).toHaveBeenCalledOnce();
-
-    closeChatDb(userId);
-  });
-
-  it('warm cache: returns newest `limit` from Dexie WITHOUT calling seedNewest', async () => {
-    const userId = 'user-rt-warmseed';
-    const { replication, db } = fakeReplication(userId);
-    await db.chatMessages.bulkPut([mkMsg(1), mkMsg(2)]);
-
-    const seedNewest = vi.fn(async () => [] as any);
-    const transport = createReplicatedTransport({
-      chatId: CHAT, replication, send: async () => ({} as any), markReadOnServer: async () => {}, seedNewest,
-    });
-
-    const page = await transport.fetchOlder({ chatId: CHAT, limit: 25 });
-    expect(seedNewest).not.toHaveBeenCalled();
-    expect(page.map((m) => m._id)).toEqual(['m001', 'm002']);
+    expect(p2).toEqual([]);
+    expect(fetchHistory).toHaveBeenCalledOnce(); // unchanged
 
     closeChatDb(userId);
   });
@@ -177,14 +130,14 @@ describe('replicated-transport cold-cache seed + non-blocking backfill', () => {
 describe('ReplicatedTransport live behavior driven through the real ChatSession', () => {
   it('reflects the Dexie snapshot, then live upsert / soft-delete / hard-delete', async () => {
     const userId = 'user-rt-live';
-    const { replication, db } = fakeReplication(userId);
+    const db = getChatDb(userId);
 
     // Seed a small ascending set so the whole-chat live snapshot is the loaded window.
     const seeded = Array.from({ length: 5 }, (_, i) => mkMsg(i + 1));
     await db.chatMessages.bulkPut(seeded);
 
     const send = vi.fn(async (draft: any) => ({ _id: 'srv-' + draft.clientToken, chatId: CHAT, text: draft.text, createdAt: new Date(), meta: { clientToken: draft.clientToken } }));
-    const transport = createReplicatedTransport({ chatId: CHAT, replication, send, markReadOnServer: async () => {}, pageSize: 25 });
+    const { transport } = build(userId, { db, send });
     const session = createChatSession(transport, { chatId: CHAT, meUserId: 'me', pageSize: 25 });
 
     await session.open();
@@ -219,14 +172,12 @@ describe('ReplicatedTransport live behavior driven through the real ChatSession'
 
   it('markRead forwards the message createdAt to the server watermark', async () => {
     const userId = 'user-rt-markread';
-    const { replication, db } = fakeReplication(userId);
+    const db = getChatDb(userId);
     const when = new Date(BASE + 5000);
     await db.chatMessages.put(mkMsg(1, { createdAt: when, updatedAt: when }));
 
     const markReadOnServer = vi.fn(async () => {});
-    const transport = createReplicatedTransport({
-      chatId: CHAT, replication, send: async () => ({ _id: 'x', chatId: CHAT, createdAt: new Date() } as any), markReadOnServer,
-    });
+    const { transport } = build(userId, { db, markReadOnServer });
 
     await transport.markRead({ chatId: CHAT, message: { _id: 'm001', chatId: CHAT, createdAt: when } as any });
     expect(markReadOnServer).toHaveBeenCalledWith({ chatId: CHAT, toCreatedAt: when });
