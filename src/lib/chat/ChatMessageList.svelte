@@ -6,7 +6,7 @@
   import Icon from '../ui/display/Icon.svelte';
   import Message from './Message.svelte';
   import { chatT } from './i18n';
-  import { countUnread, newerWatermark } from './helpers';
+  import { countUnread, createReadFlusher } from './helpers';
   import { isReadByMe } from './replication/read-state';
   import type { ChatSession } from './session.svelte';
   import type { Message as ChatMessage } from './types';
@@ -46,17 +46,32 @@
   const unreadId = $derived(session.unreadAnchorId);
   const unreadCount = $derived(countUnread(messages, meUserId, lastReadSeq));
 
-  // Debounce read-on-render into one markRead per readDebounceMs, watermarking by seq-or-createdAt.
-  let pendingWatermark: ChatMessage | null = null;
-  let readTimer: ReturnType<typeof setTimeout> | null = null;
-  function noteRead(m: ChatMessage) {
-    pendingWatermark = newerWatermark(pendingWatermark, m);
-    if (readTimer) return;
-    readTimer = setTimeout(() => {
-      readTimer = null;
-      if (pendingWatermark) { session.markRead(pendingWatermark); pendingWatermark = null; }
-    }, readDebounceMs);
-  }
+  // Debounce read-on-render into one markRead per readDebounceMs, GATED on "the user is actually viewing
+  // THIS window" (visible AND focused). The virtualizer mounts an off-screen overscan buffer and sticks to
+  // the bottom, so a message arriving while the tab is backgrounded — or while the window is visible but
+  // sits behind another (overlapping windows both report visibilityState 'visible'; only focus tells them
+  // apart) — would otherwise be marked read though nobody looked at it. createReadFlusher records the newest
+  // rendered unread regardless and withholds the server markRead until focus/visibility returns.
+  const isViewing = () =>
+    typeof document === 'undefined' || (document.visibilityState === 'visible' && document.hasFocus());
+  const flusher = createReadFlusher({
+    markRead: (m) => session.markRead(m),
+    isViewing,
+    debounceMs: readDebounceMs,
+  });
+  const noteRead = (m: ChatMessage) => flusher.note(m);
+  // Returning to the window (tab foregrounded / window re-focused) flushes whatever accumulated while away.
+  $effect(() => {
+    if (typeof document === 'undefined') return;
+    const onView = () => flusher.flushIfViewing();
+    document.addEventListener('visibilitychange', onView);
+    window.addEventListener('focus', onView);
+    return () => {
+      document.removeEventListener('visibilitychange', onView);
+      window.removeEventListener('focus', onView);
+      flusher.dispose();
+    };
+  });
 
   // First load: jump to the unread divider, else the bottom (MessagesList sticks to bottom by default).
   let initialScrollDone = false;

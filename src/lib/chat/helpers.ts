@@ -77,3 +77,52 @@ export function newerWatermark(a: Message | null, b: Message): Message {
   if (a.seq != null && b.seq != null) return b.seq > a.seq ? b : a;
   return b.createdAt.getTime() > a.createdAt.getTime() ? b : a;
 }
+
+export interface ReadFlusher {
+  /** Record a rendered incoming-unread message; schedules a debounced flush. */
+  note(m: Message): void;
+  /** Flush the accumulated watermark IF currently viewing — call on focus/visibility regain. */
+  flushIfViewing(): void;
+  /** Cancel any pending timer (component teardown). */
+  dispose(): void;
+}
+
+/**
+ * Debounced read-watermark flusher with a "viewing" gate. `note()` always keeps the NEWEST rendered
+ * unread (so nothing is lost while the window is unviewed); the debounced flush calls `markRead` only
+ * when `isViewing()` is true, otherwise the watermark stays pending until `flushIfViewing()` fires on
+ * the next focus/visibility regain. This is why a message that merely renders in a backgrounded or
+ * unfocused window is NOT marked read until the user actually returns to it. Pure/injectable (timers +
+ * `isViewing` are parameters) so it unit-tests without a DOM or component harness.
+ */
+export function createReadFlusher(opts: {
+  markRead: (m: Message) => void;
+  isViewing: () => boolean;
+  debounceMs: number;
+  setTimeoutFn?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
+  clearTimeoutFn?: (t: ReturnType<typeof setTimeout>) => void;
+}): ReadFlusher {
+  const st = opts.setTimeoutFn ?? setTimeout;
+  const ct = opts.clearTimeoutFn ?? clearTimeout;
+  let pending: Message | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const flush = () => {
+    timer = null;
+    if (!pending || !opts.isViewing()) return; // withhold while unviewed; watermark stays pending
+    opts.markRead(pending);
+    pending = null;
+  };
+  return {
+    note(m: Message) {
+      pending = newerWatermark(pending, m);
+      if (timer) return;
+      timer = st(flush, opts.debounceMs);
+    },
+    flushIfViewing() {
+      if (opts.isViewing()) flush();
+    },
+    dispose() {
+      if (timer) { ct(timer); timer = null; }
+    },
+  };
+}

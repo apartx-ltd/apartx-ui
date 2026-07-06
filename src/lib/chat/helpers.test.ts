@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark } from './helpers';
+import { describe, it, expect, vi } from 'vitest';
+import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher } from './helpers';
 import type { Message } from './types';
 
 const m = (over: Partial<Message> = {}): Message => ({ _id: 'm', chatId: 'c', userId: 'u1', createdAt: new Date('2026-06-30T10:00:00Z'), ...over });
@@ -113,5 +113,73 @@ describe('deliveryTick — prefers server delivery over read[]', () => {
   it('falls back to read[] only when delivery is absent', () => {
     expect(deliveryTick({ _id: 'a', createdAt: new Date(), read: ['other'] } as any, 'me')).toBe('read');
     expect(deliveryTick({ _id: 'a', createdAt: new Date() } as any, 'me')).toBe('sent');
+  });
+});
+
+describe('createReadFlusher — read-on-render gated by viewing', () => {
+  // Manual fake timer: capture the scheduled callback so the test drives when the debounce fires.
+  const makeTimers = () => {
+    let cb: (() => void) | null = null;
+    return {
+      set: (fn: () => void) => { cb = fn; return 1 as any; },
+      clear: () => { cb = null; },
+      fire: () => { const f = cb; cb = null; f?.(); },
+      pending: () => cb != null,
+    };
+  };
+
+  it('marks read after debounce when the window is being viewed', () => {
+    const t = makeTimers();
+    const markRead = vi.fn();
+    const f = createReadFlusher({ markRead, isViewing: () => true, debounceMs: 600, setTimeoutFn: t.set, clearTimeoutFn: t.clear });
+    f.note(m({ _id: 'a', seq: 5 }));
+    expect(markRead).not.toHaveBeenCalled(); // debounced, not yet
+    t.fire();
+    expect(markRead).toHaveBeenCalledTimes(1);
+    expect(markRead.mock.calls[0][0]._id).toBe('a');
+  });
+
+  it('does NOT mark read while unviewed (backgrounded / unfocused window)', () => {
+    const t = makeTimers();
+    const markRead = vi.fn();
+    let viewing = false;
+    const f = createReadFlusher({ markRead, isViewing: () => viewing, debounceMs: 600, setTimeoutFn: t.set, clearTimeoutFn: t.clear });
+    f.note(m({ _id: 'a', seq: 5 }));
+    t.fire();
+    expect(markRead).not.toHaveBeenCalled(); // withheld — nobody looked at it
+  });
+
+  it('flushes the accumulated NEWEST watermark on focus/visibility regain', () => {
+    const t = makeTimers();
+    const markRead = vi.fn();
+    let viewing = false;
+    const f = createReadFlusher({ markRead, isViewing: () => viewing, debounceMs: 600, setTimeoutFn: t.set, clearTimeoutFn: t.clear });
+    f.note(m({ _id: 'a', seq: 5 }));
+    f.note(m({ _id: 'b', seq: 7 })); // newer arrives while unviewed
+    t.fire();
+    expect(markRead).not.toHaveBeenCalled();
+    viewing = true;
+    f.flushIfViewing(); // user returns to the window
+    expect(markRead).toHaveBeenCalledTimes(1);
+    expect(markRead.mock.calls[0][0]._id).toBe('b'); // newest, not the first
+  });
+
+  it('flushIfViewing is a no-op while still unviewed', () => {
+    const t = makeTimers();
+    const markRead = vi.fn();
+    const f = createReadFlusher({ markRead, isViewing: () => false, debounceMs: 600, setTimeoutFn: t.set, clearTimeoutFn: t.clear });
+    f.note(m({ _id: 'a', seq: 5 }));
+    t.fire();
+    f.flushIfViewing();
+    expect(markRead).not.toHaveBeenCalled();
+  });
+
+  it('dispose cancels a pending flush', () => {
+    const t = makeTimers();
+    const markRead = vi.fn();
+    const f = createReadFlusher({ markRead, isViewing: () => true, debounceMs: 600, setTimeoutFn: t.set, clearTimeoutFn: t.clear });
+    f.note(m({ _id: 'a', seq: 5 }));
+    f.dispose();
+    expect(t.pending()).toBe(false);
   });
 });
