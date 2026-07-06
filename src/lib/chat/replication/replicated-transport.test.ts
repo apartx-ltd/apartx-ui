@@ -185,3 +185,290 @@ describe('ReplicatedTransport live behavior driven through the real ChatSession'
     closeChatDb(userId);
   });
 });
+
+describe('ReplicatedTransport.subscribeLive — forward tail (signal + poll)', () => {
+  it('tail on signal: fetchUpdates writes into Dexie, watermark advances, wrong chatId ignored', async () => {
+    const userId = 'user-rt-tail-signal';
+    const db = getChatDb(userId);
+    let signalCb: ((chatId: string) => void) | undefined;
+    const upd1 = mkMsg(10, { updatedAt: new Date(BASE + 10_000) });
+    const upd2 = mkMsg(11, { updatedAt: new Date(BASE + 11_000) });
+    const fetchUpdates = vi.fn(async () => [] as Message[]);
+    fetchUpdates.mockResolvedValueOnce([]);         // immediate initial tailSync (empty)
+    fetchUpdates.mockResolvedValueOnce([upd1] as unknown as Message[]); // 1st signal
+    fetchUpdates.mockResolvedValueOnce([upd2] as unknown as Message[]); // 2nd signal
+    const { transport } = build(userId, {
+      db,
+      fetchUpdates,
+      subscribeSignal: (onNews) => { signalCb = onNews; return () => { signalCb = undefined; }; },
+    });
+
+    const unsub = transport.subscribeLive(CHAT, () => {});
+    await tick(); // let the immediate tailSync settle
+    expect(fetchUpdates).toHaveBeenCalledTimes(1);
+    expect(fetchUpdates.mock.calls[0][0]).toMatchObject({ chatId: CHAT, since: undefined });
+
+    // Wrong chatId → no fetch.
+    signalCb?.('other-chat');
+    await tick();
+    expect(fetchUpdates).toHaveBeenCalledTimes(1);
+
+    // Matching signal → fetchUpdates called, message stored, watermark advances.
+    signalCb?.(CHAT);
+    await tick();
+    expect(fetchUpdates).toHaveBeenCalledTimes(2);
+    expect(await db.chatMessages.get('m010')).toBeTruthy();
+
+    // 2nd signal → `since` equals the max updatedAt from the 1st batch.
+    signalCb?.(CHAT);
+    await tick();
+    expect(fetchUpdates).toHaveBeenCalledTimes(3);
+    expect(fetchUpdates.mock.calls[2][0].since?.getTime()).toBe(upd1.updatedAt.getTime());
+
+    unsub();
+    closeChatDb(userId);
+  });
+
+  it('trailing re-sync: a signal fired during an in-flight tailSync is not dropped', async () => {
+    const userId = 'user-rt-tail-trailing';
+    const db = getChatDb(userId);
+    let signalCb: ((chatId: string) => void) | undefined;
+
+    // First fetchUpdates call blocks on a manually-resolved gate; later calls resolve immediately.
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((r) => { releaseFirst = r; });
+    let call = 0;
+    const fetchUpdates = vi.fn(async () => {
+      call += 1;
+      if (call === 1) { await firstGate; }
+      return [] as Message[];
+    });
+
+    const { transport } = build(userId, {
+      db,
+      fetchUpdates,
+      subscribeSignal: (onNews) => { signalCb = onNews; return () => { signalCb = undefined; }; },
+    });
+
+    // subscribeLive triggers the immediate tailSync (call #1), which now blocks on firstGate.
+    const unsub = transport.subscribeLive(CHAT, () => {});
+    await tick();
+    expect(fetchUpdates).toHaveBeenCalledTimes(1);
+
+    // Fire a second signal while call #1 is still pending → dropped by the re-entrancy guard, remembered as pending.
+    signalCb?.(CHAT);
+    await tick();
+    expect(fetchUpdates).toHaveBeenCalledTimes(1); // still in-flight, not yet re-called
+
+    // Release the first call → the trailing re-sync must run a SECOND fetchUpdates.
+    releaseFirst();
+    await tick();
+    expect(fetchUpdates).toHaveBeenCalledTimes(2);
+
+    unsub();
+    closeChatDb(userId);
+  });
+
+  it('tail on poll: self-reschedules — advancing pollIntervalMs re-calls fetchUpdates', async () => {
+    vi.useFakeTimers();
+    try {
+      const userId = 'user-rt-tail-poll';
+      const db = getChatDb(userId);
+      const fetchUpdates = vi.fn(async () => [] as Message[]);
+      const { transport } = build(userId, { db, fetchUpdates, pollIntervalMs: 5_000 });
+
+      const unsub = transport.subscribeLive(CHAT, () => {});
+      await vi.advanceTimersByTimeAsync(0); // immediate tailSync
+      expect(fetchUpdates).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(fetchUpdates).toHaveBeenCalledTimes(2);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(fetchUpdates).toHaveBeenCalledTimes(3);
+
+      unsub();
+      closeChatDb(userId);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cleanup: after unsub, advancing the poll interval does NOT call fetchUpdates again', async () => {
+    vi.useFakeTimers();
+    try {
+      const userId = 'user-rt-tail-cleanup';
+      const db = getChatDb(userId);
+      const fetchUpdates = vi.fn(async () => [] as Message[]);
+      const { transport } = build(userId, { db, fetchUpdates, pollIntervalMs: 5_000 });
+
+      const unsub = transport.subscribeLive(CHAT, () => {});
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fetchUpdates).toHaveBeenCalledTimes(1);
+
+      unsub();
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(fetchUpdates).toHaveBeenCalledTimes(1); // unchanged after unsub
+
+      closeChatDb(userId);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('ReplicatedTransport.subscribeLive — bounded window emit', () => {
+  it('only surfaces in-window (or known) messages; older background rows are suppressed', async () => {
+    const userId = 'user-rt-bounded';
+    const db = getChatDb(userId);
+    // Full history m001..m010; only the newest 5 (m006..m010) constitute the loaded window.
+    const full = Array.from({ length: 10 }, (_, i) => mkMsg(i + 1));
+    const { transport } = build(userId, {
+      db,
+      fetchHistory: vi.fn(async ({ before, limit }: { before?: Date; limit: number }) => {
+        const older = full.filter((m) => !before || m.createdAt.getTime() < before.getTime());
+        return older.slice(-limit).reverse() as unknown as Message[];
+      }),
+    });
+    await db.chatMessages.bulkPut(full.slice(5)); // seed m006..m010
+
+    // Load the window via fetchOlder → windowOldest = m006.createdAt.
+    const page = await transport.fetchOlder({ chatId: CHAT, limit: 5 });
+    expect(page.map((x) => x._id)).toEqual(['m006', 'm007', 'm008', 'm009', 'm010']);
+
+    const events: any[] = [];
+    const unsub = transport.subscribeLive(CHAT, (e) => events.push(e));
+    await tick();
+    // Initial snapshot surfaces only the in-window messages (m006..m010), not older m001..m005.
+    const initialUpserts = events.filter((e) => e.type === 'upsert').map((e) => e.message._id);
+    expect(initialUpserts).toEqual(expect.arrayContaining(['m006', 'm010']));
+    expect(initialUpserts).not.toContain('m005');
+
+    events.length = 0;
+    // Write an OLDER message (createdAt < windowOldest), not previously known → NO upsert.
+    await db.chatMessages.put(mkMsg(3)); // older than m006
+    await tick();
+    expect(events.some((e) => e.type === 'upsert' && e.message._id === 'm003')).toBe(false);
+
+    events.length = 0;
+    // Write a NEWER message (>= windowOldest) → upsert emitted.
+    await db.chatMessages.put(mkMsg(20, { createdAt: new Date(BASE + 20_000), updatedAt: new Date(BASE + 20_000) }));
+    await tick();
+    expect(events.some((e) => e.type === 'upsert' && e.message._id === 'm020')).toBe(true);
+
+    events.length = 0;
+    // Edit an already-emitted (known, in-window) message → upsert (edit) emitted.
+    await db.chatMessages.update('m010', { text: 'edited', updatedAt: new Date(BASE + 30_000) });
+    await tick();
+    expect(events.some((e) => e.type === 'upsert' && e.message._id === 'm010')).toBe(true);
+
+    events.length = 0;
+    // Soft-delete a known message → soft-delete event.
+    await db.chatMessages.update('m010', { removedAt: new Date(), updatedAt: new Date(BASE + 40_000) });
+    await tick();
+    expect(events.some((e) => e.type === 'delete' && e.targetId === 'm010' && e.hard === false)).toBe(true);
+
+    unsub();
+    closeChatDb(userId);
+  });
+});
+
+describe('ReplicatedTransport.subscribeLive — background offline fill', () => {
+  it('walks fetchHistory backward with a descending cursor, stops on a short page, then stops on unsub', async () => {
+    const userId = 'user-rt-backfill';
+    const db = getChatDb(userId);
+    // 12 messages exist server-side; pageSize 5 → pages of 5, 5, then 2 (short → exhausted).
+    const full = Array.from({ length: 12 }, (_, i) => mkMsg(i + 1));
+    const fetchHistory = vi.fn(async ({ before, limit }: { before?: Date; limit: number }) => {
+      const older = full.filter((m) => !before || m.createdAt.getTime() < before.getTime());
+      return older.slice(-limit).reverse() as unknown as Message[];
+    });
+    const { transport } = build(userId, { db, fetchHistory, pageSize: 5 });
+
+    // Establish the window first (subscribe-after-fetch order) so the deferred backfill runs.
+    // fetchOlder on empty Dexie fetches the newest page (m008..m012), setting windowReady + windowOldest.
+    await transport.fetchOlder({ chatId: CHAT, limit: 5 });
+    expect(fetchHistory.mock.calls.length).toBe(1);           // page A: newest 5
+    expect(fetchHistory.mock.calls[0][0].before).toBeUndefined();
+
+    const unsub = transport.subscribeLive(CHAT, () => {});
+
+    // Step past the 250ms throttle enough times for the backfill to reach exhaustion.
+    for (let i = 0; i < 10 && fetchHistory.mock.calls.length < 3; i++) await tick(300);
+
+    // Backfill added 2 more pages: next 5, then final 2 (< pageSize → exhausted). 3 fetchHistory calls total.
+    expect(fetchHistory.mock.calls.length).toBe(3);
+    // Descending `before` cursor across the backfill pages.
+    const c1 = fetchHistory.mock.calls[1][0].before as Date;
+    const c2 = fetchHistory.mock.calls[2][0].before as Date;
+    expect(c1.getTime()).toBeGreaterThan(c2.getTime());
+    // All 12 messages ended up in Dexie.
+    expect(await db.chatMessages.where('chatId').equals(CHAT).count()).toBe(12);
+
+    const callsAfterExhaustion = fetchHistory.mock.calls.length;
+    unsub();
+    await tick(400);
+    expect(fetchHistory.mock.calls.length).toBe(callsAfterExhaustion); // no further fetch after unsub/exhaustion
+
+    closeChatDb(userId);
+  });
+});
+
+describe('ReplicatedTransport — windowReady gate prevents open-time flood (subscribe-before-fetch)', () => {
+  it('warm cache no flood: 100 seeded messages → open shows only the loaded page (25), not the whole cache', async () => {
+    const userId = 'user-rt-warm-noflood';
+    const db = getChatDb(userId);
+    // Warm cache: 100 messages already in Dexie.
+    await db.chatMessages.bulkPut(Array.from({ length: 100 }, (_, i) => mkMsg(i + 1)));
+
+    // Quiet network — everything the session needs is in the warm cache.
+    const { transport } = build(userId, {
+      db,
+      fetchHistory: async () => [] as Message[],
+      fetchUpdates: async () => [] as Message[],
+    });
+    // createChatSession subscribes BEFORE fetchOlder (production order).
+    const session = createChatSession(transport, { chatId: CHAT, meUserId: 'me', pageSize: 25 });
+    await session.open();
+    await tick();
+
+    // The warm cache did NOT flood the window — only the loaded page is visible.
+    expect(session.status).toBe('ready');
+    expect(session.messages.length).toBe(25);
+
+    // A NEW (newer) message written post-open still surfaces via the live stream.
+    await db.chatMessages.put(mkMsg(200, { createdAt: new Date(BASE + 200_000), updatedAt: new Date(BASE + 200_000) }));
+    await tick();
+    expect(session.messages.map((x) => x._id)).toContain('m200');
+
+    session.dispose();
+    closeChatDb(userId);
+  });
+
+  it('cold cache no flood: background fill writes older pages during open but they do NOT enter the window', async () => {
+    const userId = 'user-rt-cold-noflood';
+    const db = getChatDb(userId);
+    // 80 messages exist server-side; pageSize 25. First fetch returns the newest 25, older pages follow.
+    const full = Array.from({ length: 80 }, (_, i) => mkMsg(i + 1));
+    const fetchHistory = vi.fn(async ({ before, limit }: { before?: Date; limit: number }) => {
+      const older = full.filter((m) => !before || m.createdAt.getTime() < before.getTime());
+      return older.slice(-limit).reverse() as unknown as Message[];
+    });
+    const { transport } = build(userId, { db, fetchHistory, fetchUpdates: async () => [] as Message[] });
+
+    const session = createChatSession(transport, { chatId: CHAT, meUserId: 'me', pageSize: 25 });
+    await session.open();
+    // Let the background fill write several older pages.
+    for (let i = 0; i < 6; i++) await tick(300);
+
+    // The window holds only the loaded page — older fill rows are in Dexie but NOT surfaced.
+    expect(session.status).toBe('ready');
+    expect(session.messages.length).toBe(25);
+    // The fill wrote more rows than the window (proving it ran without flooding the visible list).
+    const stored = await db.chatMessages.where('chatId').equals(CHAT).count();
+    expect(stored).toBeGreaterThan(25);
+
+    session.dispose();
+    closeChatDb(userId);
+  });
+});
