@@ -15,30 +15,32 @@ describe('deliveryTick', () => {
     expect(deliveryTick(m({ read: ['other'] }), 'me')).to.equal('read');
     expect(deliveryTick(m({ read: [] }), 'me')).to.equal('sent');
   });
-  it('own message, counterpart watermark covers seq → read', () => {
-    expect(deliveryTick(m({ userId: 'me', seq: 5 }), 'me', 5)).to.equal('read');
-    expect(deliveryTick(m({ userId: 'me', seq: 6 }), 'me', 5)).to.equal('delivered');
+  it('own message, counterpart READ watermark covers seq → read', () => {
+    expect(deliveryTick(m({ userId: 'me', seq: 5 }), 'me', 5, 5)).to.equal('read');
+    expect(deliveryTick(m({ userId: 'me', seq: 6 }), 'me', 5, 6)).to.equal('delivered'); // read<seq, delivered>=seq
   });
-  it('own CONFIRMED message with no watermark yet → at least DELIVERED (never "sent"); read[] only lifts to read', () => {
-    // Regression: a confirmed own message must not render 'sent' just because the counterpart
-    // watermark has not replicated yet — otherwise the tick skips grey-double 'delivered' and
-    // jumps sent → read when the read finally arrives.
-    expect(deliveryTick(m({ userId: 'me', seq: 5, read: [] }), 'me', undefined)).to.equal('delivered');
-    expect(deliveryTick(m({ userId: 'me', seq: 5, read: ['other'] }), 'me', undefined)).to.equal('read');
+  it('own DELIVERED (counterpart device has it), not yet read → delivered', () => {
+    expect(deliveryTick(m({ userId: 'me', seq: 5 }), 'me', 0, 5)).to.equal('delivered');
+    expect(deliveryTick(m({ userId: 'me', seq: 5 }), 'me', undefined, 5)).to.equal('delivered');
   });
-  it('own CONFIRMED message with NO seq yet (seq assigned async by server) → still DELIVERED, not "sent"', () => {
-    // The just-sent message can sit in the render window without `seq` (assigned async, never
-    // re-reaches the window); a confirmed message must still read as delivered, not 'sent'.
-    expect(deliveryTick(m({ userId: 'me', read: [] }), 'me', undefined)).to.equal('delivered');
-    expect(deliveryTick(m({ userId: 'me' }), 'me', undefined)).to.equal('delivered');
+  it('own CONFIRMED but NOT yet on counterpart device → "sent" (truthful; not "delivered")', () => {
+    // Semantic change: server-accepted ≠ delivered. Without a delivered watermark reaching seq,
+    // an own confirmed message is 'sent' (single check), matching WhatsApp's "server has it".
+    expect(deliveryTick(m({ userId: 'me', seq: 5, read: [] }), 'me', undefined, undefined)).to.equal('sent');
+    expect(deliveryTick(m({ userId: 'me', seq: 5 }), 'me', 0, 4)).to.equal('sent'); // delivered<seq
+    expect(deliveryTick(m({ userId: 'me', seq: 5, read: ['other'] }), 'me', undefined, undefined)).to.equal('read'); // legacy read[] lifts
   });
-  it('own OPTIMISTIC echo (sendState "sending") → "sent"; "failed" → "failed"', () => {
-    expect(deliveryTick(m({ userId: 'me', sendState: 'sending' }), 'me', undefined)).to.equal('sent');
-    expect(deliveryTick(m({ userId: 'me', sendState: 'sending', seq: 5 }), 'me', 9)).to.equal('sent');
-    expect(deliveryTick(m({ userId: 'me', sendState: 'failed' }), 'me', undefined)).to.equal('failed');
+  it('own CONFIRMED with NO seq yet → "sent" (no watermark can match)', () => {
+    expect(deliveryTick(m({ userId: 'me', read: [] }), 'me', undefined, undefined)).to.equal('sent');
+    expect(deliveryTick(m({ userId: 'me' }), 'me', undefined, undefined)).to.equal('sent');
+  });
+  it('own OPTIMISTIC echo (sendState "sending") → "pending"; "failed" → "failed"', () => {
+    expect(deliveryTick(m({ userId: 'me', sendState: 'sending' }), 'me', undefined, undefined)).to.equal('pending');
+    expect(deliveryTick(m({ userId: 'me', sendState: 'sending', seq: 5 }), 'me', 9, 9)).to.equal('pending');
+    expect(deliveryTick(m({ userId: 'me', sendState: 'failed' }), 'me', undefined, undefined)).to.equal('failed');
   });
   it('failed always wins regardless of watermark', () => {
-    expect(deliveryTick(m({ userId: 'me', seq: 5, delivery: 'failed' }), 'me', 9)).to.equal('failed');
+    expect(deliveryTick(m({ userId: 'me', seq: 5, delivery: 'failed' }), 'me', 9, 9)).to.equal('failed');
   });
 });
 

@@ -1,15 +1,15 @@
 <script lang="ts">
   import Fa from 'svelte-fa';
-  import { faCheck, faCheckDouble, faTriangleExclamation, faComment } from '@fortawesome/free-solid-svg-icons';
+  import { faCheck, faCheckDouble, faTriangleExclamation, faComment, faClock } from '@fortawesome/free-solid-svg-icons';
   import { faWhatsapp, faTelegram } from '@fortawesome/free-brands-svg-icons';
   import Icon from '../../ui/display/Icon.svelte';
   import type { Message } from '../types';
   import { deliveryTick } from '../helpers';
 
-  let { message, meUserId, counterpartReadSeq, timeLabel = '' }: { message: Message; meUserId?: string; counterpartReadSeq?: number; timeLabel?: string } = $props();
+  let { message, meUserId, counterpartReadSeq, counterpartDeliveredSeq, timeLabel = '' }: { message: Message; meUserId?: string; counterpartReadSeq?: number; counterpartDeliveredSeq?: number; timeLabel?: string } = $props();
 
   const isMine = $derived(!!meUserId && message.userId === meUserId);
-  const tick = $derived(isMine ? deliveryTick(message, meUserId, counterpartReadSeq) : null);
+  const tick = $derived(isMine ? deliveryTick(message, meUserId, counterpartReadSeq, counterpartDeliveredSeq) : null);
 
   const CHANNEL_ICON: Record<string, any> = { whatsapp: faWhatsapp, telegram: faTelegram };
   const channelIcon = (c: string) => CHANNEL_ICON[c] ?? faComment;
@@ -29,6 +29,8 @@
     <Fa icon={faCheckDouble} />
   {:else if tick === 'sent'}
     <Fa icon={faCheck} />
+  {:else if tick === 'pending'}
+    <Fa icon={faClock} />
   {/if}
   {#if isMine && message.channels?.length}
     {#each message.channels as ch (ch.channel)}

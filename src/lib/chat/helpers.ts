@@ -1,7 +1,7 @@
 import type { Message } from './types';
 import { isReadByMe } from './replication/read-state';
 
-export type DeliveryTick = 'sent' | 'delivered' | 'read' | 'failed';
+export type DeliveryTick = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 /** True if anyone OTHER than me has read the message (legacy read[] / boolean). */
 export function isReadByOther(message: Message, meUserId?: string): boolean {
@@ -12,36 +12,39 @@ export function isReadByOther(message: Message, meUserId?: string): boolean {
 }
 
 /**
- * 3-state WhatsApp-style tick (feature B). For the current user's own messages: an unconfirmed
- * optimistic echo (`sendState: 'sending'`) is 'sent'; once the server accepts it (`sendState`
- * cleared by resolveSend), it is at least 'delivered', flipping to 'read' when the per-dialog
- * watermark `counterpartReadSeq` reaches its `seq` (reactive, strand-proof) or, until that
- * watermark/seq replicates, when the legacy `read[]` shows a reader. Incoming / pre-migration
- * messages fall back to the server `delivery` field, then `read[]`.
+ * Truthful 4-state WhatsApp-style tick for the current user's OWN messages:
+ *   ⏱ pending   — optimistic echo, server has NOT acked yet (`sendState: 'sending'`)
+ *   ✓ sent      — server accepted it, but the counterpart's DEVICE has not received it yet
+ *   ✓✓ delivered — counterpart's device received it (`counterpartDeliveredSeq >= seq`)
+ *   ✓✓ read      — counterpart opened/read it (`counterpartReadSeq >= seq`)
  *
- * Why confirmed-ness (`sendState`) and NOT `seq` gates 'delivered': the server assigns `seq`
- * asynchronously (the send enqueues and returns before the projector stamps `seq`), and that
- * seq'd revision — stamped with the message's original createdAt/updatedAt — never re-reaches the
- * render window (the tail cursor has already passed it). So a just-sent own message can sit in the
- * window WITHOUT a `seq` indefinitely. Gating 'delivered' on `seq` therefore left it stuck on the
- * single-check 'sent' until a read arrived (via read[]), visibly skipping 'delivered' — the
- * sent → read regression. Confirmed-ness is known synchronously when Chat.sendMessage resolves.
+ * `delivered` is truthful device-received, NOT merely "server has it": the receiver's background
+ * dialogs stream acks `message.delivered` when the message lands on their device (chat closed or
+ * open), which bumps the sender's per-dialog `counterpartDeliveredSeq`. `sent` therefore correctly
+ * means "server has it, not yet on their device" — mirroring WhatsApp's single check. Both
+ * watermarks are compared against the message `seq`; until seq/watermarks replicate, the legacy
+ * `read[]` still lifts an own message to `read`, otherwise it reads as `sent`.
+ *
+ * Incoming / pre-migration messages keep the server `delivery` aggregate, then `read[]`.
  */
 export function deliveryTick(
   message: Message,
   meUserId?: string,
   counterpartReadSeq?: number,
+  counterpartDeliveredSeq?: number,
 ): DeliveryTick {
   if (message.delivery === 'failed' || message.sendState === 'failed') return 'failed';
   if (meUserId && message.userId === meUserId) {
     // Optimistic local echo, not yet accepted by the server.
-    if (message.sendState === 'sending') return 'sent';
-    // Confirmed own message → AT LEAST 'delivered'. Prefer the counterpart watermark when both it
-    // and `seq` are present (reactive, strand-proof); otherwise the legacy read[] lifts it to read.
-    if (typeof counterpartReadSeq === 'number' && typeof message.seq === 'number') {
-      return counterpartReadSeq >= message.seq ? 'read' : 'delivered';
+    if (message.sendState === 'sending') return 'pending';
+    // Confirmed own message: read > delivered > sent, each gated on the counterpart watermark
+    // reaching this message's seq.
+    if (typeof message.seq === 'number') {
+      if (typeof counterpartReadSeq === 'number' && counterpartReadSeq >= message.seq) return 'read';
+      if (typeof counterpartDeliveredSeq === 'number' && counterpartDeliveredSeq >= message.seq) return 'delivered';
     }
-    return isReadByOther(message, meUserId) ? 'read' : 'delivered';
+    // Until seq/watermarks replicate: legacy read[] lifts to read, else the server has it = sent.
+    return isReadByOther(message, meUserId) ? 'read' : 'sent';
   }
   // Incoming / pre-migration message: preserve prior behavior — `delivery` first, then read[].
   switch (message.delivery) {
