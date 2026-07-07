@@ -304,13 +304,13 @@ describe('ReplicatedTransport.subscribeLive — forward tail (signal + poll)', (
   });
 
   it('tail on poll: self-reschedules — advancing pollIntervalMs re-calls fetchUpdates', async () => {
+    const userId = 'user-rt-tail-poll';
+    const db = getChatDb(userId);
+    const fetchUpdates = vi.fn(async () => [] as Message[]);
+    const { transport } = build(userId, { db, fetchUpdates, pollIntervalMs: 5_000 });
+    await tick(); // let the persisted-checkpoint read (metaReady, IDB) settle under real timers
     vi.useFakeTimers();
     try {
-      const userId = 'user-rt-tail-poll';
-      const db = getChatDb(userId);
-      const fetchUpdates = vi.fn(async () => [] as Message[]);
-      const { transport } = build(userId, { db, fetchUpdates, pollIntervalMs: 5_000 });
-
       const unsub = transport.subscribeLive(CHAT, () => {});
       await vi.advanceTimersByTimeAsync(0); // immediate tailSync
       expect(fetchUpdates).toHaveBeenCalledTimes(1);
@@ -329,13 +329,13 @@ describe('ReplicatedTransport.subscribeLive — forward tail (signal + poll)', (
   });
 
   it('cleanup: after unsub, advancing the poll interval does NOT call fetchUpdates again', async () => {
+    const userId = 'user-rt-tail-cleanup';
+    const db = getChatDb(userId);
+    const fetchUpdates = vi.fn(async () => [] as Message[]);
+    const { transport } = build(userId, { db, fetchUpdates, pollIntervalMs: 5_000 });
+    await tick(); // let the persisted-checkpoint read (metaReady, IDB) settle under real timers
     vi.useFakeTimers();
     try {
-      const userId = 'user-rt-tail-cleanup';
-      const db = getChatDb(userId);
-      const fetchUpdates = vi.fn(async () => [] as Message[]);
-      const { transport } = build(userId, { db, fetchUpdates, pollIntervalMs: 5_000 });
-
       const unsub = transport.subscribeLive(CHAT, () => {});
       await vi.advanceTimersByTimeAsync(0);
       expect(fetchUpdates).toHaveBeenCalledTimes(1);
@@ -479,6 +479,35 @@ describe('ReplicatedTransport — windowReady gate prevents open-time flood (sub
     closeChatDb(userId);
   });
 
+  it('reconcile surfaces a row the pre-windowReady gate dropped (re-open catch-up race)', async () => {
+    // Reproduces the re-open bug: on a chat opened before, Dexie is warm with the baseline. The unread
+    // backlog lands in Dexie during the subscribe→fetchOlder gap (tailSync catch-up), so the live emit is
+    // dropped AND the differ baselines it — without reconcile it would be stranded (in Dexie, never
+    // surfaced). Driving the transport directly makes the interleaving deterministic.
+    const userId = 'user-rt-reconcile';
+    const db = getChatDb(userId);
+    await db.chatMessages.put(mkMsg(1)); // warm: the already-seen baseline
+    const { transport } = build(userId, { db, fetchHistory: async () => [] as Message[], fetchUpdates: async () => [] as Message[] });
+
+    const events: any[] = [];
+    const unsub = transport.subscribeLive(CHAT, (e) => events.push(e));
+    await tick(); // initial liveQuery snapshot ([m001]) fires while windowReady=false → dropped
+
+    // Backlog arrives in Dexie during the pre-windowReady gap → emit dropped + differ baselines it.
+    await db.chatMessages.put(mkMsg(2));
+    await tick();
+    expect(events.filter((e) => e.type === 'upsert').length).toBe(0); // nothing surfaced yet
+
+    // fetchOlder establishes the window → reconcile must re-surface the dropped in-window row.
+    await transport.fetchOlder({ chatId: CHAT, limit: 25 });
+    await tick();
+    const ids = events.filter((e) => e.type === 'upsert').map((e) => e.message._id);
+    expect(ids).toContain('m002'); // reconciled — no longer stranded
+
+    unsub();
+    closeChatDb(userId);
+  });
+
   it('cold cache no flood: background fill writes older pages during open but they do NOT enter the window', async () => {
     const userId = 'user-rt-cold-noflood';
     const db = getChatDb(userId);
@@ -503,6 +532,75 @@ describe('ReplicatedTransport — windowReady gate prevents open-time flood (sub
     expect(stored).toBeGreaterThan(25);
 
     session.dispose();
+    closeChatDb(userId);
+  });
+});
+
+describe('ReplicatedTransport — persisted per-chat checkpoint (survives a fresh transport / page-load)', () => {
+  it('tail cursor resumes: a new transport tails from the persisted (updatedAt,_id), not since=undefined', async () => {
+    const userId = 'user-rt-ckpt-tail';
+    const db = getChatDb(userId);
+    const upd = mkMsg(5, { updatedAt: new Date(BASE + 5_000) });
+
+    // Transport A: first tailSync receives one message → advances + persists the tail cursor.
+    const fuA = vi.fn(async () => [] as Message[]);
+    fuA.mockResolvedValueOnce([upd] as unknown as Message[]);
+    const a = build(userId, { db, fetchUpdates: fuA }).transport;
+    const unsubA = a.subscribeLive(CHAT, () => {});
+    await tick();
+    expect(fuA.mock.calls[0][0]).toMatchObject({ since: undefined }); // A had no checkpoint yet
+    unsubA();
+
+    // Transport B (same db+chat = a fresh page-load): must resume from the persisted cursor.
+    const fuB = vi.fn(async () => [] as Message[]);
+    const b = build(userId, { db, fetchUpdates: fuB }).transport;
+    const unsubB = b.subscribeLive(CHAT, () => {});
+    await tick();
+    expect(fuB.mock.calls[0][0].since?.getTime()).toBe(upd.updatedAt.getTime());
+    expect(fuB.mock.calls[0][0].sinceId).toBe('m005');
+    unsubB();
+    closeChatDb(userId);
+  });
+
+  it('history-exhausted latch resumes: a new transport reads the warm cache and does NOT re-probe fetchHistory', async () => {
+    const userId = 'user-rt-ckpt-hist';
+    const db = getChatDb(userId);
+    const full = Array.from({ length: 3 }, (_, i) => mkMsg(i + 1)); // 3 (< limit) → exhausted in one page
+    const server = ({ before, limit }: { before?: Date; limit: number }) => {
+      const older = full.filter((m) => !before || m.createdAt.getTime() < before.getTime());
+      return older.slice(-limit).reverse() as unknown as Message[];
+    };
+
+    // Transport A: cold fetchOlder → short page → exhausted + persisted.
+    const fhA = vi.fn(async (a: { before?: Date; limit: number }) => server(a));
+    const a = build(userId, { db, fetchHistory: fhA }).transport;
+    expect((await a.fetchOlder({ chatId: CHAT, limit: 25 })).length).toBe(3);
+    expect(fhA).toHaveBeenCalledOnce();
+
+    // Transport B: warm Dexie + persisted exhausted latch → serve from cache, no network probe.
+    const fhB = vi.fn(async (a: { before?: Date; limit: number }) => server(a));
+    const b = build(userId, { db, fetchHistory: fhB }).transport;
+    const pageB = await b.fetchOlder({ chatId: CHAT, limit: 25 });
+    expect(pageB.map((x) => x._id)).toEqual(['m001', 'm002', 'm003']);
+    expect(fhB).not.toHaveBeenCalled();
+    closeChatDb(userId);
+  });
+
+  it('records backward progress (oldestAt + done=false) after a full page so an interrupted backfill resumes', async () => {
+    const userId = 'user-rt-ckpt-progress';
+    const db = getChatDb(userId);
+    const full = Array.from({ length: 50 }, (_, i) => mkMsg(i + 1));
+    const fh = vi.fn(async ({ before, limit }: { before?: Date; limit: number }) => {
+      const older = full.filter((m) => !before || m.createdAt.getTime() < before.getTime());
+      return older.slice(-limit).reverse() as unknown as Message[];
+    });
+    const { transport } = build(userId, { db, fetchHistory: fh, pageSize: 25 });
+
+    // Newest 25 (m026..m050) is a FULL page → not exhausted, but the floor is persisted at m026.
+    await transport.fetchOlder({ chatId: CHAT, limit: 25 });
+    const meta = await db._replicationMeta.get(`msgHistory:${CHAT}`);
+    expect(meta?.value?.done).toBe(false);
+    expect(new Date(meta!.value.oldestAt).getTime()).toBe(mkMsg(26).createdAt.getTime());
     closeChatDb(userId);
   });
 });

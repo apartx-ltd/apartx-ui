@@ -89,6 +89,30 @@ export function firstUnreadId(messages: readonly Message[], meUserId?: string, l
   return null;
 }
 
+/**
+ * Unread-divider anchor with frozen "entry" semantics: the first incoming message that was unread
+ * AND already existed when the chat was opened. `entryLrs` is the read watermark at open; `entryMaxSeq`
+ * is the chat's newest seq at open (the ceiling). A message qualifies only if `seq <= entryMaxSeq`
+ * (so messages arriving WHILE viewing never become the anchor) and it is not read-by-me relative to
+ * `entryLrs`. Reactive-safe: given frozen bounds it is deterministic over the loaded message set, so
+ * backlog that loads a beat after open() surfaces the divider without it chasing live arrivals.
+ * With `entryMaxSeq` null it degrades to `firstUnreadId` (no ceiling).
+ */
+export function unreadAnchor(
+  messages: readonly Message[],
+  meUserId: string | undefined,
+  entryLrs: number | null | undefined,
+  entryMaxSeq: number | null | undefined,
+): string | null {
+  for (const msg of messages) {
+    if (msg.userId === meUserId) continue;
+    if (msg.type === 'service') continue;
+    if (entryMaxSeq != null && msg.seq != null && msg.seq > entryMaxSeq) continue; // arrived after entry
+    if (!isReadByMe(msg as any, meUserId ?? '', entryLrs)) return msg._id;
+  }
+  return null;
+}
+
 /** Count of incoming unread messages (skip own + `type==='service'`) — same predicate as
  *  `firstUnreadId`. Drives the unread badge on the scroll-to-bottom button. */
 export function countUnread(messages: readonly Message[], meUserId?: string, lastReadSeq?: number | null): number {
@@ -135,15 +159,22 @@ export function createReadFlusher(opts: {
   const st = opts.setTimeoutFn ?? setTimeout;
   const ct = opts.clearTimeoutFn ?? clearTimeout;
   let pending: Message | null = null;
+  let flushed: Message | null = null; // highest watermark already sent to markRead — idempotency memory
   let timer: ReturnType<typeof setTimeout> | null = null;
   const flush = () => {
     timer = null;
     if (!pending || !opts.isViewing()) return; // withhold while unviewed; watermark stays pending
     opts.markRead(pending);
+    flushed = pending; // remember it so re-renders of the same message don't re-issue markRead
     pending = null;
   };
   return {
     note(m: Message) {
+      // Idempotency: read-on-render re-fires for messages that are already read once the dialog
+      // watermark round-trips back. Without this guard every re-render re-issues markRead → the
+      // server always self-pushes `::chats` → dialog re-pull → re-render → ∞ (the DDP pullDialogs
+      // loop). Skip anything not strictly newer than what we've already flushed.
+      if (flushed && newerWatermark(flushed, m) === flushed) return;
       pending = newerWatermark(pending, m);
       if (timer) return;
       timer = st(flush, opts.debounceMs);

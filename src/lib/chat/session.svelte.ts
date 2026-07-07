@@ -3,7 +3,7 @@ import {
   emptyWindow, applyInitialPage, applyOlderPage, applyLiveUpsert,
   applyOptimisticSend, resolveSend, failSend, applyDelete,
 } from './reducer';
-import { firstUnreadId } from './helpers';
+import { unreadAnchor } from './helpers';
 import { createComposer, type Composer } from './composer.svelte';
 
 export interface ChatSession {
@@ -36,7 +36,22 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
 
   let win = $state(emptyWindow());
   let status = $state<'loading' | 'ready' | 'error'>('loading');
-  let unreadAnchorId = $state<string | null>(null);
+  // Unread-divider anchor. Two modes, chosen by whether the host supplies a `lastMessageSeq` ceiling:
+  //  • WITH ceiling (entryMaxSeq set): DERIVED from the live window, bounded by frozen entryLrs/entryMaxSeq
+  //    — backlog that loads a beat after open() (re-open with unread) surfaces the divider, while messages
+  //    arriving WHILE viewing (seq above the ceiling) never move it. This fixes the "reopened chat shows no
+  //    unread divider" bug.
+  //  • WITHOUT ceiling (legacy hosts): FROZEN once at open() — preserves the original contract exactly
+  //    (a live arrival must not conjure a divider) for callers that can't provide the newest-seq bound.
+  let entryLrs = $state<number | null>(null);
+  let entryMaxSeq = $state<number | null>(null);
+  let frozenAnchor = $state<string | null>(null);
+  let entrySet = $state(false);
+  const unreadAnchorId = $derived.by(() => {
+    if (!entrySet) return null;
+    if (entryMaxSeq == null) return frozenAnchor; // legacy frozen-at-open (no ceiling)
+    return unreadAnchor(win.messages, opts.meUserId, entryLrs, entryMaxSeq);
+  });
   let unsub: (() => void) | null = null;
 
   const composer = createComposer({
@@ -79,9 +94,13 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
           win = applyOlderPage(win, older, pageSize);
         }
       }
-      // Freeze the unread divider from the entry state (once). Subsequent live messages are read on
-      // render and must NOT move this anchor. Re-open (a fresh session) recomputes it.
-      unreadAnchorId = firstUnreadId(win.messages, opts.meUserId, lrs);
+      // Capture the divider BOUNDS from the entry state (once): the read watermark and the newest seq
+      // that existed at open. With a ceiling the anchor is derived reactively (see above); without one
+      // we freeze it now to preserve the legacy contract. Re-open (a fresh session) re-captures both.
+      entryLrs = lrs;
+      entryMaxSeq = opts.lastMessageSeq?.() ?? null;
+      frozenAnchor = unreadAnchor(win.messages, opts.meUserId, lrs, entryMaxSeq);
+      entrySet = true;
       status = 'ready';
     } catch {
       status = 'error';

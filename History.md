@@ -1,5 +1,35 @@
 # История изменений — apartx-ui
 
+## 2026-07-07
+
+### Версия 0.2.2
+
+### Добавлено (репликация чата — персистентный per-chat checkpoint сообщений)
+
+* **`replicated-transport.ts` хранит checkpoint в Dexie `_replicationMeta`.** Раньше на каждый
+  page-load создавался новый транспорт с `cursorAt=undefined`/`historyExhausted=false`, поэтому даже
+  на уже загруженном чате шло ~3 пустых `ChatMessage.findAllNew` (перевыборка новейшей страницы +
+  probe истории). Теперь два ключа, по образцу репликации диалогов:
+  * `msgTail:<chatId>` — forward-курсор `(updatedAt,_id)`: `tailSync` резюмится с него → один
+    инкрементальный (обычно пустой) check вместо перевыборки новейшей страницы с `since=undefined`.
+  * `msgHistory:<chatId>` — `{ oldestAt, done }`: backward-прогресс + флаг исчерпания истории;
+    пишется после КАЖДОЙ старой страницы, поэтому оборванный backfill (сеть/закрытие вкладки)
+    возобновляется с места остановки, а не с новейшей страницы. `fetchOlder` на тёплом кеше не бьёт
+    в сеть.
+  Итог: тёплый reopen ~3 → ~1 `findAllNew`, контент не перекачивается. Чтение/запись best-effort
+  (try/catch), фолбэк к прежнему full-window на свежем IndexedDB. +3 теста (tail-resume,
+  exhausted-resume, backward-progress).
+
+### Исправлено (репликация чата — устранён reload-storm `Chat.pullDialogs`/`::chats`)
+
+* **`delivered-acker` гейтит по персистентному watermark.** На загрузке пустой in-memory `acked`
+  плюс `uptoSeq = seqCounter` делали серверные ack-и неидемпотентными → безусловный `::chats`
+  self-push → бесконечный цикл `Chat.pullDialogs`. Теперь ack только когда новейшее сообщение — от
+  собеседника И `max(lastReadSeq, lastDeliveredSeq) < seq` (прочитано ⇒ доставлено; `lastReadSeq` —
+  единственный watermark, растущий для channel/broadcast). +тесты (в т.ч. `delivered-loop.test.ts`).
+* **`createReadFlusher` получил high-watermark `flushed`** — defense-in-depth от симметричного
+  read-path storm (идемпотентность `markRead`). +тесты.
+
 ## 2026-07-05
 
 ### Версия 0.2.1

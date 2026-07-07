@@ -85,6 +85,12 @@ export interface ChatSessionOptions {
   /** Optional live per-user read watermark for THIS chat's dialog (event-sourced
    *  lastReadSeq). Read at open() to freeze the unread divider. Omit → legacy read[] fallback. */
   lastReadSeq?: () => number | null;
+  /** Optional seq of the chat's newest message at entry (dialog.chat.lastMessage.seq). Read at
+   *  open() to freeze the unread-divider CEILING: the divider anchors to the first message with
+   *  lastReadSeq < seq <= this, so backlog that loads a beat after open() (re-open with unread,
+   *  offline-first pull) still gets a divider, while messages arriving WHILE viewing (seq above the
+   *  ceiling) never move it. Omit → no ceiling (anchor over all loaded messages past lastReadSeq). */
+  lastMessageSeq?: () => number | null;
 }
 
 /** Renderer registry slot set — one component per slot, all optional. */

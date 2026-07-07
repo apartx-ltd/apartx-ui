@@ -52,6 +52,22 @@ export function createDeliveredAcker(opts: {
         if (!chatId) continue;
         // Only ack when the newest message is from the counterpart — a genuine receive event.
         if (meUserId && lm?.userId === meUserId) continue;
+        // Skip when this message is already RECEIVED per a PERSISTED watermark — the acker's
+        // in-memory `acked` map lives only for the page-load, so without this a fresh load re-acks
+        // every already-handled chat → markDelivered storm (server self-push → dialog re-pull →
+        // re-ack) on EVERY reload. Two persisted sources, both replicated on the dialog:
+        //   • lastReadSeq   — reading implies delivery; also the ONLY watermark that advances for
+        //     `read`-fanout (channel/broadcast) chats, where the server's delivered-ack is a no-op
+        //     and lastDeliveredSeq stays 0 forever (else those re-ack every load).
+        //   • lastDeliveredSeq — advanced by the server on our own delivered-ack for `write` chats.
+        // Seed the in-memory watermark so the guard survives a transiently-absent field.
+        const readSeq = d?.lastReadSeq ?? d?.chat?.lastReadSeq ?? 0;
+        const deliveredSeq = d?.lastDeliveredSeq ?? d?.chat?.lastDeliveredSeq ?? 0;
+        const receivedSeq = Math.max(readSeq, deliveredSeq);
+        if (receivedSeq >= seq) {
+          if (seq > (acked.get(chatId) ?? 0)) acked.set(chatId, seq);
+          continue;
+        }
         if (seq > (acked.get(chatId) ?? 0) && seq > (pending.get(chatId) ?? 0)) {
           pending.set(chatId, seq);
           if (!timer) timer = st(flush, debounceMs);

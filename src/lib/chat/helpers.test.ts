@@ -209,4 +209,35 @@ describe('createReadFlusher — read-on-render gated by viewing', () => {
     f.dispose();
     expect(t.pending()).toBe(false);
   });
+
+  it('does NOT re-issue markRead for an already-flushed watermark (breaks the pullDialogs loop)', () => {
+    const t = makeTimers();
+    const markRead = vi.fn();
+    const f = createReadFlusher({ markRead, isViewing: () => true, debounceMs: 600, setTimeoutFn: t.set, clearTimeoutFn: t.clear });
+    f.note(m({ _id: 'a', seq: 5 }));
+    t.fire();
+    expect(markRead).toHaveBeenCalledTimes(1);
+    // Same message re-renders (dialog watermark round-tripped) — must be a no-op, no new timer.
+    f.note(m({ _id: 'a', seq: 5 }));
+    expect(t.pending()).toBe(false);
+    // An OLDER message (below the flushed watermark) is likewise ignored.
+    f.note(m({ _id: 'older', seq: 3 }));
+    expect(t.pending()).toBe(false);
+    t.fire();
+    expect(markRead).toHaveBeenCalledTimes(1);
+  });
+
+  it('still flushes a genuinely NEWER message after a prior flush', () => {
+    const t = makeTimers();
+    const markRead = vi.fn();
+    const f = createReadFlusher({ markRead, isViewing: () => true, debounceMs: 600, setTimeoutFn: t.set, clearTimeoutFn: t.clear });
+    f.note(m({ _id: 'a', seq: 5 }));
+    t.fire();
+    expect(markRead).toHaveBeenCalledTimes(1);
+    f.note(m({ _id: 'b', seq: 8 })); // a real new arrival advances the watermark
+    expect(t.pending()).toBe(true);
+    t.fire();
+    expect(markRead).toHaveBeenCalledTimes(2);
+    expect(markRead.mock.calls[1][0]._id).toBe('b');
+  });
 });

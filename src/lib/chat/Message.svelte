@@ -61,7 +61,7 @@
 {/if}
 
 {#if isUnread}
-  <div class="my-1 text-center text-xs text-on-surface-variant bg-surface-container rounded-lg py-1">{unreadLabel}</div>
+  <div data-testid="chat-unread-divider" class="my-1 text-center text-xs text-on-surface-variant bg-surface-container rounded-lg py-1">{unreadLabel}</div>
 {/if}
 
 {#if isService}

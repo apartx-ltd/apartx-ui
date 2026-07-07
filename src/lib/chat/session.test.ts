@@ -100,6 +100,29 @@ describe('ChatSession', () => {
     expect(s.unreadAnchorId).to.equal('a'); // stays put, does not jump to 'd'
   });
 
+  it('with a lastMessageSeq ceiling, backlog loading AFTER open surfaces the divider (re-open bug)', async () => {
+    // Stale window on re-open: fetchOlder seeds only the already-read baseline; the unread backlog
+    // that arrived while away lands a beat later via the live stream. The frozen-at-open anchor would
+    // miss it — with a ceiling the anchor is derived, so it surfaces once the backlog is loaded.
+    const { transport, emit } = fakeTransport({ fetchOlder: async () => [mu('a', 1)] });
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', lastReadSeq: () => 1, lastMessageSeq: () => 3 });
+    await s.open();
+    expect(s.unreadAnchorId).to.equal(null); // baseline read, backlog not loaded yet
+    emit({ type: 'upsert', message: mu('b', 2) }); // unread backlog that existed at entry (seq <= ceiling)
+    expect(s.messages.map((x) => x._id)).to.deep.equal(['a', 'b']);
+    expect(s.unreadAnchorId).to.equal('b'); // divider now appears at the loaded backlog
+  });
+
+  it('with a ceiling, a live message ABOVE the ceiling does NOT set the divider', async () => {
+    const { transport, emit } = fakeTransport({ fetchOlder: async () => [mu('a', 1)] });
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', lastReadSeq: () => 1, lastMessageSeq: () => 1 });
+    await s.open();
+    expect(s.unreadAnchorId).to.equal(null);
+    emit({ type: 'upsert', message: mu('d', 4) }); // arrived WHILE viewing (seq above the entry ceiling)
+    expect(s.messages.map((x) => x._id)).to.deep.equal(['a', 'd']);
+    expect(s.unreadAnchorId).to.equal(null); // stays null — does not chase live arrivals
+  });
+
   it('markRead(message) forwards the message to the transport', async () => {
     const markRead = vi.fn(async () => {});
     const { transport } = fakeTransport({ markRead });
