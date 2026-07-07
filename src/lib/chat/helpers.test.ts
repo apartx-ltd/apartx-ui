@@ -19,16 +19,23 @@ describe('deliveryTick', () => {
     expect(deliveryTick(m({ userId: 'me', seq: 5 }), 'me', 5)).to.equal('read');
     expect(deliveryTick(m({ userId: 'me', seq: 6 }), 'me', 5)).to.equal('delivered');
   });
-  it('own SEQUENCED message with no watermark yet → at least DELIVERED (never "sent"); read[] only lifts to read', () => {
-    // Regression: a server-sequenced own message must not render 'sent' just because the
-    // counterpart watermark has not replicated to this client yet — otherwise the tick skips
-    // the grey-double 'delivered' state and jumps sent → read when the read finally arrives.
+  it('own CONFIRMED message with no watermark yet → at least DELIVERED (never "sent"); read[] only lifts to read', () => {
+    // Regression: a confirmed own message must not render 'sent' just because the counterpart
+    // watermark has not replicated yet — otherwise the tick skips grey-double 'delivered' and
+    // jumps sent → read when the read finally arrives.
     expect(deliveryTick(m({ userId: 'me', seq: 5, read: [] }), 'me', undefined)).to.equal('delivered');
     expect(deliveryTick(m({ userId: 'me', seq: 5, read: ['other'] }), 'me', undefined)).to.equal('read');
   });
-  it('own message with NO seq (optimistic local echo) → still "sent"', () => {
-    expect(deliveryTick(m({ userId: 'me', read: [] }), 'me', undefined)).to.equal('sent');
-    expect(deliveryTick(m({ userId: 'me', delivery: 'queued' }), 'me', undefined)).to.equal('sent');
+  it('own CONFIRMED message with NO seq yet (seq assigned async by server) → still DELIVERED, not "sent"', () => {
+    // The just-sent message can sit in the render window without `seq` (assigned async, never
+    // re-reaches the window); a confirmed message must still read as delivered, not 'sent'.
+    expect(deliveryTick(m({ userId: 'me', read: [] }), 'me', undefined)).to.equal('delivered');
+    expect(deliveryTick(m({ userId: 'me' }), 'me', undefined)).to.equal('delivered');
+  });
+  it('own OPTIMISTIC echo (sendState "sending") → "sent"; "failed" → "failed"', () => {
+    expect(deliveryTick(m({ userId: 'me', sendState: 'sending' }), 'me', undefined)).to.equal('sent');
+    expect(deliveryTick(m({ userId: 'me', sendState: 'sending', seq: 5 }), 'me', 9)).to.equal('sent');
+    expect(deliveryTick(m({ userId: 'me', sendState: 'failed' }), 'me', undefined)).to.equal('failed');
   });
   it('failed always wins regardless of watermark', () => {
     expect(deliveryTick(m({ userId: 'me', seq: 5, delivery: 'failed' }), 'me', 9)).to.equal('failed');

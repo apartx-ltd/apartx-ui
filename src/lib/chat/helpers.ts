@@ -12,32 +12,38 @@ export function isReadByOther(message: Message, meUserId?: string): boolean {
 }
 
 /**
- * 3-state WhatsApp-style tick (feature B). For the current user's own messages: an unsent
- * local echo (no `seq`) is 'sent'; a server-sequenced message is at least 'delivered', flipping
- * to 'read' when the per-dialog watermark `counterpartReadSeq` reaches its `seq` (reactive,
- * strand-proof) — with legacy `read[]` as the stand-in until that watermark replicates. Incoming
- * / pre-migration messages fall back to the server `delivery` field, then `read[]`.
+ * 3-state WhatsApp-style tick (feature B). For the current user's own messages: an unconfirmed
+ * optimistic echo (`sendState: 'sending'`) is 'sent'; once the server accepts it (`sendState`
+ * cleared by resolveSend), it is at least 'delivered', flipping to 'read' when the per-dialog
+ * watermark `counterpartReadSeq` reaches its `seq` (reactive, strand-proof) or, until that
+ * watermark/seq replicates, when the legacy `read[]` shows a reader. Incoming / pre-migration
+ * messages fall back to the server `delivery` field, then `read[]`.
+ *
+ * Why confirmed-ness (`sendState`) and NOT `seq` gates 'delivered': the server assigns `seq`
+ * asynchronously (the send enqueues and returns before the projector stamps `seq`), and that
+ * seq'd revision — stamped with the message's original createdAt/updatedAt — never re-reaches the
+ * render window (the tail cursor has already passed it). So a just-sent own message can sit in the
+ * window WITHOUT a `seq` indefinitely. Gating 'delivered' on `seq` therefore left it stuck on the
+ * single-check 'sent' until a read arrived (via read[]), visibly skipping 'delivered' — the
+ * sent → read regression. Confirmed-ness is known synchronously when Chat.sendMessage resolves.
  */
 export function deliveryTick(
   message: Message,
   meUserId?: string,
   counterpartReadSeq?: number,
 ): DeliveryTick {
-  if (message.delivery === 'failed') return 'failed';
-  // Own, server-sequenced message: a `seq` means the server accepted and fanned it out, so it
-  // is AT LEAST 'delivered' — it must never fall back to 'sent'. Read vs delivered is decided by
-  // the counterpart watermark (reactive, strand-proof); until that watermark replicates to this
-  // client, the legacy read[] stands in. Without this watermark-independent 'delivered' floor, a
-  // message whose `counterpartReadSeq` hasn't reached the client yet renders 'sent' and then
-  // jumps straight to 'read' when the read arrives (the watermark's first appearance is already
-  // >= seq) — visibly SKIPPING the grey-double 'delivered' state. The optimistic local echo has
-  // no `seq` yet, so it still shows 'sent' via the fall-through below.
-  if (meUserId && message.userId === meUserId && typeof message.seq === 'number') {
-    if (typeof counterpartReadSeq === 'number') return counterpartReadSeq >= message.seq ? 'read' : 'delivered';
+  if (message.delivery === 'failed' || message.sendState === 'failed') return 'failed';
+  if (meUserId && message.userId === meUserId) {
+    // Optimistic local echo, not yet accepted by the server.
+    if (message.sendState === 'sending') return 'sent';
+    // Confirmed own message → AT LEAST 'delivered'. Prefer the counterpart watermark when both it
+    // and `seq` are present (reactive, strand-proof); otherwise the legacy read[] lifts it to read.
+    if (typeof counterpartReadSeq === 'number' && typeof message.seq === 'number') {
+      return counterpartReadSeq >= message.seq ? 'read' : 'delivered';
+    }
     return isReadByOther(message, meUserId) ? 'read' : 'delivered';
   }
-  // No own-message decision available (incoming message, local echo with no seq, or
-  // pre-migration data): preserve prior behavior — `delivery` first, then legacy read[].
+  // Incoming / pre-migration message: preserve prior behavior — `delivery` first, then read[].
   switch (message.delivery) {
     case 'read': return 'read';
     case 'delivered': return 'delivered';
