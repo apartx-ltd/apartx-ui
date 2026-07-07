@@ -12,10 +12,11 @@ export function isReadByOther(message: Message, meUserId?: string): boolean {
 }
 
 /**
- * 3-state WhatsApp-style tick (feature B). For the current user's own messages, prefers the
- * replicated per-dialog watermark `counterpartReadSeq` (reactive, strand-proof) over the
- * server-attached `delivery` field. Falls back to `delivery` / legacy `read[]` when no watermark
- * is available yet (local echo with no `seq`, or pre-migration data). queued/sent → 'sent'.
+ * 3-state WhatsApp-style tick (feature B). For the current user's own messages: an unsent
+ * local echo (no `seq`) is 'sent'; a server-sequenced message is at least 'delivered', flipping
+ * to 'read' when the per-dialog watermark `counterpartReadSeq` reaches its `seq` (reactive,
+ * strand-proof) — with legacy `read[]` as the stand-in until that watermark replicates. Incoming
+ * / pre-migration messages fall back to the server `delivery` field, then `read[]`.
  */
 export function deliveryTick(
   message: Message,
@@ -23,15 +24,19 @@ export function deliveryTick(
   counterpartReadSeq?: number,
 ): DeliveryTick {
   if (message.delivery === 'failed') return 'failed';
-  // Own message with a replicated watermark: prefer it (reactive, strand-proof) over the
-  // server-attached `delivery` field.
-  if (
-    meUserId && message.userId === meUserId &&
-    typeof counterpartReadSeq === 'number' && typeof message.seq === 'number'
-  ) {
-    return counterpartReadSeq >= message.seq ? 'read' : 'delivered';
+  // Own, server-sequenced message: a `seq` means the server accepted and fanned it out, so it
+  // is AT LEAST 'delivered' — it must never fall back to 'sent'. Read vs delivered is decided by
+  // the counterpart watermark (reactive, strand-proof); until that watermark replicates to this
+  // client, the legacy read[] stands in. Without this watermark-independent 'delivered' floor, a
+  // message whose `counterpartReadSeq` hasn't reached the client yet renders 'sent' and then
+  // jumps straight to 'read' when the read arrives (the watermark's first appearance is already
+  // >= seq) — visibly SKIPPING the grey-double 'delivered' state. The optimistic local echo has
+  // no `seq` yet, so it still shows 'sent' via the fall-through below.
+  if (meUserId && message.userId === meUserId && typeof message.seq === 'number') {
+    if (typeof counterpartReadSeq === 'number') return counterpartReadSeq >= message.seq ? 'read' : 'delivered';
+    return isReadByOther(message, meUserId) ? 'read' : 'delivered';
   }
-  // No watermark decision available (not own message, local echo with no seq, or
+  // No own-message decision available (incoming message, local echo with no seq, or
   // pre-migration data): preserve prior behavior — `delivery` first, then legacy read[].
   switch (message.delivery) {
     case 'read': return 'read';

@@ -19,9 +19,16 @@ describe('deliveryTick', () => {
     expect(deliveryTick(m({ userId: 'me', seq: 5 }), 'me', 5)).to.equal('read');
     expect(deliveryTick(m({ userId: 'me', seq: 6 }), 'me', 5)).to.equal('delivered');
   });
-  it('own message, no watermark yet → falls back to read[] legacy', () => {
-    expect(deliveryTick(m({ userId: 'me', seq: 5, read: [] }), 'me', undefined)).to.equal('sent');
+  it('own SEQUENCED message with no watermark yet → at least DELIVERED (never "sent"); read[] only lifts to read', () => {
+    // Regression: a server-sequenced own message must not render 'sent' just because the
+    // counterpart watermark has not replicated to this client yet — otherwise the tick skips
+    // the grey-double 'delivered' state and jumps sent → read when the read finally arrives.
+    expect(deliveryTick(m({ userId: 'me', seq: 5, read: [] }), 'me', undefined)).to.equal('delivered');
     expect(deliveryTick(m({ userId: 'me', seq: 5, read: ['other'] }), 'me', undefined)).to.equal('read');
+  });
+  it('own message with NO seq (optimistic local echo) → still "sent"', () => {
+    expect(deliveryTick(m({ userId: 'me', read: [] }), 'me', undefined)).to.equal('sent');
+    expect(deliveryTick(m({ userId: 'me', delivery: 'queued' }), 'me', undefined)).to.equal('sent');
   });
   it('failed always wins regardless of watermark', () => {
     expect(deliveryTick(m({ userId: 'me', seq: 5, delivery: 'failed' }), 'me', 9)).to.equal('failed');
