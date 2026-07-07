@@ -6,10 +6,10 @@
   import type { Message } from '../types';
   import { deliveryTick } from '../helpers';
 
-  let { message, meUserId, timeLabel = '' }: { message: Message; meUserId?: string; timeLabel?: string } = $props();
+  let { message, meUserId, counterpartReadSeq, timeLabel = '' }: { message: Message; meUserId?: string; counterpartReadSeq?: number; timeLabel?: string } = $props();
 
   const isMine = $derived(!!meUserId && message.userId === meUserId);
-  const tick = $derived(isMine ? deliveryTick(message, meUserId) : null);
+  const tick = $derived(isMine ? deliveryTick(message, meUserId, counterpartReadSeq) : null);
 
   const CHANNEL_ICON: Record<string, any> = { whatsapp: faWhatsapp, telegram: faTelegram };
   const channelIcon = (c: string) => CHANNEL_ICON[c] ?? faComment;
