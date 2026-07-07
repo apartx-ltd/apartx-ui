@@ -15,6 +15,17 @@ describe('deliveryTick', () => {
     expect(deliveryTick(m({ read: ['other'] }), 'me')).to.equal('read');
     expect(deliveryTick(m({ read: [] }), 'me')).to.equal('sent');
   });
+  it('own message, counterpart watermark covers seq → read', () => {
+    expect(deliveryTick(m({ userId: 'me', seq: 5 }), 'me', 5)).to.equal('read');
+    expect(deliveryTick(m({ userId: 'me', seq: 6 }), 'me', 5)).to.equal('delivered');
+  });
+  it('own message, no watermark yet → falls back to read[] legacy', () => {
+    expect(deliveryTick(m({ userId: 'me', seq: 5, read: [] }), 'me', undefined)).to.equal('sent');
+    expect(deliveryTick(m({ userId: 'me', seq: 5, read: ['other'] }), 'me', undefined)).to.equal('read');
+  });
+  it('failed always wins regardless of watermark', () => {
+    expect(deliveryTick(m({ userId: 'me', seq: 5, delivery: 'failed' }), 'me', 9)).to.equal('failed');
+  });
 });
 
 describe('isReadByOther', () => {

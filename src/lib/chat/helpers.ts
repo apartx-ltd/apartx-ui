@@ -12,12 +12,28 @@ export function isReadByOther(message: Message, meUserId?: string): boolean {
 }
 
 /**
- * 3-state WhatsApp-style tick (feature B). Prefers the server `delivery` projection; falls back to read[] when absent
- * (a message with no chat-deliveries rows). queued/sent → 'sent'.
+ * 3-state WhatsApp-style tick (feature B). For the current user's own messages, prefers the
+ * replicated per-dialog watermark `counterpartReadSeq` (reactive, strand-proof) over the
+ * server-attached `delivery` field. Falls back to `delivery` / legacy `read[]` when no watermark
+ * is available yet (local echo with no `seq`, or pre-migration data). queued/sent → 'sent'.
  */
-export function deliveryTick(message: Message, meUserId?: string): DeliveryTick {
+export function deliveryTick(
+  message: Message,
+  meUserId?: string,
+  counterpartReadSeq?: number,
+): DeliveryTick {
+  if (message.delivery === 'failed') return 'failed';
+  // Own message with a replicated watermark: prefer it (reactive, strand-proof) over the
+  // server-attached `delivery` field.
+  if (
+    meUserId && message.userId === meUserId &&
+    typeof counterpartReadSeq === 'number' && typeof message.seq === 'number'
+  ) {
+    return counterpartReadSeq >= message.seq ? 'read' : 'delivered';
+  }
+  // No watermark decision available (not own message, local echo with no seq, or
+  // pre-migration data): preserve prior behavior — `delivery` first, then legacy read[].
   switch (message.delivery) {
-    case 'failed': return 'failed';
     case 'read': return 'read';
     case 'delivered': return 'delivered';
     case 'queued':
