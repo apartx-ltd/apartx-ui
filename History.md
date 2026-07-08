@@ -1,5 +1,27 @@
 # История изменений — apartx-ui
 
+## 2026-07-08
+
+### Версия 0.2.3
+
+### Добавлено (чат — общий `ChatListItem` + унификация статуса доставки)
+
+* **Новый `ChatListItem`** (`chat/ChatListItem.svelte`) — общий ряд списка чатов: аватар (картинка
+  брони с оверлеем профиля, либо аватар профиля), имя + маркеры роли/брони, превью последнего
+  сообщения (строка отправителя в группе + превью + опциональное предупреждение) и правый рельс с
+  **4-state тиком доставки** (⏱→✓→✓✓серых→✓✓синих через `counterpartReadSeq`/`counterpartDeliveredSeq`),
+  временем, чипом непрочитанного и иконкой источника-мессенджера. Kit-агностичен: весь текст —
+  пропсы (`displayName`/`senderLabel`/`previewText`/`timeLabel`/`warningText`/`missingText`), хост
+  считает i18n сам. Заменяет локальные копии в кабинете (`ChatsListItem`) и админке (инлайн-ряд), у
+  которых статус в списке был рассинхронизирован (админка рисовала легаси 2-state).
+* **`MessageTimeDefault` теперь рисует иконку источника на входящих** (WhatsApp/Telegram/OTA) — раньше
+  только каналы своих сообщений. Хостам больше не нужно переопределять `time`-слот ради этого.
+* **Новый общий `MessengerIcon`** (`chat/slots/MessengerIcon.svelte`) + helper `messengerKey(message)`
+  — маппинг `meta.messenger`/`meta.fromMessengerType` → бренд-иконка (whatsapp/telegram/airbnb/
+  booking.com/channex). Переиспользуется `MessageTimeDefault` и `ChatListItem`.
+* **`longpress`-экшен вынесен в kit** (`hooks/useLongPress.svelte.ts`) — iOS-safe long-press для
+  рядов списка (Android даёт `contextmenu`, iOS WebKit — нет). Экспортирован из `apartx-ui/hooks`.
+
 ## 2026-07-07
 
 ### Версия 0.2.2

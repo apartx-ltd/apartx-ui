@@ -12,6 +12,17 @@ export function isReadByOther(message: Message, meUserId?: string): boolean {
 }
 
 /**
+ * Source-messenger key for a message, or null for a native in-app message. Reads `meta.messenger`
+ * (explicit channel tag) first, then falls back to `meta.fromMessengerType` when `meta.fromMessenger`
+ * is set (inbound WhatsApp/Telegram/OTA). Consumers map the key to a brand icon (see MessengerIcon).
+ */
+export function messengerKey(message: Message): string | null {
+  const meta: any = message?.meta;
+  if (!meta) return null;
+  return meta.messenger || (meta.fromMessenger ? meta.fromMessengerType : null) || null;
+}
+
+/**
  * Truthful 4-state WhatsApp-style tick for the current user's OWN messages:
  *   ⏱ pending   — optimistic echo, server has NOT acked yet (`sendState: 'sending'`)
  *   ✓ sent      — server accepted it, but the counterpart's DEVICE has not received it yet

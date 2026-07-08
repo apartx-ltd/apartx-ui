@@ -15,3 +15,5 @@ export { default as MessageInput } from './MessageInput.svelte';
 export { default as MessageHeaderDefault } from './slots/MessageHeaderDefault.svelte';
 export { default as MessageBodyDefault } from './slots/MessageBodyDefault.svelte';
 export { default as MessageTimeDefault } from './slots/MessageTimeDefault.svelte';
+export { default as MessengerIcon } from './slots/MessengerIcon.svelte';
+export { default as ChatListItem } from './ChatListItem.svelte';

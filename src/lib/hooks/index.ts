@@ -4,3 +4,5 @@ export { useLocalStorage } from './useLocalStorage.svelte';
 export { useDisclosure } from './useDisclosure.svelte';
 export { useNotification } from './useNotification.svelte';
 export { useSearchQuery } from './useSearchQuery.svelte';
+export { longpress } from './useLongPress.svelte';
+export type { LongPressOpts } from './useLongPress.svelte';
