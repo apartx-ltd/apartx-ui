@@ -15,7 +15,7 @@
   const CHANNEL_ICON: Record<string, any> = { whatsapp: faWhatsapp, telegram: faTelegram };
   const channelIcon = (c: string) => CHANNEL_ICON[c] ?? faComment;
   const channelClass = (s: string) =>
-    s === 'failed' ? 'text-error' : (s === 'delivered' || s === 'read') ? 'text-success' : 'text-on-surface-variant';
+    s === 'failed' ? 'text-error' : s === 'read' ? 'text-success' : 'text-on-surface-variant';
   const channelTitle = (c: { channel: string; state: string; error?: string }) =>
     c.error ? `${c.channel}: ${c.state} — ${c.error}` : `${c.channel}: ${c.state}`;
 </script>
