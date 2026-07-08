@@ -21,6 +21,9 @@
   booking.com/channex). Переиспользуется `MessageTimeDefault` и `ChatListItem`.
 * **`longpress`-экшен вынесен в kit** (`hooks/useLongPress.svelte.ts`) — iOS-safe long-press для
   рядов списка (Android даёт `contextmenu`, iOS WebKit — нет). Экспортирован из `apartx-ui/hooks`.
+* **`Message` (пузырь диалога) получил `data-testid="chat-message"` + `data-message-id`** на внешнем
+  ряду — паритет с дореестровым кабинетным `Message.svelte`, чтобы общие e2e (`chats-list`,
+  `chat-delivery`) находили сообщения в диалоге на kit-рендере.
 
 ## 2026-07-07
 

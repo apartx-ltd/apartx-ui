@@ -67,7 +67,7 @@
 {#if isService}
   <div class="my-1 text-center text-body-sm text-on-surface-variant">{serviceLabel || message.text || ''}</div>
 {:else}
-<div class="flex {mine ? 'justify-end' : 'justify-start'} {isGroupStart ? 'mt-2' : 'mt-0.5'}">
+<div data-message-id={message._id} data-testid="chat-message" class="flex {mine ? 'justify-end' : 'justify-start'} {isGroupStart ? 'mt-2' : 'mt-0.5'}">
   {#if removed}
     <div class="max-w-[80%] rounded-2xl border border-outline-variant px-3 py-1.5 text-sm italic text-on-surface-variant">
       {deletedLabel}
