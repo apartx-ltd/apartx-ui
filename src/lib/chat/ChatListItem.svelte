@@ -60,7 +60,7 @@
 </script>
 
 {#if !chat}
-  <div class="flex min-h-[69px] items-center bg-surface pl-2 pr-14">
+  <div class="flex items-center bg-surface pl-2 pr-14">
     <span class="flex-grow">{missingText}</span>
     <button type="button" class="absolute right-2 text-error" onclick={() => onRemove?.(dialog)}>
       <Icon icon={faTrash} />
@@ -74,7 +74,7 @@
         onClick: () => onClick?.(dialog),
         onTrigger: ({ clientX, clientY }) => onContextTrigger?.(dialog, clientX, clientY),
       }}
-      class="flex min-h-[69px] cursor-pointer items-center gap-2 py-1 pl-2 pr-14 {isSelected
+      class="flex cursor-pointer items-center gap-2 py-1 pl-2 pr-14 {isSelected
         ? 'bg-secondary-container'
         : 'bg-surface'}"
     >
@@ -92,7 +92,7 @@
             </div>
           </div>
         {:else}
-          <Avatar src={profile.avatarUrl} fallback={profile.initials} alt={displayName} size="lg" />
+          <Avatar src={profile.avatarUrl} fallback={profile.initials} alt={displayName} size="lg" class="size-12" />
         {/if}
       </div>
 
