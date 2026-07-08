@@ -20,7 +20,7 @@
     c.error ? `${c.channel}: ${c.state} — ${c.error}` : `${c.channel}: ${c.state}`;
 </script>
 
-<span class="inline-flex items-center gap-1 text-[10px] text-on-surface-variant">
+<span class="flex justify-end items-center gap-1 text-[10px] text-on-surface-variant">
   <span>{timeLabel}</span>
   {#if tick === 'failed'}
     <Fa icon={faTriangleExclamation} class="text-error" />
