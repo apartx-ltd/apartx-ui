@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher } from './helpers';
+import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery } from './helpers';
 import type { Message } from './types';
 
 const m = (over: Partial<Message> = {}): Message => ({ _id: 'm', chatId: 'c', userId: 'u1', createdAt: new Date('2026-06-30T10:00:00Z'), ...over });
@@ -239,5 +239,35 @@ describe('createReadFlusher — read-on-render gated by viewing', () => {
     t.fire();
     expect(markRead).toHaveBeenCalledTimes(2);
     expect(markRead.mock.calls[1][0]._id).toBe('b');
+  });
+});
+
+describe('chatImageGallery', () => {
+  const img = (id: string, over: Partial<Message> = {}): Message =>
+    m({ _id: id, type: 'image', meta: { file: { url: `https://cdn/${id}.jpg` } } as any, ...over });
+
+  it('collects only image messages with a resolved file URL, in order', () => {
+    const msgs = [
+      img('a'),
+      m({ _id: 'txt', type: 'text' }),
+      img('b'),
+    ];
+    expect(chatImageGallery(msgs)).toEqual([
+      { src: 'https://cdn/a.jpg', alt: '' },
+      { src: 'https://cdn/b.jpg', alt: '' },
+    ]);
+  });
+
+  it('skips videos and still-uploading images (no file URL yet, only a preview blob)', () => {
+    const msgs = [
+      m({ _id: 'vid', type: 'video', meta: { file: { url: 'https://cdn/v.mp4' } } as any }),
+      m({ _id: 'up', type: 'image', sendState: 'sending', meta: { previewUrl: 'blob:local' } as any }),
+      img('ok'),
+    ];
+    expect(chatImageGallery(msgs)).toEqual([{ src: 'https://cdn/ok.jpg', alt: '' }]);
+  });
+
+  it('returns an empty gallery for a set with no images', () => {
+    expect(chatImageGallery([m({ type: 'text' })])).toEqual([]);
   });
 });

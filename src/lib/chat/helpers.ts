@@ -67,6 +67,22 @@ export function deliveryTick(
   }
 }
 
+/**
+ * Ordered list of viewable image attachments in a message set — the gallery a chat lightbox opens
+ * over. Includes only `image`-type messages whose upload has resolved to a file URL (skips videos and
+ * still-uploading optimistic sends, which have only a transient preview blob). `src` mirrors what
+ * ImageMedia renders, so a clicked thumbnail's URL indexes straight into this list.
+ */
+export function chatImageGallery(messages: readonly Message[]): { src: string; alt: string }[] {
+  const out: { src: string; alt: string }[] = [];
+  for (const m of messages) {
+    if ((m.type || '') !== 'image') continue;
+    const src = (m.meta as any)?.file?.url;
+    if (typeof src === 'string' && src) out.push({ src, alt: '' });
+  }
+  return out;
+}
+
 /** First message of a visual group (author changed from the previous message). */
 export function groupStart(message: Message, prev: Message | null): boolean {
   if (!prev) return true;
