@@ -1,5 +1,5 @@
 import { liveQuery, type Observable } from 'dexie';
-import type { ChatTransport, LiveEvent, Message, OutgoingDraft } from '../types';
+import type { ChatTransport, LiveEvent, Message, OutgoingDraft, OutgoingMediaDraft } from '../types';
 import type { ChatDatabase, StoredMessage } from './chat-db';
 import { makeSnapshotDiffer } from './live-query.svelte';
 
@@ -11,6 +11,8 @@ export interface ReplicatedTransportDeps {
   /** Forward tail (Task 2): messages with createdAt > since. */
   fetchUpdates: (a: { chatId: string; since?: Date; sinceId?: string; limit: number }) => Promise<Message[]>;
   send: (draft: OutgoingDraft) => Promise<Message>;
+  /** Optional media seam: host uploads the file (calling draft.onProgress) then persists the message. */
+  sendMedia?: (draft: OutgoingMediaDraft) => Promise<Message>;
   markReadOnServer: (a: { chatId: string; toCreatedAt: Date }) => Promise<void>;
   /** Host push signal — invoke onNews(chatId) when the server has new/changed messages (Task 2). */
   subscribeSignal: (onNews: (chatId: string) => void) => () => void;
@@ -267,6 +269,11 @@ export function createReplicatedTransport(deps: ReplicatedTransportDeps): ChatTr
     },
 
     async sendMessage(draft) { return deps.send(draft); },
+
+    async sendMedia(draft) {
+      if (!deps.sendMedia) throw new Error('[chat] replicated transport has no sendMedia configured');
+      return deps.sendMedia(draft);
+    },
 
     async markRead({ message }) {
       await deps.markReadOnServer({ chatId, toCreatedAt: message.createdAt });

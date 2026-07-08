@@ -1,7 +1,7 @@
-import type { ChatTransport, ChatSessionOptions, Message } from './types';
+import type { ChatTransport, ChatSessionOptions, Message, MediaDraftInput } from './types';
 import {
   emptyWindow, applyInitialPage, applyOlderPage, applyLiveUpsert,
-  applyOptimisticSend, resolveSend, failSend, applyDelete,
+  applyOptimisticSend, resolveSend, failSend, applyDelete, patchMessageMeta,
 } from './reducer';
 import { unreadAnchor } from './helpers';
 import { createComposer, type Composer } from './composer.svelte';
@@ -24,6 +24,12 @@ export interface ChatSession {
   read(message: Message): void;
   markRead(message: Message): Promise<void>;
   send(): Promise<void>;
+  /**
+   * Send a picked media attachment (image/video/document). Shows an optimistic bubble immediately
+   * (`sendState: 'sending'`, `meta.uploadProgress` advancing as the host uploads), then swaps to the
+   * server message. Throws if the transport has no `sendMedia` seam (text-only host).
+   */
+  sendMedia(input: MediaDraftInput): Promise<void>;
   retry(message: Message): Promise<void>;
   dispose(): void;
 }
@@ -149,6 +155,37 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
     }
   }
 
+  async function sendMedia(input: MediaDraftInput) {
+    if (!transport.sendMedia) throw new Error('[chat] transport has no sendMedia seam');
+    const clientToken = nextToken();
+    const tempId = `tmp_${clientToken}`;
+    const replyMessageId = composer.replyTo?._id;
+    // Optimistic media bubble: `sendState: 'sending'` (kit-canonical) + meta the media slot reads
+    // (width/height reserve the box, previewUrl shows something instantly, uploadProgress advances).
+    const optimistic: Message = {
+      _id: tempId, chatId: opts.chatId, userId: opts.meUserId, type: input.type, text: input.text,
+      createdAt: new Date(), sendState: 'sending',
+      meta: {
+        clientToken, replyMessageId,
+        width: input.width, height: input.height,
+        previewUrl: input.previewUrl, uploadProgress: 0,
+      },
+    };
+    win = applyOptimisticSend(win, optimistic);
+    composer.clearReply(); // media caption is separate from the text draft — don't wipe the draft
+    try {
+      const server = await transport.sendMedia({
+        chatId: opts.chatId, clientToken, replyMessageId,
+        file: input.file, type: input.type, text: input.text,
+        width: input.width, height: input.height, previewUrl: input.previewUrl,
+        onProgress: (fraction) => { win = patchMessageMeta(win, tempId, { uploadProgress: fraction }); },
+      });
+      win = resolveSend(win, tempId, server);
+    } catch {
+      win = failSend(win, tempId);
+    }
+  }
+
   async function retry(message: Message) {
     const clientToken = message.meta?.clientToken ?? nextToken();
     win = { ...win, messages: win.messages.map((x) => (x._id === message._id ? { ...x, sendState: 'sending' } : x)) };
@@ -172,6 +209,6 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
     get olderStatus() { return win.olderStatus; },
     get unreadAnchorId() { return unreadAnchorId; },
     composer,
-    open, loadOlder, read, markRead, send, retry, dispose,
+    open, loadOlder, read, markRead, send, sendMedia, retry, dispose,
   };
 }

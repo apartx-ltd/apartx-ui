@@ -69,6 +69,14 @@ export function resolveSend(w: MessageWindow, tempId: string, serverMessage: Mes
   return { ...w, messages: mergeById(without, [{ ...serverMessage, sendState: undefined }]) };
 }
 
+/** Merge a meta patch onto an in-window message by _id (e.g. optimistic upload progress). No-op if absent. */
+export function patchMessageMeta(w: MessageWindow, id: string, metaPatch: Record<string, any>): MessageWindow {
+  return {
+    ...w,
+    messages: w.messages.map((x) => (x._id === id ? { ...x, meta: { ...x.meta, ...metaPatch } } : x)),
+  };
+}
+
 export function failSend(w: MessageWindow, tempId: string): MessageWindow {
   return {
     ...w,

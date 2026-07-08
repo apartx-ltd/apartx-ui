@@ -41,11 +41,37 @@ export interface OutgoingDraft {
 }
 export type AttachmentRef = Record<string, any>;
 
+/** A media attachment the user picked (host-opaque `file`, e.g. a browser File). Passed to
+ *  `session.sendMedia`. `previewUrl` (object/data URL) lets the optimistic bubble show something
+ *  instantly; width/height reserve the media box so the row doesn't reflow when the upload lands. */
+export interface MediaDraftInput {
+  file: any;
+  /** Renderer key — 'image' | 'video' | 'document' | … */
+  type: string;
+  text?: string;
+  width?: number;
+  height?: number;
+  previewUrl?: string;
+}
+
+/** What the transport's `sendMedia` receives: the picked media plus the chat/token context and an
+ *  `onProgress(fraction)` callback (0..1) the host calls during upload so the kit can reflect it on
+ *  the optimistic message (`meta.uploadProgress`). */
+export interface OutgoingMediaDraft extends MediaDraftInput {
+  chatId: string;
+  clientToken: string;
+  replyMessageId?: string;
+  onProgress: (fraction: number) => void;
+}
+
 /** The single Meteor seam — the host implements this. */
 export interface ChatTransport {
   fetchOlder(args: { chatId: string; before?: Date; limit: number }): Promise<Message[]>;
   subscribeLive(chatId: string, onEvent: (e: LiveEvent) => void): () => void; // returns unsubscribe
   sendMessage(draft: OutgoingDraft): Promise<Message>;
+  /** Optional media seam — the host uploads the file (reporting progress) then persists the message,
+   *  returning the server message. Absent → `session.sendMedia` throws (text-only host). */
+  sendMedia?(draft: OutgoingMediaDraft): Promise<Message>;
   markRead(args: { chatId: string; message: Message }): Promise<void>;
 }
 

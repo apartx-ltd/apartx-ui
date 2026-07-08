@@ -63,6 +63,65 @@ describe('ChatSession', () => {
     expect(s.messages.at(-1)?.sendState).to.equal(undefined);
   });
 
+  it('sendMedia() shows an optimistic media bubble with progress, then swaps to the server message', async () => {
+    const progresses: number[] = [];
+    const { transport } = fakeTransport({
+      sendMedia: async (d) => {
+        d.onProgress(0.5);
+        d.onProgress(1);
+        return { _id: 'img-' + d.clientToken, chatId: d.chatId, seq: 200, type: d.type, createdAt: new Date(), meta: { clientToken: d.clientToken, file: { url: 'https://x/y.jpg' } } };
+      },
+    });
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me' });
+    await s.open();
+    const p = s.sendMedia({ file: { name: 'y.jpg' }, type: 'image', width: 100, height: 80, previewUrl: 'blob:x' });
+    const opt = s.messages.at(-1)!;
+    expect(opt.sendState).to.equal('sending');
+    expect(opt.type).to.equal('image');
+    expect(opt.meta?.width).to.equal(100);
+    expect(opt.meta?.previewUrl).to.equal('blob:x');
+    await p;
+    const done = s.messages.at(-1)!;
+    expect(done.sendState).to.equal(undefined);
+    expect(done._id).to.match(/^img-/);
+    expect(done.meta?.file?.url).to.equal('https://x/y.jpg');
+  });
+
+  it('sendMedia() reflects upload progress on the optimistic message before it resolves', async () => {
+    let release: (() => void) | null = null;
+    const gate = new Promise<void>((r) => { release = r; });
+    const { transport } = fakeTransport({
+      sendMedia: async (d) => {
+        d.onProgress(0.42);
+        await gate;
+        return { _id: 'img-' + d.clientToken, chatId: d.chatId, seq: 201, type: d.type, createdAt: new Date(), meta: { clientToken: d.clientToken } };
+      },
+    });
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me' });
+    await s.open();
+    const p = s.sendMedia({ file: {}, type: 'image' });
+    await Promise.resolve();
+    expect(s.messages.at(-1)?.meta?.uploadProgress).to.equal(0.42);
+    release!();
+    await p;
+  });
+
+  it('sendMedia() marks the optimistic message failed when the upload/send throws', async () => {
+    const { transport } = fakeTransport({ sendMedia: async () => { throw new Error('upload boom'); } });
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me' });
+    await s.open();
+    await s.sendMedia({ file: {}, type: 'image' });
+    expect(s.messages.at(-1)?.sendState).to.equal('failed');
+  });
+
+  it('sendMedia() throws when the transport has no sendMedia seam', async () => {
+    const { transport } = fakeTransport();
+    delete (transport as any).sendMedia;
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me' });
+    await s.open();
+    await expect(s.sendMedia({ file: {}, type: 'image' })).rejects.toThrow(/sendMedia/);
+  });
+
   it('loadOlder() prepends and sets exhausted on a short page', async () => {
     const { transport } = fakeTransport({ fetchOlder: async ({ before }) => (before ? [m('x', 0)] : [m('a', 1), m('b', 2)]) });
     const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', pageSize: 2 });
