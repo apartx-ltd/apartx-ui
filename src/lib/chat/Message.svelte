@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Message } from './types';
   import MessageRenderer from './MessageRenderer.svelte';
-  import { groupStart, groupEnd, showDate } from './helpers';
+  import { groupStart, groupEnd, showDate, isFullBleedMedia } from './helpers';
+  import { resolveComponents } from './registry.svelte';
 
   let {
     message, prev = null, next = null, meUserId,
@@ -27,6 +28,12 @@
   const isGroupStart = $derived(groupStart(message, prev));
   const isGroupEnd = $derived(groupEnd(message, next));
   const separator = $derived(showDate(message, prev));
+
+  // Telegram-style full-bleed media bubble: image/video fills the bubble edge-to-edge (the bubble
+  // drops its padding + clips corners; the renderer pads any header above / caption below and floats
+  // the time over the media when there's no caption). Audio/document and text keep the padded bubble.
+  const slots = $derived(resolveComponents(message.type));
+  const fullBleed = $derived(!removed && !isService && !!slots.media && isFullBleedMedia(message.type));
 
   // Group-aware corner squaring: on the speaker's side (right for me, left for others) square the top
   // corner when this isn't the group's first message and the bottom corner when it isn't the last, so a
@@ -76,11 +83,11 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div
-      class="max-w-[80%] {bubbleRadius} px-3 py-1.5 {mine ? 'bg-primary-container' : 'bg-surface-container'}"
+      class="max-w-[80%] {bubbleRadius} {fullBleed ? 'overflow-hidden' : 'px-2 py-1.5'} {mine ? 'bg-primary-container' : 'bg-surface-container'}"
       oncontextmenu={onContextMenu ? openMenu : undefined}
       onclick={menuOnClick && onContextMenu ? openMenu : undefined}
     >
-      <MessageRenderer {message} {meUserId} {authorName} {timeLabel} {isGroupStart} {isGroupEnd} />
+      <MessageRenderer {message} {meUserId} {authorName} {timeLabel} {isGroupStart} {isGroupEnd} {fullBleed} />
     </div>
   {/if}
 </div>

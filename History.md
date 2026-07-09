@@ -1,5 +1,30 @@
 # История изменений — apartx-ui
 
+## 2026-07-09
+
+### Версия 0.2.9
+
+### Добавлено (чат — generic media-слоты в ките)
+
+* **`ImageMedia` / `AudioMedia` / `DocumentMedia` + `mediaSlots`** — рендер медиа-сообщений
+  (image/video/audio/document) больше не app-специфичен и живёт в ките (`slots/` +
+  `media-slots.ts`). Хосты спредят карту в свой реестр: `setMessageRendererRegistry({ ...mediaSlots,
+  ...бизнес-типы })`. Подпись медиа — это обычный `MessageBodyDefault` (инлайн `message.text`),
+  отдельного «CaptionBody» нет.
+
+### Изменено (чат — telegram-стиль пузыря медиа/времени)
+
+* **Медиа встык (`fullBleed`)** — `Message.svelte` для типов image/video убирает паддинг пузыря и
+  клипует углы (`overflow-hidden`), медиа заполняет пузырь edge-to-edge (`isFullBleedMedia` в
+  `helpers.ts`). Audio/document и текст — прежний паддинг-пузырь.
+* **Время float'ом на строке текста** — `MessageRenderer` рендерит тело+время в `flow-root` c
+  `float:right` и `items-end`: короткий текст/подпись держит время на той же строке справа
+  (выровнено вниз), длинный — время перетекает вниз-вправо. Как в Telegram.
+* **Время оверлеем на медиа без подписи** — чип на скриме (`bg-black/45`) в правом-нижнем углу
+  (`MessageTimeDefault` получил проп `overlay` — белый текст/тик).
+* Пустой хедер (reply/имя автора отсутствуют) больше не рендерит паддинг-обёртку над медиа —
+  ушла полоска фона сверху.
+
 ## 2026-07-08
 
 ### Версия 0.2.8

@@ -5,6 +5,7 @@ export * from './composer.svelte';
 export * from './session.svelte';
 export * from './registry.svelte';
 export * from './register-defaults';
+export * from './media-slots';
 export * from './i18n';
 export * from './helpers';
 export * from './replication';
@@ -16,4 +17,7 @@ export { default as MessageHeaderDefault } from './slots/MessageHeaderDefault.sv
 export { default as MessageBodyDefault } from './slots/MessageBodyDefault.svelte';
 export { default as MessageTimeDefault } from './slots/MessageTimeDefault.svelte';
 export { default as MessengerIcon } from './slots/MessengerIcon.svelte';
+export { default as ImageMedia } from './slots/ImageMedia.svelte';
+export { default as AudioMedia } from './slots/AudioMedia.svelte';
+export { default as DocumentMedia } from './slots/DocumentMedia.svelte';
 export { default as ChatListItem } from './ChatListItem.svelte';

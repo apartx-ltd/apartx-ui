@@ -7,7 +7,9 @@
   import type { Message } from '../types';
   import { deliveryTick } from '../helpers';
 
-  let { message, meUserId, counterpartReadSeq, counterpartDeliveredSeq, timeLabel = '' }: { message: Message; meUserId?: string; counterpartReadSeq?: number; counterpartDeliveredSeq?: number; timeLabel?: string } = $props();
+  // `overlay` = rendered over media (telegram-style media-only bubble): force legible white text on
+  // the translucent scrim the renderer provides, instead of the on-surface palette used below a bubble.
+  let { message, meUserId, counterpartReadSeq, counterpartDeliveredSeq, timeLabel = '', overlay = false }: { message: Message; meUserId?: string; counterpartReadSeq?: number; counterpartDeliveredSeq?: number; timeLabel?: string; overlay?: boolean } = $props();
 
   const isMine = $derived(!!meUserId && message.userId === meUserId);
   const tick = $derived(isMine ? deliveryTick(message, meUserId, counterpartReadSeq, counterpartDeliveredSeq) : null);
@@ -20,12 +22,12 @@
     c.error ? `${c.channel}: ${c.state} — ${c.error}` : `${c.channel}: ${c.state}`;
 </script>
 
-<span class="flex justify-end items-center gap-1 text-[10px] text-on-surface-variant">
+<span class="flex justify-end items-center gap-1 text-[10px] {overlay ? 'text-white' : 'text-on-surface-variant'}">
   <span>{timeLabel}</span>
   {#if tick === 'failed'}
     <Fa icon={faTriangleExclamation} class="text-error" />
   {:else if tick === 'read'}
-    <Fa icon={faCheckDouble} class="text-primary" />
+    <Fa icon={faCheckDouble} class={overlay ? 'text-white' : 'text-primary'} />
   {:else if tick === 'delivered'}
     <Fa icon={faCheckDouble} />
   {:else if tick === 'sent'}

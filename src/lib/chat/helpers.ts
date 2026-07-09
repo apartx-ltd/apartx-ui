@@ -3,6 +3,14 @@ import { isReadByMe } from './replication/read-state';
 
 export type DeliveryTick = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
 
+/** Media types rendered edge-to-edge (telegram-style): the bubble drops its padding and the media
+ *  fills it, corner-clipped, with the time overlaid when there's no caption. Audio/document are NOT
+ *  full-bleed — they stay in the normal padded stacked layout. */
+export function isFullBleedMedia(type?: string): boolean {
+  if (!type) return false;
+  return type === 'image' || type === 'video' || type.indexOf('image') > -1 || type.indexOf('video') > -1;
+}
+
 /** True if anyone OTHER than me has read the message (legacy read[] / boolean). */
 export function isReadByOther(message: Message, meUserId?: string): boolean {
   const read = message.read;
