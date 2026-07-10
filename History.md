@@ -2,6 +2,19 @@
 
 ## 2026-07-10
 
+### Версия 0.2.12
+
+### Исправлено (чат — delivered-acker шумит на непрочитанных каналах)
+
+* **`delivered-acker` пропускает channel-диалоги** (`replication/delivered-acker.ts`). `channel` —
+  единственный read-fanout (broadcast) kind: сервер намеренно no-op'ит для него `markDelivered`
+  (персональный delivered-watermark на каждого подписчика бродкаста = write-amplification), поэтому
+  `lastDeliveredSeq` навсегда остаётся `0`. У **непрочитанного** канала `lastReadSeq < seq` и
+  `lastDeliveredSeq = 0` → persisted-watermark guard не срабатывал, а in-memory `acked` живёт лишь на
+  время загрузки → клиент слал `Chat.markDelivered` **на каждую перезагрузку**, сервер молча
+  выбрасывал. Delivered-тик для бродкаста бессмыслен → теперь такие диалоги отсекаются сразу
+  (`d.kind === 'channel'`), без обращения к серверу. Юнит-тест на «непрочитанный канал не акается».
+
 ### Версия 0.2.11
 
 ### Исправлено (DateRangePicker — портал попапа)

@@ -50,6 +50,13 @@ export function createDeliveredAcker(opts: {
         if (typeof seq !== 'number') continue;
         const chatId = d?.chatId ?? d?.chat?._id;
         if (!chatId) continue;
+        // Skip read-fanout chats outright. `channel` is the only broadcast (read-fanout) kind:
+        // the server no-ops markDelivered for it (a per-recipient delivered watermark across every
+        // channel subscriber would be write-amplification), so lastDeliveredSeq stays 0 forever.
+        // An UNREAD channel therefore never satisfies the persisted-watermark guard below and would
+        // re-ack on every page load — a pointless markDelivered storm the server just discards.
+        // A "delivered" tick is meaningless for a broadcast anyway, so never ack one.
+        if ((d?.kind ?? d?.chat?.subject?.kind) === 'channel') continue;
         // Only ack when the newest message is from the counterpart — a genuine receive event.
         if (meUserId && lm?.userId === meUserId) continue;
         // Skip when this message is already RECEIVED per a PERSISTED watermark — the acker's

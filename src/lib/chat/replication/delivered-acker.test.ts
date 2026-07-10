@@ -106,6 +106,19 @@ describe('createDeliveredAcker', () => {
     expect(ack).not.toHaveBeenCalled();
   });
 
+  it('never acks an UNREAD channel (read-fanout) dialog — server no-ops it, so it would storm every load', () => {
+    const t = makeTimers();
+    const ack = vi.fn();
+    const a = createDeliveredAcker({ ack, debounceMs: 400, setTimeoutFn: t.set, clearTimeoutFn: t.clear });
+    // channel dialog, unread (lastReadSeq 0 < seq 42) and lastDeliveredSeq 0 (server never advances it):
+    // without the kind guard the persisted-watermark check can't skip it → markDelivered every load.
+    a.note([{ chatId: 'ch1', kind: 'channel', lastReadSeq: 0, lastDeliveredSeq: 0,
+      chat: { _id: 'ch1', subject: { kind: 'channel' }, lastMessage: { seq: 42, userId: 'them' } } }], 'me');
+    expect(t.pending()).toBe(false);
+    t.fire();
+    expect(ack).not.toHaveBeenCalled();
+  });
+
   it('acks a newly-arrived message even when an older watermark is present', () => {
     const t = makeTimers();
     const ack = vi.fn();
