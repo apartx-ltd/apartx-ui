@@ -1,9 +1,18 @@
 import { liveQuery, type Observable } from 'dexie';
 
-export function liveArray<T>(query: () => Promise<T[]>): { get current(): T[]; stop(): void } {
+export function liveArray<T>(query: () => Promise<T[]>): { get current(): T[]; get loaded(): boolean; stop(): void } {
   let current = $state<T[]>([]);
-  const sub = (liveQuery(query) as Observable<T[]>).subscribe({ next: (v) => (current = v) });
-  return { get current() { return current; }, stop: () => sub.unsubscribe() };
+  // `loaded` flips true on the first liveQuery emission. Consumers use it to distinguish "not yet
+  // loaded" (current is still the initial []) from "loaded and genuinely empty" — so a list can show
+  // a loader until the first batch arrives instead of flashing an empty state for one frame.
+  let loaded = $state(false);
+  const sub = (liveQuery(query) as Observable<T[]>).subscribe({
+    next: (v) => {
+      current = v;
+      loaded = true;
+    },
+  });
+  return { get current() { return current; }, get loaded() { return loaded; }, stop: () => sub.unsubscribe() };
 }
 
 export interface DiffItem { _id: string; updatedAt?: Date }
