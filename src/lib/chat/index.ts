@@ -18,6 +18,7 @@ export { default as MessageBodyDefault } from './slots/MessageBodyDefault.svelte
 export { default as MessageTimeDefault } from './slots/MessageTimeDefault.svelte';
 export { default as MessengerIcon } from './slots/MessengerIcon.svelte';
 export { default as ImageMedia } from './slots/ImageMedia.svelte';
+export { default as VideoMedia } from './slots/VideoMedia.svelte';
 export { default as AudioMedia } from './slots/AudioMedia.svelte';
 export { default as DocumentMedia } from './slots/DocumentMedia.svelte';
 export { default as ChatListItem } from './ChatListItem.svelte';
