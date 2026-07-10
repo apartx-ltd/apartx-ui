@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Dialog from '../ui/overlays/Dialog.svelte';
+  import Icon from '../ui/display/Icon.svelte';
+  import { faXmark } from '@fortawesome/free-solid-svg-icons';
 
   /**
    * Full-screen video player. Built on the kit `fullScreen` Dialog, so it registers with the
@@ -41,12 +43,23 @@
 <Dialog
   bind:open
   fullScreen
-  title="Video"
+  title=""
+  showCloseButton={false}
   onOpenChange={handleOpenChange}
   contentClass="bg-black"
   bodyClass="flex-1 min-h-0 grid place-items-center p-0 bg-black"
 >
   {#if ready}
+    <!-- No Dialog header (fullscreen video). A floating close button keeps a visible affordance
+         on desktop; ESC and native/browser back also close (via the overlay-stack). -->
+    <button
+      type="button"
+      onclick={() => (open = false)}
+      aria-label="Close"
+      class="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-scrim/50 text-white"
+    >
+      <Icon icon={faXmark} />
+    </button>
     <media-controller class="h-full w-full">
       <!-- svelte-ignore a11y_media_has_caption -->
       <video slot="media" {src} {poster} playsinline autoplay class="h-full w-full object-contain"></video>
