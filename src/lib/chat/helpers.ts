@@ -91,6 +91,21 @@ export function chatImageGallery(messages: readonly Message[]): { src: string; a
   return out;
 }
 
+/**
+ * Human duration for a media badge/time display. Seconds → `m:ss`, or `h:mm:ss` past an hour.
+ * Empty string for missing/invalid input (absent/negative/NaN) so callers can render nothing.
+ */
+export function formatDuration(seconds?: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '';
+  const total = Math.floor(seconds);
+  const s = total % 60;
+  const m = Math.floor(total / 60) % 60;
+  const h = Math.floor(total / 3600);
+  const ss = String(s).padStart(2, '0');
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${ss}`;
+  return `${m}:${ss}`;
+}
+
 /** First message of a visual group (author changed from the previous message). */
 export function groupStart(message: Message, prev: Message | null): boolean {
   if (!prev) return true;

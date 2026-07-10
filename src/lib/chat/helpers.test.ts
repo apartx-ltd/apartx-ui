@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery } from './helpers';
+import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration } from './helpers';
 import type { Message } from './types';
 
 const m = (over: Partial<Message> = {}): Message => ({ _id: 'm', chatId: 'c', userId: 'u1', createdAt: new Date('2026-06-30T10:00:00Z'), ...over });
@@ -269,5 +269,28 @@ describe('chatImageGallery', () => {
 
   it('returns an empty gallery for a set with no images', () => {
     expect(chatImageGallery([m({ type: 'text' })])).toEqual([]);
+  });
+});
+
+describe('formatDuration', () => {
+  it('formats seconds as m:ss', () => {
+    expect(formatDuration(0)).to.equal('0:00');
+    expect(formatDuration(5)).to.equal('0:05');
+    expect(formatDuration(42)).to.equal('0:42');
+    expect(formatDuration(90)).to.equal('1:30');
+    expect(formatDuration(605)).to.equal('10:05');
+  });
+  it('formats an hour or more as h:mm:ss', () => {
+    expect(formatDuration(3661)).to.equal('1:01:01');
+    expect(formatDuration(7325)).to.equal('2:02:05');
+  });
+  it('rounds fractional seconds down', () => {
+    expect(formatDuration(42.9)).to.equal('0:42');
+  });
+  it('returns empty string for missing/invalid input', () => {
+    expect(formatDuration(undefined)).to.equal('');
+    expect(formatDuration(null as any)).to.equal('');
+    expect(formatDuration(NaN)).to.equal('');
+    expect(formatDuration(-3)).to.equal('');
   });
 });
