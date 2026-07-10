@@ -18,7 +18,7 @@
     preload="metadata"
     poster={meta.poster ?? ''}
     style="aspect-ratio:{ratio}"
-    class="w-64 rounded-lg bg-surface-variant object-cover"
+    class="w-[300px] max-w-full rounded-lg bg-surface-variant object-cover"
   >
     <source src={meta.src} type={meta.mime ?? 'video/mp4'} />
     <track kind="captions" />
