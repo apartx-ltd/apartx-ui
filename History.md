@@ -2,6 +2,26 @@
 
 ## 2026-07-10
 
+### Версия 0.3.0
+
+### Добавлено (chat — телеграм-видео)
+
+* **`VideoMedia` — новый слот для `video`.** Тайл в ленте: постер-превью + play-кнопка по центру
+  + бейдж длительности; файл видео не грузится, пока не тапнули. Бокс резервируется из
+  `width`/`height` (лента не переверстывается при загрузке постера). Читает
+  `meta.file.{url,posterUrl,width,height,duration}`. `media-slots.ts`: `video` теперь → `VideoMedia`
+  (был `ImageMedia`). Экспортится из `apartx-ui/chat`.
+* **`VideoLightbox` — полноэкранный плеер** (`apartx-ui/lightbox`). Построен на kit `fullScreen`
+  `Dialog`, поэтому регистрируется в `overlay-stack`: закрытие по **нативному history back**
+  (кнопка «назад»/свайп) приходит из коробки, плюс ESC/тап-вне/X. Контролы — `media-chrome`
+  (web-components, лениво регистрируются на mount, SSR-safe), скин темизирован под M3 через
+  CSS-переменные. `media-chrome` добавлен в `peerDependencies`.
+* **`formatDuration(sec)`** — хелпер для бейджей длительности (`m:ss` / `h:mm:ss`), покрыт юнит-тестом.
+* **Демо:** витрина переведена на kit `VideoMedia`/`VideoLightbox`; демо-`VideoSlot` удалён,
+  видео-мок приведён к реальной shape меты.
+
+Требует бэкенд: сервер отдаёт `meta.file.posterUrl` (apartx-server — разворот `posterFileId`).
+
 ### Версия 0.2.19
 
 ### Исправлено (демо чата — медиа тянется на всю ширину пузыря)
