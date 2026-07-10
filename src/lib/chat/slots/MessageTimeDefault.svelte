@@ -31,7 +31,7 @@
          width and could re-wrap the last line — the bubble twitched as the message advanced
          pending → sent → delivered → read. Reserve the widest (1.25em) once and centre the glyph in
          it: the float's width is then identical in every state. -->
-    <span class="flex w-[1.25em] shrink-0 justify-center">
+    <span data-tick={tick} class="flex w-[1.25em] shrink-0 justify-center">
       {#if tick === 'failed'}
         <Fa icon={faTriangleExclamation} class="text-error" />
       {:else if tick === 'read'}
