@@ -44,6 +44,10 @@ describe('ChatSession', () => {
     s.composer.setDraft('hi');
     const p = s.send();
     expect(s.messages.at(-1)?.sendState).to.equal('sending');
+    // MessageRenderer keys its layout off `type` (`isText`): an optimistic bubble without it renders
+    // stacked (time on its own row) and visibly collapses when the server echo — which carries
+    // type:'text' — swaps in.
+    expect(s.messages.at(-1)?.type).to.equal('text');
     await p;
     expect(s.messages.at(-1)?.sendState).to.equal(undefined);
     expect(s.messages.at(-1)?._id).to.match(/^real-/);

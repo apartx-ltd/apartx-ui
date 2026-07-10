@@ -141,8 +141,13 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
     const clientToken = nextToken();
     const tempId = `tmp_${clientToken}`;
     const replyMessageId = composer.replyTo?._id;
+    // `type: 'text'` is NOT cosmetic: MessageRenderer keys its layout off it (`isText`). Without it the
+    // optimistic bubble falls into the stacked branch — time on its own row under the text — while the
+    // server echo (which does carry type:'text') floats the time into the last line telegram-style.
+    // The bubble then visibly collapsed ~13px the moment the send resolved. The media path below has
+    // always passed `type`; the text path silently didn't.
     const optimistic: Message = {
-      _id: tempId, chatId: opts.chatId, userId: opts.meUserId, text,
+      _id: tempId, chatId: opts.chatId, userId: opts.meUserId, type: 'text', text,
       createdAt: new Date(), sendState: 'sending', meta: { clientToken, replyMessageId },
     };
     win = applyOptimisticSend(win, optimistic);
