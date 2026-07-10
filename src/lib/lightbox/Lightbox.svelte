@@ -2,6 +2,7 @@
   import { onMount, untrack } from 'svelte';
   import 'viewerjs/dist/viewer.css';
   import { getOverlayLayer } from '../ui/overlays/layer-context';
+  import { openOverlay, closeOverlay, initOverlayStack } from '../router/overlay/overlay-stack';
 
   type LightboxImage = { src: string; alt?: string };
 
@@ -53,8 +54,32 @@
   const zIndex = $derived(layer ? Math.max(2015, layer.z + 10) : 2015);
 
   onMount(async () => {
+    // Install the overlay-stack back-interceptor (idempotent) so a native/browser BACK closes the
+    // viewer instead of navigating the page. viewerjs manages its own z/ESC/backdrop but knows
+    // nothing about history — without this, back leaves the lightbox open and changes the route.
+    initOverlayStack();
     const mod = await import('viewerjs');
     ViewerCtor = mod.default;
+  });
+
+  // Mirror `open` into the overlay-stack: opening pushes a synthetic history entry, BACK invokes our
+  // callback (open=false → viewer.hide()), a non-back close (ESC/backdrop/onHidden→open=false) pops
+  // the entry. Idempotent — closeOverlay after a back-driven close is a no-op (token already removed).
+  let overlayToken: number | null = null;
+  $effect(() => {
+    const o = open;
+    if (o && overlayToken === null) {
+      overlayToken = openOverlay(() => { open = false; });
+    } else if (!o && overlayToken !== null) {
+      closeOverlay(overlayToken);
+      overlayToken = null;
+    }
+  });
+  $effect(() => () => {
+    if (overlayToken !== null) {
+      closeOverlay(overlayToken, { viaBack: true });
+      overlayToken = null;
+    }
   });
 
   // viewerjs fires custom DOM events on the bound element. `hidden` = the viewer

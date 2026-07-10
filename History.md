@@ -1,5 +1,16 @@
 # История изменений — apartx-ui
 
+## 2026-07-11
+
+### Версия 0.3.3
+
+### Исправлено (image Lightbox закрывается по нативному history back)
+
+* **`Lightbox` (viewerjs) тоже регистрируется в overlay-stack** — та же правка, что и у
+  `VideoLightbox` в 0.3.2. viewerjs управляет своим z/ESC/бэкдропом, но про history ничего не знает,
+  поэтому нативный/браузерный BACK **менял страницу вместо закрытия лайтбокса**. Теперь `Lightbox`
+  сам зовёт `openOverlay`/`closeOverlay` и ставит interceptor через `initOverlayStack()` на mount.
+
 ## 2026-07-10
 
 ### Версия 0.3.2
