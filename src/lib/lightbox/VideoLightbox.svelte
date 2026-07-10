@@ -3,6 +3,7 @@
   import Dialog from '../ui/overlays/Dialog.svelte';
   import Icon from '../ui/display/Icon.svelte';
   import { faXmark } from '@fortawesome/free-solid-svg-icons';
+  import { openOverlay, closeOverlay, initOverlayStack } from '../router/overlay/overlay-stack';
 
   /**
    * Full-screen video player. Built on the kit `fullScreen` Dialog, so it registers with the
@@ -31,8 +32,34 @@
   // the <media-controller> tags are inert custom elements (still render the <video> inside).
   let ready = $state(false);
   onMount(async () => {
+    // Install the overlay-stack back-interceptor (idempotent — <ModalOutlet> may have already
+    // done it in registry hosts; a no-op there, and self-sufficient where there is no registry).
+    initOverlayStack();
     await import('media-chrome');
     ready = true;
+  });
+
+  // Register with the overlay-stack ourselves. The kit Dialog only does this when rendered inside a
+  // <ModalLayer> (registry modals); a standalone Dialog is untouched, so without this a native/browser
+  // BACK would navigate the page instead of closing the video. Opening pushes a synthetic history
+  // entry; BACK invokes our callback (open=false); a non-back close (X/Esc/programmatic) pops the
+  // entry. Idempotent: closeOverlay after a back-driven close is a no-op (token already removed).
+  let overlayToken: number | null = null;
+  $effect(() => {
+    const o = open;
+    if (o && overlayToken === null) {
+      overlayToken = openOverlay(() => { open = false; });
+    } else if (!o && overlayToken !== null) {
+      closeOverlay(overlayToken);
+      overlayToken = null;
+    }
+  });
+  // Unmounted while still open (defensive): drop the entry WITHOUT an extra history.back.
+  $effect(() => () => {
+    if (overlayToken !== null) {
+      closeOverlay(overlayToken, { viaBack: true });
+      overlayToken = null;
+    }
   });
 
   function handleOpenChange(v: boolean) {

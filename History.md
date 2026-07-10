@@ -2,6 +2,17 @@
 
 ## 2026-07-10
 
+### Версия 0.3.2
+
+### Исправлено (chat — VideoLightbox закрывается по нативному history back)
+
+* **VideoLightbox сам регистрируется в overlay-stack.** Kit `Dialog` интегрируется с overlay-stack
+  (синтетическая history-запись + закрытие по back) **только внутри `<ModalLayer>`** — эффект
+  гейтится `if (!layer) return`, поэтому standalone-Dialog (как VideoLightbox) не пушил запись и
+  нативный/браузерный BACK **менял страницу вместо закрытия видео**. Теперь VideoLightbox сам зовёт
+  `openOverlay`/`closeOverlay` и ставит interceptor через идемпотентный `initOverlayStack()` на mount
+  — back закрывает плеер независимо от того, смонтирован ли у хоста `<ModalOutlet>`.
+
 ### Версия 0.3.1
 
 ### Изменено (chat — VideoLightbox без шапки диалога)
