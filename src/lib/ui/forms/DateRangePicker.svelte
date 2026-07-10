@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { DateRangePicker as BitsRange } from 'bits-ui';
+  // bits-ui's DateRangePicker namespace omits `Portal` (unlike DatePicker) — use the top-level
+  // `Portal` primitive so the popover still portals to <body> (no ESM-linking warning for a missing
+  // BitsRange.Portal, which would otherwise resolve to undefined and drop the Content subtree).
+  import { DateRangePicker as BitsRange, Portal } from 'bits-ui';
   import { parseDate, type DateValue } from '@internationalized/date';
   import { cn } from '../utils/cn';
   import Icon from '../display/Icon.svelte';
@@ -122,7 +125,7 @@
       </BitsRange.Trigger>
     </div>
 
-    <BitsRange.Portal>
+    <Portal>
     <BitsRange.Content sideOffset={4} class="z-50 outline-none" style={overlayLayer ? `z-index:${overlayLayer.z + 2};` : ''}>
       <div class="bg-surface shadow-level-3 rounded-md p-3 border border-outline-variant">
         <BitsRange.Calendar>
@@ -180,7 +183,7 @@
         </BitsRange.Calendar>
       </div>
     </BitsRange.Content>
-    </BitsRange.Portal>
+    </Portal>
   </BitsRange.Root>
 
   {#if error}

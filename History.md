@@ -2,6 +2,15 @@
 
 ## 2026-07-10
 
+### Версия 0.2.11
+
+### Исправлено (DateRangePicker — портал попапа)
+
+* **`DateRangePicker` использует top-level `Portal`** из bits-ui вместо `BitsRange.Portal`. У
+  bits-ui v2 неймспейс `DateRangePicker` **не экспортит `Portal`** (в отличие от `DatePicker`),
+  поэтому `<BitsRange.Portal>` резолвился в `undefined` → `ESModulesLinkingWarning` на сборке, а
+  поддерево `<Content>` (попап-календарь) дропалось. Импорт `Portal` из `'bits-ui'` + `<Portal>`.
+
 ### Версия 0.2.10
 
 ### Исправлено (чат — мигание пустого списка диалогов)
