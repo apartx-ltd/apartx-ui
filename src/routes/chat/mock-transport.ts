@@ -51,12 +51,15 @@ const PHOTO_SETS: Photo[][] = [
 ];
 
 // A public sample clip for the demo's video messages.
+// Real message meta shape (mirrors the server): VideoMedia reads meta.file.{url,posterUrl,width,height,duration}.
 const VIDEO = {
-  src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-  poster: 'https://picsum.photos/seed/apartx-tour/480/270',
-  mime: 'video/mp4',
-  width: 1280,
-  height: 720,
+  file: {
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    posterUrl: 'https://picsum.photos/seed/apartx-tour/480/270',
+    width: 1280,
+    height: 720,
+    duration: 15,
+  },
 };
 
 function buildHistory(): Message[] {

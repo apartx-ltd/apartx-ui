@@ -2,13 +2,12 @@
   import { onMount } from 'svelte';
   import {
     createChatSession, registerChatDefaults, setMessageRendererRegistry, setChatI18n,
-    createLocalStorageDraftStore, ChatMessageList, MessageInput, type Message,
+    createLocalStorageDraftStore, ChatMessageList, MessageInput, VideoMedia, type Message,
   } from '$lib/chat';
   import { createMockTransport } from './mock-transport';
   import SystemSlotBody from './demo-renderers/SystemSlotBody.svelte';
   import BookingSlotBody from './demo-renderers/BookingSlotBody.svelte';
   import MediaSlot from './demo-renderers/MediaSlot.svelte';
-  import VideoSlot from './demo-renderers/VideoSlot.svelte';
   import AiSlotBody from './demo-renderers/AiSlotBody.svelte';
 
   setChatI18n((key, opts) => (opts?.defaultValue as string) ?? key);
@@ -18,7 +17,7 @@
     system: { header: null, body: SystemSlotBody, time: null },
     booking: { body: BookingSlotBody },
     image: { media: MediaSlot },
-    video: { media: VideoSlot },
+    video: { media: VideoMedia },
     ai: { header: null, body: AiSlotBody },
   });
 
