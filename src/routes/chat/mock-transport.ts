@@ -38,8 +38,10 @@ const AI_ANSWERS = [
   'Yes, early check-in is possible for an extra fee — would you like me to request it?',
 ];
 
-type Photo = { src: string; alt: string };
-const photo = (seed: string, alt: string): Photo => ({ src: `https://picsum.photos/seed/${seed}/480/360`, alt });
+// Dimensions travel with the media so the slots can reserve the box before the bytes arrive —
+// otherwise the bubble is sized from the intrinsic size and reflows the moment loading finishes.
+type Photo = { src: string; alt: string; width: number; height: number };
+const photo = (seed: string, alt: string): Photo => ({ src: `https://picsum.photos/seed/${seed}/480/360`, alt, width: 480, height: 360 });
 
 // Reusable photo sets for the demo's media messages (single image and galleries).
 const PHOTO_SETS: Photo[][] = [
@@ -53,6 +55,8 @@ const VIDEO = {
   src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
   poster: 'https://picsum.photos/seed/apartx-tour/480/270',
   mime: 'video/mp4',
+  width: 1280,
+  height: 720,
 };
 
 function buildHistory(): Message[] {

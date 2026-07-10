@@ -5,8 +5,13 @@
   // A media message carries its images in meta.images. This slot renders a thumbnail
   // grid and opens the kit Lightbox (viewerjs zoom/pan) on click — the caption stays
   // in the default body slot (message.text).
+  //
+  // The grid takes a definite width and each cell a definite box (aspect-ratio for a lone image,
+  // a fixed row height for galleries). Without that the bubble is shrink-to-fit and derives its
+  // width from the image's intrinsic size, so the row reflows the moment loading finishes.
   let { message }: { message: Message } = $props();
-  const images = $derived(((message.meta?.images ?? []) as { src: string; alt?: string }[]));
+  const images = $derived(((message.meta?.images ?? []) as { src: string; alt?: string; width?: number; height?: number }[]));
+  const single = $derived(images.length === 1);
 
   let open = $state(false);
   let index = $state(0);
@@ -14,10 +19,15 @@
 </script>
 
 {#if images.length}
-  <div class="grid gap-1 {images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}">
+  <div class="grid w-64 gap-1 {single ? 'grid-cols-1' : 'grid-cols-2'}">
     {#each images as img, i (i)}
-      <button type="button" class="block overflow-hidden rounded-lg" onclick={() => show(i)}>
-        <img src={img.src} alt={img.alt ?? ''} loading="lazy" class="h-32 w-full bg-surface-variant object-cover" />
+      <button
+        type="button"
+        class="block overflow-hidden rounded-lg bg-surface-variant {single ? '' : 'h-32'}"
+        style={single && img.width && img.height ? `aspect-ratio:${img.width}/${img.height}` : undefined}
+        onclick={() => show(i)}
+      >
+        <img src={img.src} alt={img.alt ?? ''} width={img.width} height={img.height} loading="lazy" class="h-full w-full object-cover" />
       </button>
     {/each}
   </div>
