@@ -97,11 +97,11 @@ function buildHistory(): Message[] {
     }
     if (!mine && (seq === 56 || seq === 60)) {
       // The two newest incoming plain messages, seeded unread so the unread divider shows on load.
-      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: THEM, text: THEM_LINES[i % THEM_LINES.length], createdAt, read: false });
+      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: THEM, type: 'text', text: THEM_LINES[i % THEM_LINES.length], createdAt, read: false });
       continue;
     }
     out.push({
-      _id: `h${seq}`, chatId: CHAT_ID, seq, userId: mine ? ME : THEM,
+      _id: `h${seq}`, chatId: CHAT_ID, seq, userId: mine ? ME : THEM, type: 'text',
       text: mine ? `Sure, message ${seq}.` : THEM_LINES[i % THEM_LINES.length],
       createdAt, delivery: mine ? 'read' : undefined,
     });
@@ -143,7 +143,7 @@ export function createMockTransport(): MockController {
         await delay(500);
         if (ctl.failNextSend) { ctl.failNextSend = false; throw new Error('mock send failure'); }
         const server: Message = {
-          _id: id, chatId: CHAT_ID, seq, userId: ME, text: draft.text,
+          _id: id, chatId: CHAT_ID, seq, userId: ME, type: 'text', text: draft.text,
           createdAt: new Date(), delivery: 'sent',
           meta: { clientToken: draft.clientToken, replyMessageId: draft.replyMessageId },
         };
@@ -160,7 +160,7 @@ export function createMockTransport(): MockController {
       liveIds.push(id);
       emit({
         type: 'upsert',
-        message: { _id: id, chatId: CHAT_ID, seq, userId: THEM, text: text ?? THEM_LINES[seq % THEM_LINES.length], createdAt: new Date() },
+        message: { _id: id, chatId: CHAT_ID, seq, userId: THEM, type: 'text', text: text ?? THEM_LINES[seq % THEM_LINES.length], createdAt: new Date() },
       });
     },
     injectPhoto() {
