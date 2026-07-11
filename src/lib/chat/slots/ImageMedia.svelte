@@ -40,11 +40,11 @@
   {:else if url}
     {@const imgClass = `w-full h-full object-cover ${message.sendState === 'sending' ? 'opacity-60' : ''}`}
     {#if openLightbox && message.sendState !== 'sending'}
-      <button type="button" class="block w-full h-full cursor-zoom-in" onclick={() => openLightbox(url)} aria-label="View image">
+      <button type="button" class="block w-full h-full cursor-zoom-in" onclick={(e) => { e.stopPropagation(); openLightbox(url); }} aria-label="View image">
         <img src={url} alt="" class={imgClass} />
       </button>
     {:else}
-      <a href={message.meta?.file?.url ?? url} target="_blank" rel="noopener" class="block w-full h-full">
+      <a href={message.meta?.file?.url ?? url} target="_blank" rel="noopener" class="block w-full h-full" onclick={(e) => e.stopPropagation()}>
         <img src={url} alt="" class={imgClass} />
       </a>
     {/if}

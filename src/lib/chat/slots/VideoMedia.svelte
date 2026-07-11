@@ -46,7 +46,7 @@
   {#if canPlay}
     <button
       type="button"
-      onclick={() => (open = true)}
+      onclick={(e) => { e.stopPropagation(); open = true; }}
       class="absolute inset-0 grid place-items-center"
       aria-label="Play video"
     >

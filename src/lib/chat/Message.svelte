@@ -58,6 +58,7 @@
   });
 
   function openMenu(e: MouseEvent) {
+    if (removed) return; // soft-deleted messages have no menu (matches the pre-full-row behaviour)
     e.preventDefault();
     onContextMenu?.({ message, x: e.clientX, y: e.clientY });
   }
@@ -74,18 +75,25 @@
 {#if isService}
   <div class="my-1 text-center text-body-sm text-on-surface-variant">{serviceLabel || message.text || ''}</div>
 {:else}
-<div data-message-id={message._id} data-testid="chat-message" class="flex {mine ? 'justify-end' : 'justify-start'} {isGroupStart ? 'mt-2' : 'mt-0.5'}">
+<!-- Telegram-style menu target: the whole ROW is tappable (menuOnClick), so a tap on the small bubble
+     OR in the empty gutter across from it opens the menu — "as if the message spanned full width". Media
+     slots stopPropagation their own tap so tapping a photo/video opens the viewer instead of the menu. -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<div
+  data-message-id={message._id} data-testid="chat-message"
+  class="flex {mine ? 'justify-end' : 'justify-start'} {isGroupStart ? 'mt-2' : 'mt-0.5'}"
+  onclick={menuOnClick && onContextMenu ? openMenu : undefined}
+>
   {#if removed}
     <div class="max-w-[80%] rounded-2xl border border-outline-variant px-3 py-1.5 text-sm italic text-on-surface-variant">
       {deletedLabel}
     </div>
   {:else}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div
       class="max-w-[80%] {bubbleRadius} {fullBleed ? 'overflow-hidden' : 'px-2 py-1.5'} {mine ? 'bg-primary-container' : 'bg-surface-container'}"
       oncontextmenu={onContextMenu ? openMenu : undefined}
-      onclick={menuOnClick && onContextMenu ? openMenu : undefined}
     >
       <MessageRenderer {message} {meUserId} {authorName} {timeLabel} {isGroupStart} {isGroupEnd} {fullBleed} />
     </div>
