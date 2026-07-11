@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { tick } from 'svelte';
   import { faChevronDown } from '@fortawesome/free-solid-svg-icons';
   import MessagesList from '../virtual/MessagesList.svelte';
   import { cn } from '../ui/utils/cn';
@@ -45,6 +44,10 @@
   // does not chase live messages (which get read on render). See ChatSession.unreadAnchorId.
   const unreadId = $derived(session.unreadAnchorId);
   const unreadCount = $derived(countUnread(messages, meUserId, lastReadSeq));
+  // Where MessagesList should land on first load: the unread divider if there is one, else −1
+  // (MessagesList treats < 1 as "bottom"). This is the ONLY initial-scroll signal — MessagesList
+  // owns the actual scroll so there is a single, race-free driver.
+  const initialIndex = $derived(unreadId ? messages.findIndex((m) => m._id === unreadId) : -1);
 
   // Debounce read-on-render into one markRead per readDebounceMs, GATED on "the user is actually viewing
   // THIS window" (visible AND focused). The virtualizer mounts an off-screen overscan buffer and sticks to
@@ -73,15 +76,6 @@
     };
   });
 
-  // First load: jump to the unread divider, else the bottom (MessagesList sticks to bottom by default).
-  let initialScrollDone = false;
-  $effect(() => {
-    if (initialScrollDone || session.status !== 'ready' || !messages.length || !listCmp) return;
-    initialScrollDone = true;
-    const idx = unreadId ? messages.findIndex((m) => m._id === unreadId) : -1;
-    tick().then(() => { if (idx > 0) listCmp!.scrollToIndex(idx, { align: 'end' }); });
-  });
-
   export function scrollToBottom() { listCmp?.scrollToBottom(); }
 </script>
 
@@ -93,6 +87,7 @@
     getKey={(m) => m._id}
     hasMore={hasMore}
     onLoadOlder={() => session.loadOlder()}
+    {initialIndex}
     onScrollAwayChange={(away) => (showScrollDown = away)}
   >
     {#snippet children(m, i)}
