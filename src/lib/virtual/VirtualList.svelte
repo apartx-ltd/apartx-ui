@@ -96,25 +96,29 @@
   // Revealed after the first user scroll (programmatic restore scrolls don't count).
   let scrolled = $state(false);
 
-  // Watch the total content height for changes that happen WITHOUT a scroll — a media row reflowing
-  // when its bytes load. virtua keeps the scroll offset on such growth (top-anchored), so a
-  // stick-to-bottom host would silently drift off the bottom. We observe virtua's inner content div
-  // (scroller > content) and notify the host, which re-pins if it's supposed to be stuck. Re-runs on
-  // `name` change (the {#key} recreates the subtree, so hostEl rebinds).
+  // Watch for height changes that happen WITHOUT a scroll — the inner content div growing when a
+  // media row's bytes load, AND the scroller (viewport) itself resizing (on-screen keyboard,
+  // orientation). virtua keeps the top offset in both cases, so a stick-to-bottom host would
+  // silently drift off the bottom; it re-pins on this callback. Re-runs on `name` change (the
+  // {#key} recreates the subtree, so hostEl rebinds).
   $effect(() => {
     void name;
     if (!mounted || !hostEl || typeof ResizeObserver === 'undefined') return;
     const scroller = hostEl.firstElementChild as HTMLElement | null;
     const content = scroller?.firstElementChild as HTMLElement | null;
-    if (!content) return;
-    let lastH = content.scrollHeight;
+    if (!scroller || !content) return;
+    let lastContentH = content.scrollHeight;
+    let lastViewportH = scroller.clientHeight;
     const ro = new ResizeObserver(() => {
-      const h = content.scrollHeight;
-      if (h === lastH) return;
-      lastH = h;
+      const contentH = content.scrollHeight;
+      const viewportH = scroller.clientHeight;
+      if (contentH === lastContentH && viewportH === lastViewportH) return;
+      lastContentH = contentH;
+      lastViewportH = viewportH;
       onContentResize?.();
     });
     ro.observe(content);
+    ro.observe(scroller);
     return () => ro.disconnect();
   });
 

@@ -35,9 +35,12 @@
   const canPlay = $derived(!!url && !sending);
 </script>
 
+<!-- Unknown dimensions still get a FIXED box (16:9, poster covers) — an intrinsic-height fallback
+     would reflow the row when the poster lands, and stable row heights are what keeps the
+     virtualized list's scroll position deterministic. -->
 <div
   class="relative overflow-hidden bg-surface-container-high"
-  style={box ? `width:${box.w}px;height:${box.h}px` : 'max-width:300px;max-height:300px'}
+  style={box ? `width:${box.w}px;height:${box.h}px` : `width:${MAX}px;max-width:100%;aspect-ratio:16/9`}
 >
   {#if poster}
     <img src={poster} alt="" class="h-full w-full object-cover" />

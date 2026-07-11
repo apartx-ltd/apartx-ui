@@ -30,9 +30,12 @@
   });
 </script>
 
+<!-- Unknown dimensions still get a FIXED box (4:3, object-fit cover crops the odd aspect) — an
+     intrinsic-height fallback would reflow the row when the bytes land, and stable row heights are
+     what keeps the virtualized list's scroll position deterministic. -->
 <div
   class="relative overflow-hidden bg-surface-container-high"
-  style={box ? `width:${box.w}px;height:${box.h}px` : 'max-width:300px;max-height:300px'}
+  style={box ? `width:${box.w}px;height:${box.h}px` : `width:${MAX}px;max-width:100%;aspect-ratio:4/3`}
 >
   {#if url && isVideo}
     <!-- svelte-ignore a11y_media_has_caption -->
