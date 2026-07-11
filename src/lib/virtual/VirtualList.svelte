@@ -56,6 +56,10 @@
     shift = false,
     overscan,
     onscroll,
+    /** Fired when the rendered content's total height changes WITHOUT a scroll (e.g. an image/video
+     *  finishing load and reflowing its row). Lets a stick-to-bottom host re-pin — virtua keeps the
+     *  scroll offset on such growth, so the viewport would otherwise drift off the bottom. */
+    onContentResize,
     name,
     class: className,
     ...restProps
@@ -69,6 +73,7 @@
     shift?: boolean;
     overscan?: number;
     onscroll?: (offset: number) => void;
+    onContentResize?: () => void;
     /** When set, remember/restore scroll position per this key across remounts. */
     name?: string;
     class?: string;
@@ -83,9 +88,35 @@
   onMount(() => { mounted = true; });
 
   let vlist = $state<any>(null);
+  // display:contents wrapper — a stable DOM anchor to reach virtua's scroller + inner content
+  // element (which VList doesn't expose) for the content-resize observer below. `display:contents`
+  // generates no box, so virtua's viewport/offset measurement of the scroller is unaffected.
+  let hostEl = $state<HTMLElement | null>(null);
 
   // Revealed after the first user scroll (programmatic restore scrolls don't count).
   let scrolled = $state(false);
+
+  // Watch the total content height for changes that happen WITHOUT a scroll — a media row reflowing
+  // when its bytes load. virtua keeps the scroll offset on such growth (top-anchored), so a
+  // stick-to-bottom host would silently drift off the bottom. We observe virtua's inner content div
+  // (scroller > content) and notify the host, which re-pins if it's supposed to be stuck. Re-runs on
+  // `name` change (the {#key} recreates the subtree, so hostEl rebinds).
+  $effect(() => {
+    void name;
+    if (!mounted || !hostEl || typeof ResizeObserver === 'undefined') return;
+    const scroller = hostEl.firstElementChild as HTMLElement | null;
+    const content = scroller?.firstElementChild as HTMLElement | null;
+    if (!content) return;
+    let lastH = content.scrollHeight;
+    const ro = new ResizeObserver(() => {
+      const h = content.scrollHeight;
+      if (h === lastH) return;
+      lastH = h;
+      onContentResize?.();
+    });
+    ro.observe(content);
+    return () => ro.disconnect();
+  });
 
   // Sizes cache to initialize VList with, read fresh whenever `name` changes (the
   // {#key name} below recreates VList so a per-key cache takes effect).
@@ -171,21 +202,23 @@
 
 {#if mounted}
   {#key name}
-    <VList
-      bind:this={vlist}
-      data={rows}
-      {getKey}
-      {shift}
-      {overscan}
-      cache={initialCache()}
-      onscroll={onScrollInternal}
-      class={cn(!scrolled && HIDE_SCROLLBAR, className)}
-      {...restProps}
-    >
-      {#snippet children(item, index)}
-        {@render children(item, index)}
-      {/snippet}
-    </VList>
+    <div bind:this={hostEl} style="display:contents">
+      <VList
+        bind:this={vlist}
+        data={rows}
+        {getKey}
+        {shift}
+        {overscan}
+        cache={initialCache()}
+        onscroll={onScrollInternal}
+        class={cn(!scrolled && HIDE_SCROLLBAR, className)}
+        {...restProps}
+      >
+        {#snippet children(item, index)}
+          {@render children(item, index)}
+        {/snippet}
+      </VList>
+    </div>
   {/key}
 {:else}
   <div class={className} aria-hidden="true"></div>

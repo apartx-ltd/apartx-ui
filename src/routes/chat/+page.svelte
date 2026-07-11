@@ -26,6 +26,11 @@
     chatId: 'demo-chat',
     meUserId: 'me',
     pageSize: 20,
+    // Mirror a real consumer: pass a read watermark (the cabinet always does). Without one, every
+    // incoming message reads as unread and the unread anchor collapses to the first incoming row.
+    // Here seq 56 & 60 are the seeded-unread incoming messages, so the divider sits near the bottom.
+    lastReadSeq: () => 55,
+    lastMessageSeq: () => 60,
     draftStore: createLocalStorageDraftStore('demo-chat'),
     draftKeyPrefix: 'demo-user',
   });

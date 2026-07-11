@@ -112,6 +112,14 @@
     });
   });
 
+  // A media row reflowing after its bytes load grows the content height WITHOUT a scroll; virtua keeps
+  // the offset, so a bottom-stuck list silently drifts up. Re-pin to the bottom while we're supposed
+  // to be stuck. (No loop: re-scrolling changes the offset, not the content height, so it won't
+  // retrigger this.) Gated on `ready` so it can't fight the initial positioning.
+  function handleContentResize() {
+    if (ready && shouldStick) scrollToBottom();
+  }
+
   function handleScroll(offset: number) {
     if (!list) return;
     const scrollSize = list.getScrollSize();
@@ -140,6 +148,7 @@
   {getKey}
   shift={isPrepend}
   onscroll={handleScroll}
+  onContentResize={handleContentResize}
   class={className}
   {...restProps}
 >
