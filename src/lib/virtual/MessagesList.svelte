@@ -35,6 +35,9 @@
      *  after a deliberate scroll up, not on a hair off the bottom. */
     scrollAwayThreshold = 100,
     onScrollAwayChange,
+    /** Index to land on at first load: the unread divider, else < 1 for the bottom. Positioning is
+     *  driven ONCE, here — the host must not also call scrollToBottom/scrollToIndex on open. */
+    initialIndex = null,
     class: className,
     ...restProps
   }: {
@@ -49,6 +52,7 @@
     onStickChange?: (stuck: boolean) => void;
     scrollAwayThreshold?: number;
     onScrollAwayChange?: (away: boolean) => void;
+    initialIndex?: number | null;
     class?: string;
     [key: string]: any;
   } = $props();
@@ -63,6 +67,10 @@
   let prevLen = 0;
   let fetchingOlder = false;
   let prevAway = false;
+  // False until initial positioning has been issued for the current data set (reset when the list
+  // empties — e.g. a new ChatSession). Gates onLoadOlder so the mount-time onscroll(0) can't prepend
+  // and shift indices out from under virtua's still-converging initial scroll.
+  let ready = false;
 
   export function scrollToBottom() {
     if (list && rows.length) list.scrollToIndex(rows.length - 1, { align: 'end' });
@@ -75,16 +83,31 @@
     scrollToBottom();
   }
 
-  // On count change: prepend keeps position (shift); otherwise stick to bottom
-  // if we were already there.
+  // Position the freshly-loaded window ONCE: to `initialIndex` (the unread divider, aligned to the
+  // bottom of the viewport) when the host supplies a valid one, else the last message. A single
+  // scrollToIndex is enough — virtua re-applies it on each row measurement until the visible range
+  // is measured (core scheduler), so no manual settle loop is needed. This is the ONLY initial
+  // scroll driver; the host must not also call scrollToBottom/scrollToIndex on open.
+  function initialize() {
+    const last = rows.length - 1;
+    const target = initialIndex != null && initialIndex > 0 && initialIndex <= last ? initialIndex : last;
+    shouldStick = target === last;
+    list?.scrollToIndex(target, { align: 'end' });
+    ready = true;
+  }
+
+  // On count change: an empty→N transition (fresh load / new session) positions once via initialize();
+  // a prepend keeps position (shift); any other append sticks to bottom if we were already there.
   $effect(() => {
     const len = rows.length;
     if (len === prevLen) return;
     const wasPrepend = isPrepend;
+    const wasEmpty = prevLen === 0;
     prevLen = len;
-    if (len === 0) return;
+    if (len === 0) { ready = false; shouldStick = true; return; }
     tick().then(() => {
       if (wasPrepend) { isPrepend = false; return; }
+      if (wasEmpty) { initialize(); return; }
       if (shouldStick) scrollToBottom();
     });
   });
@@ -103,7 +126,7 @@
     if (away !== prevAway) { prevAway = away; onScrollAwayChange?.(away); }
 
     // Near the top → load older items, keeping position via `shift`.
-    if (offset < loadOlderThreshold && !fetchingOlder && hasMore) {
+    if (ready && offset < loadOlderThreshold && !fetchingOlder && hasMore) {
       fetchingOlder = true;
       isPrepend = true;
       Promise.resolve(onLoadOlder?.()).finally(() => { fetchingOlder = false; });
