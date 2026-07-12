@@ -16,6 +16,9 @@
       el.classList.remove('pt-out-fwd', 'pt-out-back', 'pt-out-fade');
       el.style.visibility = '';
       el.style.pointerEvents = '';
+      // Svelte made the leaving layer inert at outro start; as a host of live content
+      // that would keep the live page untouchable.
+      el.inert = false;
       return;
     }
     el.style.visibility = 'hidden';
@@ -98,8 +101,28 @@
 
   // tick-only (no css) → sets no inline style, so it can't clobber the pt-out-*
   // class animation; it just keeps the node mounted for the animation's duration.
+  //
+  // The tick doubles as the RESURRECTION hook. Svelte's BranchManager keeps an outroing
+  // branch in its onscreen map until the outro finishes; if its key re-enters before then
+  // (same page reopened while a stalled outro still holds the old layer), NO new branch is
+  // created — this very element is resumed as the live page. The only synchronous signal is
+  // `transition.in()` → `outro.reset()` → `tick(1)`, called with the element's Svelte-managed
+  // `inert` already restored to false (a real outro frame also ticks t=1 first, but there
+  // Svelte's `out()` has set `inert = true`). On that signal, undo everything the exit path
+  // and the settle insurance below did to a layer that was presumed to be leaving.
   function hold() {
-    return { duration: holdMs, tick: () => {} };
+    return {
+      duration: holdMs,
+      tick: (t: number) => {
+        if (t !== 1) return;
+        const el = layerEl;
+        if (!el || el.inert) return;
+        clearTimeout(outroSettleTimer);
+        el.classList.remove('pt-out-fwd', 'pt-out-back', 'pt-out-fade');
+        el.style.visibility = '';
+        el.style.pointerEvents = '';
+      },
+    };
   }
 
   // Wall-clock insurance for stalled animation clocks. Both the CSS enter animation and the
@@ -128,8 +151,10 @@
     const t = setTimeout(() => {
       el.classList.remove('pt-in-fwd', 'pt-in-back', 'pt-in-fade');
       // Stale elder SIBLINGS in this PageTransition missed their removal — put them away.
+      // Only siblings Svelte holds inert are actually leaving; an elder sibling that is
+      // NOT inert was resurrected (its key re-entered) and is a live page — never touch it.
       el.parentElement?.querySelectorAll<HTMLElement>(':scope > .pt-layer').forEach((sib) => {
-        if (sib === el || seqOf(sib) >= seqOf(el)) return;
+        if (sib === el || seqOf(sib) >= seqOf(el) || !sib.inert) return;
         settleStaleLayer(sib);
       });
       // Heal stale ANCESTORS this live layer got re-rendered into: an elder layer already hidden
@@ -142,6 +167,7 @@
       ) {
         if (seqOf(anc) < seqOf(el)) {
           anc.classList.remove('pt-out-fwd', 'pt-out-back', 'pt-out-fade');
+          anc.inert = false;
           if (anc.style.visibility === 'hidden') {
             anc.style.visibility = '';
             anc.style.pointerEvents = '';
@@ -152,6 +178,10 @@
     return () => clearTimeout(t);
   });
 
+  // Handle of the exit-insurance timer, so a resurrection (see hold) can cancel a hide
+  // that would otherwise land on a layer that has become the live page again.
+  let outroSettleTimer: ReturnType<typeof setTimeout> | undefined;
+
   function onOutro(e: Event) {
     const el = e.currentTarget as HTMLElement;
     el.classList.remove('pt-in-fwd', 'pt-in-back', 'pt-in-fade');
@@ -160,7 +190,8 @@
     // Exit insurance: Svelte owns the node's removal (rAF-driven, may stall) — never remove it
     // here; just put a still-mounted leaving layer out of the way (hidden+inert, or neutralized
     // if live content got re-rendered inside it). Svelte deletes it whenever its loop resumes.
-    setTimeout(() => {
+    clearTimeout(outroSettleTimer);
+    outroSettleTimer = setTimeout(() => {
       if (!el.isConnected) return;
       settleStaleLayer(el);
     }, holdMs + SETTLE_GRACE_MS);
