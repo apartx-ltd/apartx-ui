@@ -1,3 +1,28 @@
+<script module lang="ts">
+  // Monotonic layer stamp — lets the settle fallback below tell elder (stale) layers from younger
+  // ones without trusting document order (Svelte keeps outroing nodes AFTER new blocks).
+  let ptSeq = 0;
+
+  const seqOf = (el: Element) => Number((el as HTMLElement).dataset.ptSeq || 0);
+
+  // Put a stale layer out of the way. Normally: hide + make inert (Svelte still owns the actual
+  // removal, whenever its stalled loop resumes). BUT if the router re-rendered live content INSIDE
+  // this still-mounted layer (a younger layer nested within — happens when the stalled removal
+  // outlives the next navigation), hiding it would hide the live page: neutralize instead — drop
+  // the exit animation so a late fill-forwards frame can't shove the live subtree off-screen.
+  function settleStaleLayer(el: HTMLElement) {
+    const nested = el.querySelector<HTMLElement>('.pt-layer');
+    if (nested && seqOf(nested) > seqOf(el)) {
+      el.classList.remove('pt-out-fwd', 'pt-out-back', 'pt-out-fade');
+      el.style.visibility = '';
+      el.style.pointerEvents = '';
+      return;
+    }
+    el.style.visibility = 'hidden';
+    el.style.pointerEvents = 'none';
+  }
+</script>
+
 <script lang="ts">
   import { untrack } from 'svelte';
   import { scrollRestore } from '../ui/utils/scroll-restore';
@@ -77,11 +102,68 @@
     return { duration: holdMs, tick: () => {} };
   }
 
+  // Wall-clock insurance for stalled animation clocks. Both the CSS enter animation and the
+  // rAF-driven `out:hold` advance only while frames are produced; in a throttled environment
+  // (headless, background tab, saturated main thread) they can freeze — the entering layer sticks
+  // mid-slide (e.g. ptSaInFwd frozen at translateX(30%)) and the leaving layer never unmounts, so
+  // repeated navigations STACK frozen layers. setTimeout runs on the wall clock, so at
+  // holdMs+grace we force-finish whatever the frame clock still owes. In a healthy run both
+  // callbacks are visual no-ops: a completed enter animation (fill: backwards) leaves the same
+  // computed state as having no animation class, and a completed exit has already unmounted.
+  const SETTLE_GRACE_MS = 250;
+
+  // Enter-side insurance, armed on MOUNT — the only hook guaranteed to run even when the frame
+  // clock is already stalled (a frozen rAF loop may never even START a sibling's outro, so the
+  // outro-side timer below can't be the sole safety net). After the animation must have finished:
+  //  1. drop this layer's pt-in-* class — a frozen enter snaps to its settled state (the class
+  //     carries only the animation + transient stacking, both meaningless once settled);
+  //  2. hide any ELDER sibling layer still mounted in this PageTransition — it missed its removal
+  //     and would otherwise stack under/over the live page (Svelte still owns the actual removal).
+  //     Elder = lower data-pt-seq stamp; document order can't be trusted (outroing nodes sort
+  //     after new blocks), and younger siblings (rapid A→B→C navigation) must never be touched.
+  $effect(() => {
+    const el = layerEl;
+    if (!el) return;
+    el.dataset.ptSeq = String(++ptSeq);
+    const t = setTimeout(() => {
+      el.classList.remove('pt-in-fwd', 'pt-in-back', 'pt-in-fade');
+      // Stale elder SIBLINGS in this PageTransition missed their removal — put them away.
+      el.parentElement?.querySelectorAll<HTMLElement>(':scope > .pt-layer').forEach((sib) => {
+        if (sib === el || seqOf(sib) >= seqOf(el)) return;
+        settleStaleLayer(sib);
+      });
+      // Heal stale ANCESTORS this live layer got re-rendered into: an elder layer already hidden
+      // by ITS settle timer (or still carrying an exit animation) would hide/offset this page —
+      // visibility inherits. Un-hide and drop the exit class; it's a passive container now.
+      for (
+        let anc = el.parentElement?.closest<HTMLElement>('.pt-layer');
+        anc;
+        anc = anc.parentElement?.closest<HTMLElement>('.pt-layer')
+      ) {
+        if (seqOf(anc) < seqOf(el)) {
+          anc.classList.remove('pt-out-fwd', 'pt-out-back', 'pt-out-fade');
+          if (anc.style.visibility === 'hidden') {
+            anc.style.visibility = '';
+            anc.style.pointerEvents = '';
+          }
+        }
+      }
+    }, holdMs + SETTLE_GRACE_MS);
+    return () => clearTimeout(t);
+  });
+
   function onOutro(e: Event) {
     const el = e.currentTarget as HTMLElement;
     el.classList.remove('pt-in-fwd', 'pt-in-back', 'pt-in-fade');
     const kind = exitKind?.();
     if (kind) el.classList.add(`pt-out-${kind}`);
+    // Exit insurance: Svelte owns the node's removal (rAF-driven, may stall) — never remove it
+    // here; just put a still-mounted leaving layer out of the way (hidden+inert, or neutralized
+    // if live content got re-rendered inside it). Svelte deletes it whenever its loop resumes.
+    setTimeout(() => {
+      if (!el.isConnected) return;
+      settleStaleLayer(el);
+    }, holdMs + SETTLE_GRACE_MS);
   }
 </script>
 
