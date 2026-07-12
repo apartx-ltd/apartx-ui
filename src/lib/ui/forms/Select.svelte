@@ -1,5 +1,22 @@
 <script>
   import { cn } from '../utils/cn';
+  import { getOverlayLayer } from '../overlays/layer-context';
+
+  // Move a node to <body> so it escapes clipping/stacking ancestors.
+  function portal(node) {
+    document.body.appendChild(node);
+    return { destroy() { node.remove(); } };
+  }
+
+  // The dropdown is portalled to <body> so it escapes any clipping ancestor —
+  // a kit <Dialog> panel is `overflow-hidden` and its body `overflow-y-auto`, so
+  // an in-flow `absolute` dropdown was cut off (unreachable options). Mirrors the
+  // Combobox/DateRangePicker direction. Positioned `fixed`, anchored to the trigger
+  // rect, repositioned on scroll/resize while open. z-index: inside a stacked overlay
+  // (modal registry injects a layer) sit at `layer.z + 2`; otherwise `60` — above a
+  // standalone Dialog's `z-50` content. No layer ⇒ backwards-compatible.
+  const overlayLayer = getOverlayLayer();
+  const menuZ = overlayLayer ? overlayLayer.z + 2 : 60;
 
   let {
     value = $bindable(''),
@@ -16,6 +33,27 @@
   } = $props();
 
   let open = $state(false);
+  let triggerEl = $state();
+  let pos = $state({ top: 0, left: 0, width: 0 });
+
+  function reposition() {
+    if (!triggerEl) return;
+    const r = triggerEl.getBoundingClientRect();
+    pos = { top: r.bottom + 4, left: r.left, width: r.width };
+  }
+
+  // Keep the portalled menu glued to the trigger while it is open.
+  $effect(() => {
+    if (!open) return;
+    reposition();
+    const handler = () => reposition();
+    window.addEventListener('scroll', handler, true);
+    window.addEventListener('resize', handler);
+    return () => {
+      window.removeEventListener('scroll', handler, true);
+      window.removeEventListener('resize', handler);
+    };
+  });
 
   let displayText = $derived(() => {
     if (multiple) {
@@ -31,6 +69,7 @@
 
   function toggle() {
     if (disabled) return;
+    if (!open) reposition();
     open = !open;
   }
 
@@ -66,6 +105,7 @@
   {/if}
 
   <button
+    bind:this={triggerEl}
     type="button"
     class={cn(
       'flex items-center justify-between px-3 h-12 rounded-xs border text-body-lg bg-transparent cursor-pointer text-left gap-2',
@@ -107,11 +147,15 @@
   </button>
 
   {#if open}
+    <div use:portal>
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="fixed inset-0 z-40" onclick={() => { open = false; }} onkeydown={(e) => { if (e.key === 'Escape') open = false; }}></div>
+    <!-- pointer-events-auto: a portalled body-descendant inherits body {pointer-events:none}
+         set by an open bits-ui Dialog, so re-enable it here (mirrors the Dialog's own content). -->
+    <div class="fixed inset-0 pointer-events-auto" style={`z-index:${menuZ - 1};`} onclick={() => { open = false; }} onkeydown={(e) => { if (e.key === 'Escape') open = false; }}></div>
 
     <div
-      class="absolute top-full left-0 right-0 z-50 mt-1 rounded-sm bg-surface shadow-level-2 border border-outline-variant overflow-hidden py-1 max-h-64 overflow-y-auto"
+      class="fixed pointer-events-auto rounded-sm bg-surface shadow-level-2 border border-outline-variant overflow-hidden py-1 max-h-64 overflow-y-auto"
+      style={`top:${pos.top}px;left:${pos.left}px;width:${pos.width}px;z-index:${menuZ};`}
       role="listbox"
       aria-multiselectable={multiple || undefined}
     >
@@ -142,6 +186,7 @@
           <span class="min-w-0 break-words">{opt.label}</span>
         </button>
       {/each}
+    </div>
     </div>
   {/if}
 

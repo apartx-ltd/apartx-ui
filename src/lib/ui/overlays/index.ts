@@ -11,3 +11,7 @@ export { default as ToasterMount } from './ToasterMount.svelte';
 
 // Global confirm service (mount <ConfirmDialog/> once at app root, then call confirm.open()).
 export { ConfirmDialog as confirm } from './confirm.svelte';
+
+// Overlay stacking-layer context — hosts that stack overlays inject a z-band; nav-aware
+// components (portalled dropdowns living inside a Dialog) read it to sit above the dialog.
+export { getOverlayLayer, setOverlayLayer, type OverlayLayer } from './layer-context';
