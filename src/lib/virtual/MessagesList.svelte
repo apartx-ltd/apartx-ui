@@ -53,6 +53,9 @@
     /** Index to land on at first load: the unread divider, else < 1 for the bottom. Positioning is
      *  driven ONCE, here — the host must not also call scrollToBottom/scrollToIndex on open. */
     initialIndex = null,
+    /** Fired when the settle phase completes (true) or a new one begins (false) — lets the host
+     *  show a loading indicator over the still-hidden list instead of a blank pane. */
+    onSettledChange,
     class: className,
     ...restProps
   }: {
@@ -68,6 +71,7 @@
     scrollAwayThreshold?: number;
     onScrollAwayChange?: (away: boolean) => void;
     initialIndex?: number | null;
+    onSettledChange?: (settled: boolean) => void;
     class?: string;
     [key: string]: any;
   } = $props();
@@ -98,6 +102,12 @@
 
   // Hidden until the first settle completes (reset when the list empties — a new session).
   let settled = $state(false);
+
+  function setSettled(v: boolean) {
+    if (settled === v) return;
+    settled = v;
+    onSettledChange?.(v);
+  }
 
   function setPinned(v: boolean) {
     if (pinned === v) return;
@@ -138,7 +148,7 @@
   // have converged and the asserted target is final ⇒ reveal.
   function beginSettle() {
     settling = true;
-    settled = false;
+    setSettled(false);
     assertTarget();
     cancelSettleWatch();
     let stable = 0;
@@ -157,9 +167,9 @@
 
   function finishSettle() {
     cancelSettleWatch();
-    if (!settling) { settled = true; return; }
+    if (!settling) { setSettled(true); return; }
     settling = false;
-    settled = true;
+    setSettled(true);
     if (pinned) scrollToBottom();
   }
 
@@ -175,7 +185,7 @@
     prevLen = len;
     if (len === 0) {
       settling = false;
-      settled = false;
+      setSettled(false);
       cancelSettleWatch();
       setPinned(true);
       return;
@@ -190,7 +200,10 @@
 
   // Content OR viewport height changed without a scroll (media decoded, keyboard opened…):
   // virtua keeps the top offset, so a bottom-pinned list would silently drift up. Re-assert.
-  // Geometry can't unpin (see handleScroll), so this always wins — no race.
+  // Geometry can't unpin (see handleScroll), so this always wins — no race. Positioning goes
+  // through virtua's own scrollToIndex ONLY: writing scrollTop directly desyncs virtua's internal
+  // offset and its deferred compensation then fights the pin (oscillation) — the estimate→measured
+  // correction churn is instead removed at the source by the `cacheKey` measured-size reuse.
   function handleContentResize() {
     if (settling) { assertTarget(); return; }
     if (pinned) scrollToBottom();

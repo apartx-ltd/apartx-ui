@@ -8,6 +8,8 @@ import { createComposer, type Composer } from './composer.svelte';
 
 export interface ChatSession {
   readonly status: 'loading' | 'ready' | 'error';
+  /** The chat this session was opened for (ChatSessionOptions.chatId, verbatim). */
+  readonly chatId: string;
   readonly messages: readonly Message[];
   readonly olderStatus: 'idle' | 'loading' | 'exhausted' | 'error';
   /**
@@ -210,6 +212,7 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
 
   return {
     get status() { return status; },
+    get chatId() { return opts.chatId; },
     get messages() { return win.messages; },
     get olderStatus() { return win.olderStatus; },
     get unreadAnchorId() { return unreadAnchorId; },

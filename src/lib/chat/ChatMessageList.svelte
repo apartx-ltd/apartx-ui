@@ -3,6 +3,7 @@
   import MessagesList from '../virtual/MessagesList.svelte';
   import { cn } from '../ui/utils/cn';
   import Icon from '../ui/display/Icon.svelte';
+  import Loading from '../ui/display/Loading.svelte';
   import Message from './Message.svelte';
   import { chatT } from './i18n';
   import { countUnread, createReadFlusher } from './helpers';
@@ -37,6 +38,10 @@
   let listCmp = $state<MessagesList | null>(null);
   // Shown once scrolled away from the bottom (drives the scroll-to-bottom button).
   let showScrollDown = $state(false);
+  // While MessagesList runs its hidden settle phase (initial data + measurements converging) the
+  // list pane is visually empty — show a spinner instead of a blank pane (noticeable on mobile,
+  // where the fetch + settle can take most of a second).
+  let revealed = $state(false);
 
   const messages = $derived(session.messages as ChatMessage[]);
   const hasMore = $derived(session.olderStatus !== 'exhausted');
@@ -85,10 +90,12 @@
     class={cn('px-2', className)}
     data={messages}
     getKey={(m) => m._id}
+    cacheKey={`chat:${session.chatId}`}
     hasMore={hasMore}
     onLoadOlder={() => session.loadOlder()}
     {initialIndex}
     onScrollAwayChange={(away) => (showScrollDown = away)}
+    onSettledChange={(s) => (revealed = s)}
   >
     {#snippet children(m, i)}
       {@const labels = labelFor?.(m) ?? {}}
@@ -115,6 +122,15 @@
       </div>
     {/snippet}
   </MessagesList>
+
+  <!-- Spinner while the pane is visually empty: initial fetch in flight (no rows yet, but more to
+       come) or rows present but still in the hidden settle phase. A genuinely EMPTY chat (0 rows,
+       history exhausted) never settles — the condition falls through and the pane stays clean. -->
+  {#if !revealed && (messages.length > 0 || hasMore)}
+    <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+      <Loading />
+    </div>
+  {/if}
 
   {#if showScrollDown}
     <button

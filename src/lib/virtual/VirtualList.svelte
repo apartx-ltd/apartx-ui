@@ -7,9 +7,16 @@
   // both — sizes via VList's `cache` prop, offset via `scrollTo` after mount.
   const scrollSnapshots = new Map<string, { offset: number; cache: any }>();
 
+  // Measured row sizes only (no offset), keyed by `cacheKey`. For lists whose position is driven
+  // by the host (e.g. MessagesList's bottom pin) an offset restore would fight that driver, but
+  // re-seeding virtua with the previously MEASURED sizes removes the estimate→measured correction
+  // churn on re-entry (visible as flashes/jumps on slow devices).
+  const sizeCaches = new Map<string, any>();
+
   /** Forget a saved position (e.g. after a refresh that should reset scroll). */
   export function clearVirtualScroll(name: string): void {
     scrollSnapshots.delete(name);
+    sizeCaches.delete(name);
   }
 </script>
 
@@ -61,6 +68,7 @@
      *  scroll offset on such growth, so the viewport would otherwise drift off the bottom. */
     onContentResize,
     name,
+    cacheKey,
     class: className,
     ...restProps
   }: {
@@ -76,6 +84,9 @@
     onContentResize?: () => void;
     /** When set, remember/restore scroll position per this key across remounts. */
     name?: string;
+    /** Like `name`, but persists/reuses ONLY the measured row-size cache — no offset restore.
+     *  For lists whose scroll position is owned by the host (chat bottom pin). */
+    cacheKey?: string;
     class?: string;
     [key: string]: any;
   } = $props();
@@ -103,6 +114,7 @@
   // {#key} recreates the subtree, so hostEl rebinds).
   $effect(() => {
     void name;
+    void cacheKey;
     if (!mounted || !hostEl || typeof ResizeObserver === 'undefined') return;
     const scroller = hostEl.firstElementChild as HTMLElement | null;
     const content = scroller?.firstElementChild as HTMLElement | null;
@@ -122,11 +134,14 @@
     return () => ro.disconnect();
   });
 
-  // Sizes cache to initialize VList with, read fresh whenever `name` changes (the
-  // {#key name} below recreates VList so a per-key cache takes effect).
+  // Sizes cache to initialize VList with, read fresh whenever the key changes (the
+  // {#key} below recreates VList so a per-key cache takes effect).
   function initialCache() {
-    return name ? scrollSnapshots.get(name)?.cache : undefined;
+    if (name) return scrollSnapshots.get(name)?.cache;
+    if (cacheKey) return sizeCaches.get(cacheKey);
+    return undefined;
   }
+
 
   // Restore the saved offset after (re)mount / name change. Re-run is gated by
   // `restoredKey` so a single navigation restores exactly once. virtua observes
@@ -178,6 +193,9 @@
     // restore, plus the imperative API below) must not.
     if (!restoring && programmaticScrolls === 0) scrolled = true;
     if (name && !restoring) scrollSnapshots.set(name, { offset, cache: vlist?.getCache?.() });
+    // Sizes-only persistence: every scroll (incl. the host's bottom pin) refreshes the measured
+    // cache, so a later re-entry into the same key starts from measured heights, not estimates.
+    if (cacheKey) sizeCaches.set(cacheKey, vlist?.getCache?.());
     onscroll?.(offset);
   }
 
@@ -205,7 +223,7 @@
 </script>
 
 {#if mounted}
-  {#key name}
+  {#key name ?? cacheKey}
     <div bind:this={hostEl} style="display:contents">
       <VList
         bind:this={vlist}
