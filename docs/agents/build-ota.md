@@ -54,6 +54,13 @@ the site repo (see §i18n).
 
 - **HTTP client**: one thin typed wrapper around `fetch` for `{API_BASE}/api/*`.
   All GET inputs are query params; POST bodies are JSON.
+- **Wire format — decode EJSON scalars in the wrapper.** Responses are
+  EJSON-flavored JSON: dates arrive as `{"$date": 1785697200000}` (ms epoch)
+  and money as `{"$type": "Decimal", "$value": "13000"}`; a few endpoints
+  return money as plain strings instead (e.g. `getPaymentInfo.price`). Your
+  HTTP wrapper must normalize both forms (`$date` → `Date`, Decimal/string →
+  a decimal string or number) before data reaches components — do not let
+  `{$type}` objects leak into rendering.
 - **Auth**: HTTP requests authenticate with **Basic auth:
   `Authorization: Basic base64("${userId}:${token}")`** (see the OpenAPI
   `securitySchemes`). Obtain credentials via the OTP flow (§Auth flow), store
@@ -101,7 +108,15 @@ contracts.
    discover from the property payload) → returns the booking document.
 2. `POST /Tenant/Booking/getPaymentUrl` with the booking id → returns a
    payment-provider URL. Redirect the user to it.
-3. In dev/test, **do not follow the payment redirect** in automation — the
+3. **Online payment is per-property.** `getPaymentUrl` returns
+   `403 errors.online_payment_disabled` unless the property was created with
+   online payment enabled (visible in the public payload as
+   `defaults.withOnlinePayment: true`), and `403 errors.booking_not_verified`
+   for a self-created booking on a property without auto-confirmation
+   (`defaults.autoConfirmationEnabled`). Handle both 403s gracefully in the UI:
+   show a "pay on arrival / contact the host" state instead of a payment
+   button — never render the booking flow as broken.
+4. In dev/test, **do not follow the payment redirect** in automation — the
    acceptance bar is that the URL is obtained (see below). After payment the
    booking appears with its updated status in `GET /Tenant/Booking/find`.
 
@@ -111,13 +126,20 @@ The project is done when ALL of the following hold:
 
 1. `npm run build` passes.
 2. A **Playwright e2e spec** (in the site repo, run against the dev server)
-   proves the full flow:
+   proves the full flow. Note: the server rejects a booking when the tenant
+   already has more than a handful of active (`new`/`reserved`) bookings
+   (`errors.too_many_active_bookings`). Tag bookings the spec creates (e.g.
+   `comment: "e2e"`) and start the spec by cancelling leftover active bookings
+   with that tag from previous runs — never assume a fresh tenant.
    - anonymous visitor searches (city + dates + guests) and sees > 0 results;
    - opens a property page, sees gallery/price;
    - signs in with `TEST_TENANT_PHONE` + `TEST_OTP_CODE`;
    - creates a booking for available dates;
    - obtains a payment URL (assert it is a well-formed absolute URL — do not
-     navigate to it);
+     navigate to it). Run this step against a property whose payload shows
+     `defaults.withOnlinePayment: true` (filter search results for it); if the
+     environment has none, the spec must instead assert the graceful
+     "payment unavailable" state for the 403;
    - sees the booking listed in `/account/bookings`.
 3. If `LANDLORD_USER_ID` is set: an e2e check that every search result belongs
    to that landlord (compare against the property payload's owner field).
