@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration } from './helpers';
+import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, mediaBoxHeight, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX } from './helpers';
 import type { Message } from './types';
 
 const m = (over: Partial<Message> = {}): Message => ({ _id: 'm', chatId: 'c', userId: 'u1', createdAt: new Date('2026-06-30T10:00:00Z'), ...over });
@@ -292,5 +292,56 @@ describe('formatDuration', () => {
     expect(formatDuration(null as any)).to.equal('');
     expect(formatDuration(NaN)).to.equal('');
     expect(formatDuration(-3)).to.equal('');
+  });
+});
+
+describe('cold-open height estimation', () => {
+  const prev = m({ _id: 'p', userId: 'u1' }); // same author, same day → no separator, no group start
+
+  it('mediaBoxHeight scales known dimensions into the MAX clamp (ImageMedia formula)', () => {
+    // 1200×900 → scale 0.25 → 300×225
+    expect(mediaBoxHeight(m({ meta: { width: 1200, height: 900 } }))).to.equal(225);
+    // Portrait 600×1200 → scale 0.25 → 150×300
+    expect(mediaBoxHeight(m({ meta: { width: 600, height: 1200 } }))).to.equal(300);
+    // Smaller than MAX → untouched
+    expect(mediaBoxHeight(m({ meta: { width: 200, height: 100 } }))).to.equal(100);
+    // attachment-style dims under meta.file win over meta
+    expect(mediaBoxHeight(m({ meta: { file: { width: 300, height: 300 }, width: 9999, height: 9999 } }))).to.equal(300);
+    // Unknown dims → fixed 4:3 fallback box
+    expect(mediaBoxHeight(m({}))).to.equal(Math.round(MEDIA_BOX_MAX * 0.75));
+  });
+
+  it('textBlockHeight counts soft-wrapped and explicit lines', () => {
+    expect(textBlockHeight('')).to.equal(0);
+    expect(textBlockHeight('hi')).to.equal(20);
+    expect(textBlockHeight('a'.repeat(80))).to.equal(60); // ceil(80/35) = 3 lines
+    expect(textBlockHeight('a\nb')).to.equal(40);
+  });
+
+  it('media row ≈ box height, not the 40px text default (the cascade killer)', () => {
+    const photo = m({ _id: 'x', type: 'image', meta: { width: 1200, height: 900 } });
+    const h = estimateMessageHeight(photo, prev, { mine: true });
+    expect(h).to.be.greaterThan(200); // dominated by the 225px box
+    expect(h).to.be.lessThan(260);
+  });
+
+  it('host bubble override (SlotSet.estimateHeight) replaces the bubble estimate', () => {
+    const card = m({ _id: 'x', type: 'booking_create_landlord' });
+    const h = estimateMessageHeight(card, prev, { mine: true, bubble: 140 });
+    expect(h).to.equal(2 + 140); // mt-0.5 + card
+  });
+
+  it('service / deleted rows are compact regardless of type math', () => {
+    expect(estimateMessageHeight(m({ _id: 'x', type: 'service', text: 'joined' }), prev, {})).to.equal(28);
+    const deleted = m({ _id: 'x', type: 'image', removedAt: new Date(), meta: { width: 1200, height: 900 } });
+    expect(estimateMessageHeight(deleted, prev, { mine: true })).to.equal(2 + 32);
+  });
+
+  it('separators/divider/group-start add on top', () => {
+    const first = m({ _id: 'x', type: 'text', text: 'hi', userId: 'u2' });
+    // prev null → date separator (32) + group start (8) + incoming author line (18) + bubble (20 + 12)
+    expect(estimateMessageHeight(first, null, { mine: false })).to.equal(32 + 8 + 18 + 32);
+    // unread divider adds 32
+    expect(estimateMessageHeight(first, null, { mine: false, unreadAnchorId: 'x' })).to.equal(32 + 32 + 8 + 18 + 32);
   });
 });

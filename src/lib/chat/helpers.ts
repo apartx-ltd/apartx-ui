@@ -182,6 +182,73 @@ export function newerWatermark(a: Message | null, b: Message): Message {
   return b.createdAt.getTime() > a.createdAt.getTime() ? b : a;
 }
 
+// --- Cold-open row-height estimation --------------------------------------------------------
+// Feeds `VirtualList.estimateSize` so virtua's first positioning pass works from near-final
+// heights instead of its flat ~40px default. Wildly-wrong defaults are what cascade into the
+// visible correction churn on slow devices (measure visible → shift → newly-visible unmeasured
+// rows → measure → shift…). Estimates only need to be CLOSE: ±20px is corrected invisibly,
+// 40px-vs-300px flashes. Numbers mirror the real Message.svelte/slot layout (Tailwind spacing,
+// body-md 20px line-height, ImageMedia's MAX=300 clamp) — keep them in sync when that changes.
+
+/** Max media box edge — mirrors ImageMedia/VideoMedia `MAX`. */
+export const MEDIA_BOX_MAX = 300;
+const LINE_H = 20; // text-body-md line height
+const BUBBLE_PAD_Y = 12; // bubble px-2 py-1.5 → 6px top + 6px bottom
+const CHARS_PER_LINE = 35; // ≈ chars per body-md line in an 80%-width mobile bubble
+
+/** Rendered media box height per ImageMedia's reserve formula: scale w×h into MAX, or the fixed
+ *  4:3 fallback box when dimensions are unknown. */
+export function mediaBoxHeight(m: Message): number {
+  const meta: any = m.meta;
+  const w = meta?.file?.width ?? meta?.width;
+  const h = meta?.file?.height ?? meta?.height;
+  if (!w || !h) return Math.round(MEDIA_BOX_MAX * 0.75);
+  const scale = Math.min(1, MEDIA_BOX_MAX / w, MEDIA_BOX_MAX / h);
+  return Math.round(h * scale);
+}
+
+/** Estimated rendered height of a text block (explicit newlines + soft wrap by CHARS_PER_LINE). */
+export function textBlockHeight(text?: string | null): number {
+  const t = (text ?? '').trim();
+  if (!t) return 0;
+  let lines = 0;
+  for (const seg of t.split('\n')) lines += Math.max(1, Math.ceil(seg.length / CHARS_PER_LINE));
+  return lines * LINE_H;
+}
+
+/**
+ * Estimated total row height for a message as ChatMessageList renders it: date separator + unread
+ * divider + group margin + bubble. `ctx.bubble` (when a number) REPLACES the bubble estimate —
+ * hosts supply it for registered card types via `SlotSet.estimateHeight` (a booking card's height
+ * is app knowledge the kit can't derive).
+ */
+export function estimateMessageHeight(
+  m: Message,
+  prev: Message | null,
+  ctx: { unreadAnchorId?: string | null; isLast?: boolean; mine?: boolean; bubble?: number } = {},
+): number {
+  let h = 0;
+  if (showDate(m, prev)) h += 32; // my-2 (16) + text-xs line (16)
+  if (ctx.unreadAnchorId && m._id === ctx.unreadAnchorId) h += 32; // my-1 + py-1 (16) + text-xs (16)
+  if (m.type === 'service') return h + 28; // my-1 (8) + body-sm line (20)
+  h += groupStart(m, prev) ? 8 : 2; // row mt-2 / mt-0.5
+  if (ctx.isLast) h += 8; // pb-2 on the last row (ChatMessageList wrapper)
+  if (m.removedAt) return h + 32; // one-line italic bubble (py-1.5 + text-sm)
+  if (ctx.bubble != null) return h + ctx.bubble;
+  const meta: any = m.meta;
+  if (meta?.replyMessage) h += 40; // reply-quote header block
+  if (!ctx.mine && groupStart(m, prev)) h += 18; // incoming group-start author line
+  if (isFullBleedMedia(m.type)) {
+    h += mediaBoxHeight(m);
+    const caption = textBlockHeight(m.text);
+    if (caption) h += caption + BUBBLE_PAD_Y;
+    return h;
+  }
+  if (m.type === 'audio' || m.type === 'document') return h + 56; // icon row + paddings
+  // Plain text (and unknown types without a host estimate): floated-time text bubble.
+  return h + Math.max(LINE_H, textBlockHeight(m.text)) + BUBBLE_PAD_Y;
+}
+
 export interface ReadFlusher {
   /** Record a rendered incoming-unread message; schedules a debounced flush. */
   note(m: Message): void;

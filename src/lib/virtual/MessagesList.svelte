@@ -1,3 +1,25 @@
+<script module lang="ts">
+  // Last user position per `positionKey`, refreshed on every settled scroll and consumed by the
+  // NEXT entry into the same key: re-entering a chat lands where the user left it, not at the
+  // unread divider / bottom. `anchorId` is the getKey of the first visible row, `delta` how far
+  // its top sits above the viewport top, `depth` how many rows were loaded (the restore path
+  // re-fetches history down to it). `pinned: true` means "was at the bottom" → default targeting.
+  export interface SavedListPosition {
+    anchorId: string | number;
+    delta: number;
+    pinned: boolean;
+    depth: number;
+  }
+  const positionMemory = new Map<string, SavedListPosition>();
+  export function getSavedPosition(key: string): SavedListPosition | undefined {
+    return positionMemory.get(key);
+  }
+  /** Forget a saved position (e.g. the host cleared/reset the conversation). */
+  export function clearMessagesPosition(key: string): void {
+    positionMemory.delete(key);
+  }
+</script>
+
 <script lang="ts">
   import { tick } from 'svelte';
   import VirtualList from './VirtualList.svelte';
@@ -56,6 +78,10 @@
     /** Fired when the settle phase completes (true) or a new one begins (false) — lets the host
      *  show a loading indicator over the still-hidden list instead of a blank pane. */
     onSettledChange,
+    /** When set, remember the user's scroll position under this key (module-level, survives
+     *  remounts) and restore it on the next entry — a saved NON-pinned position takes priority
+     *  over `initialIndex`/bottom. Requires `getKey` (positions anchor to a row id). */
+    positionKey,
     class: className,
     ...restProps
   }: {
@@ -72,6 +98,7 @@
     onScrollAwayChange?: (away: boolean) => void;
     initialIndex?: number | null;
     onSettledChange?: (settled: boolean) => void;
+    positionKey?: string;
     class?: string;
     [key: string]: any;
   } = $props();
@@ -85,6 +112,11 @@
   // keep the user staring at a blank pane — the cap doubles as the safety net for throttled rAF.
   const SETTLE_STABLE_FRAMES = 3;
   const SETTLE_MAX_MS = 400;
+  // A position restore may need to page history back down to the saved anchor while hidden —
+  // allow it more time (the host shows a spinner), but bound it: cap fires → reveal wherever we
+  // are (anchor if it loaded, default target otherwise).
+  const RESTORE_MAX_MS = 1500;
+  const RESTORE_DEPTH_CAP = 200;
   // A gesture with no resulting scroll (e.g. wheel-down while already at the bottom) must not leave
   // the window open for a later reflow-induced scroll to be misread as the user.
   const GESTURE_IDLE_MS = 300;
@@ -126,12 +158,37 @@
     scrollToBottom();
   }
 
-  // Land on `initialIndex` (the unread divider, aligned to the bottom of the viewport) when the
-  // host supplies a valid one, else the last row. Re-read from current props on every call — data
-  // may still be arriving in chunks while settling.
+  // Saved position from a previous visit that should override default targeting, or null.
+  // `pinned: true` memories don't count — "was at the bottom" falls through to the normal
+  // unread-divider/bottom logic (new unread arriving while away still gets its divider landing).
+  function savedTarget(): SavedListPosition | null {
+    if (!positionKey || !getKey) return null;
+    const saved = positionMemory.get(positionKey);
+    return saved && !saved.pinned ? saved : null;
+  }
+  function findAnchorIndex(saved: SavedListPosition): number {
+    if (!getKey) return -1;
+    for (let i = 0; i < rows.length; i++) if (getKey(rows[i], i) === saved.anchorId) return i;
+    return -1;
+  }
+
+  // Land on the saved position (re-entry, anchor row back at its saved viewport offset) when one
+  // exists and its anchor is loaded; else `initialIndex` (the unread divider, aligned to the
+  // bottom of the viewport) when the host supplies a valid one; else the last row. Re-read from
+  // current props on every call — data may still be arriving in chunks while settling, and the
+  // anchor is re-resolved by id so prepends shifting indices can't stale it.
   function assertTarget() {
     const last = rows.length - 1;
     if (last < 0) return;
+    const saved = savedTarget();
+    if (saved) {
+      const idx = findAnchorIndex(saved);
+      if (idx >= 0) {
+        setPinned(false);
+        list?.scrollToIndex(idx, { align: 'start', offset: saved.delta });
+        return;
+      }
+    }
     const target = initialIndex != null && initialIndex > 0 && initialIndex <= last ? initialIndex : last;
     setPinned(target === last);
     list?.scrollToIndex(target, { align: 'end' });
@@ -144,8 +201,27 @@
     settleCap = null;
   }
 
+  // True while a saved position still needs more history: anchor not loaded, more exists, and
+  // we're under the depth cap. Drives hidden-phase paging below.
+  function restorePending(): boolean {
+    const saved = savedTarget();
+    if (!saved) return false;
+    if (findAnchorIndex(saved) >= 0) return false;
+    return hasMore && rows.length < Math.min(saved.depth, RESTORE_DEPTH_CAP);
+  }
+
+  // Page older history toward the saved anchor while the list is hidden. Same guards as the
+  // scroll-triggered path (single-flight + `shift` keeps positions stable under the prepend).
+  function requestOlderForRestore() {
+    if (fetchingOlder || !hasMore) return;
+    fetchingOlder = true;
+    isPrepend = true;
+    Promise.resolve(onLoadOlder?.()).finally(() => { fetchingOlder = false; });
+  }
+
   // Watch getScrollSize() across frames: stable for SETTLE_STABLE_FRAMES ⇒ virtua's measurements
-  // have converged and the asserted target is final ⇒ reveal.
+  // have converged and the asserted target is final ⇒ reveal. While a position restore is still
+  // paging toward its anchor, keep the phase open (extended cap) and don't count stability.
   function beginSettle() {
     settling = true;
     setSettled(false);
@@ -155,6 +231,13 @@
     let lastSize = -1;
     const frame = () => {
       if (!settling) return;
+      if (restorePending()) {
+        requestOlderForRestore();
+        stable = 0;
+        lastSize = -1;
+        settleRaf = requestAnimationFrame(frame);
+        return;
+      }
       const size = list?.getScrollSize() ?? -1;
       if (size === lastSize) stable++;
       if (size !== lastSize) { stable = 0; lastSize = size; }
@@ -162,7 +245,7 @@
       settleRaf = requestAnimationFrame(frame);
     };
     settleRaf = requestAnimationFrame(frame);
-    settleCap = setTimeout(finishSettle, SETTLE_MAX_MS);
+    settleCap = setTimeout(finishSettle, savedTarget() ? RESTORE_MAX_MS : SETTLE_MAX_MS);
   }
 
   function finishSettle() {
@@ -191,7 +274,13 @@
       return;
     }
     tick().then(() => {
-      if (wasPrepend) { isPrepend = false; return; }
+      if (wasPrepend) {
+        isPrepend = false;
+        // Restore paging prepends while hidden — re-assert so the anchor (once it loads) is
+        // targeted before reveal. Post-settle prepends keep position via `shift` as before.
+        if (settling) assertTarget();
+        return;
+      }
       if (wasEmpty) { beginSettle(); return; }
       if (settling) { assertTarget(); return; }
       if (pinned) scrollToBottom();
@@ -251,6 +340,22 @@
       fetchingOlder = true;
       isPrepend = true;
       Promise.resolve(onLoadOlder?.()).finally(() => { fetchingOlder = false; });
+    }
+
+    // Remember the user's place for the next entry into this key. Settled scrolls only — the
+    // hidden settle phase's positioning asserts must not overwrite the position being restored.
+    // Scrolls while pinned record `pinned: true` (→ default targeting next time), so only leaving
+    // mid-history yields an anchor restore.
+    if (positionKey && getKey && settled && rows.length) {
+      const idx = list.findItemIndex(offset);
+      if (idx >= 0 && idx < rows.length) {
+        positionMemory.set(positionKey, {
+          anchorId: getKey(rows[idx], idx),
+          delta: offset - list.getItemOffset(idx),
+          pinned,
+          depth: rows.length,
+        });
+      }
     }
   }
 </script>

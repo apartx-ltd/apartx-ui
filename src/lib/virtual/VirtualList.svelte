@@ -10,8 +10,10 @@
   // Measured row sizes only (no offset), keyed by `cacheKey`. For lists whose position is driven
   // by the host (e.g. MessagesList's bottom pin) an offset restore would fight that driver, but
   // re-seeding virtua with the previously MEASURED sizes removes the estimate→measured correction
-  // churn on re-entry (visible as flashes/jumps on slow devices).
-  const sizeCaches = new Map<string, any>();
+  // churn on re-entry (visible as flashes/jumps on slow devices). Sizes are keyed by the row's
+  // `getKey` id — NOT by index — so a re-entry whose window depth differs from the one that saved
+  // (25 fresh rows vs 80 loaded last time) still matches each row to ITS measured height.
+  const sizeCaches = new Map<string, { byId: Map<string | number, number>; defaultSize: number }>();
 
   /** Forget a saved position (e.g. after a refresh that should reset scroll). */
   export function clearVirtualScroll(name: string): void {
@@ -69,6 +71,7 @@
     onContentResize,
     name,
     cacheKey,
+    estimateSize,
     class: className,
     ...restProps
   }: {
@@ -87,11 +90,27 @@
     /** Like `name`, but persists/reuses ONLY the measured row-size cache — no offset restore.
      *  For lists whose scroll position is owned by the host (chat bottom pin). */
     cacheKey?: string;
+    /** Estimated row height in px for rows with no measured size yet (cold entry). virtua otherwise
+     *  starts every row at a ~40px default; wildly-wrong defaults (a 300px photo, a 140px card) are
+     *  what cascade into visible correction jumps after reveal. Estimates only need to be close —
+     *  the residual few px are corrected invisibly. Measured sizes (via `cacheKey`) always win. */
+    estimateSize?: (item: any, index: number) => number;
     class?: string;
     [key: string]: any;
   } = $props();
 
   const rows = $derived(data ?? items ?? []);
+
+  // virtua consumes the `cache` prop ONCE, at store construction — rows that arrive later are
+  // appended as "unmeasured". Async-loaded lists mount empty (session/store still fetching), so a
+  // cache passed on first mount would seed nothing. The empty↔non-empty flip therefore participates
+  // in the {#key}: when data lands, VList is recreated and initialCache() seeds every row. Plain
+  // lists (nothing to seed or restore) keep a stable key — no gratuitous recreation.
+  const listKey = $derived.by(() => {
+    const base = name ?? cacheKey ?? '';
+    const seeded = !!(name || cacheKey || estimateSize);
+    return `${base}|${seeded && rows.length === 0 ? 'e' : 'd'}`;
+  });
 
   // virtua's VList measures the DOM and is not server-renderable; only mount it
   // in the browser. SSR/prerender emit a sized placeholder for layout stability.
@@ -113,8 +132,7 @@
   // silently drift off the bottom; it re-pins on this callback. Re-runs on `name` change (the
   // {#key} recreates the subtree, so hostEl rebinds).
   $effect(() => {
-    void name;
-    void cacheKey;
+    void listKey;
     if (!mounted || !hostEl || typeof ResizeObserver === 'undefined') return;
     const scroller = hostEl.firstElementChild as HTMLElement | null;
     const content = scroller?.firstElementChild as HTMLElement | null;
@@ -135,29 +153,41 @@
   });
 
   // Sizes cache to initialize VList with, read fresh whenever the key changes (the
-  // {#key} below recreates VList so a per-key cache takes effect).
+  // {#key} below recreates VList so a per-key cache takes effect). For `name` lists the raw
+  // snapshot round-trips untouched; for `cacheKey`/`estimateSize` lists a CacheSnapshot is
+  // SYNTHESIZED per row: measured-by-id first, host estimate second, virtua's default last.
+  // The [sizes[], defaultSize] shape is virtua-internal — guarded by cache-shape.test.ts.
+  const DEFAULT_ROW_ESTIMATE = 40;
+  function rowId(item: any, index: number): string | number {
+    return getKey ? getKey(item, index) : index;
+  }
   function initialCache() {
     if (name) return scrollSnapshots.get(name)?.cache;
-    if (cacheKey) return sizeCaches.get(cacheKey);
-    return undefined;
+    const saved = cacheKey ? sizeCaches.get(cacheKey) : undefined;
+    if ((!saved && !estimateSize) || !rows.length) return undefined;
+    const sizes = rows.map(
+      (item, i) => saved?.byId.get(rowId(item, i)) ?? estimateSize?.(item, i) ?? -1
+    );
+    return [sizes, saved?.defaultSize ?? DEFAULT_ROW_ESTIMATE] as any;
   }
 
 
   // Restore the saved offset after (re)mount / name change. Re-run is gated by
-  // `restoredKey` so a single navigation restores exactly once. virtua observes
-  // its scroller a frame after mount and may clamp `scrollTo` until row sizes
-  // settle, so retry across a few frames until it sticks (cf. scrollRestore).
-  // `restoring` suppresses saves meanwhile so transient offsets don't overwrite
-  // the target we're restoring to.
+  // `restoredKey` so a single navigation restores exactly once — per `listKey`, not per `name`:
+  // an async list mounts empty (restore clamps to 0), then rekeys when data lands, and THAT
+  // instance is the one the offset must land on. virtua observes its scroller a frame after
+  // mount and may clamp `scrollTo` until row sizes settle, so retry across a few frames until
+  // it sticks (cf. scrollRestore). `restoring` suppresses saves meanwhile so transient offsets
+  // don't overwrite the target we're restoring to.
   let restoredKey: string | null = null;
   let restoring = false;
   $effect(() => {
-    const key = name ?? null;
+    const key = name ? listKey : null;
     if (!mounted) return;
     if (restoredKey === key) return;
     restoredKey = key;
-    if (!key) return;
-    const target = scrollSnapshots.get(key)?.offset ?? 0;
+    if (!key || !name) return;
+    const target = scrollSnapshots.get(name)?.offset ?? 0;
     if (!target) return; // fresh screen → leave at top
     let tries = 0;
     restoring = true;
@@ -195,7 +225,20 @@
     if (name && !restoring) scrollSnapshots.set(name, { offset, cache: vlist?.getCache?.() });
     // Sizes-only persistence: every scroll (incl. the host's bottom pin) refreshes the measured
     // cache, so a later re-entry into the same key starts from measured heights, not estimates.
-    if (cacheKey) sizeCaches.set(cacheKey, vlist?.getCache?.());
+    // Stored per row ID (see sizeCaches above); -1 entries are virtua's "not measured yet".
+    if (cacheKey) {
+      const snap = vlist?.getCache?.() as [number[], number] | undefined;
+      if (snap) {
+        const prev = sizeCaches.get(cacheKey);
+        const byId = prev?.byId ?? new Map<string | number, number>();
+        const sizes = snap[0] ?? [];
+        for (let i = 0; i < rows.length; i++) {
+          const size = sizes[i];
+          if (size != null && size !== -1) byId.set(rowId(rows[i], i), size);
+        }
+        sizeCaches.set(cacheKey, { byId, defaultSize: snap[1] ?? DEFAULT_ROW_ESTIMATE });
+      }
+    }
     onscroll?.(offset);
   }
 
@@ -220,10 +263,18 @@
   export function getScrollOffset(): number {
     return vlist?.getScrollOffset?.() ?? 0;
   }
+  /** Nearest row index at `offset` px from the start of the scroll content (virtua passthrough). */
+  export function findItemIndex(offset: number): number {
+    return vlist?.findItemIndex?.(offset) ?? -1;
+  }
+  /** Top offset of the row at `index`, in scroll-content px (virtua passthrough). */
+  export function getItemOffset(index: number): number {
+    return vlist?.getItemOffset?.(index) ?? 0;
+  }
 </script>
 
 {#if mounted}
-  {#key name ?? cacheKey}
+  {#key listKey}
     <div bind:this={hostEl} style="display:contents">
       <VList
         bind:this={vlist}

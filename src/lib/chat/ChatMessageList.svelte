@@ -6,7 +6,8 @@
   import Loading from '../ui/display/Loading.svelte';
   import Message from './Message.svelte';
   import { chatT } from './i18n';
-  import { countUnread, createReadFlusher } from './helpers';
+  import { countUnread, createReadFlusher, estimateMessageHeight } from './helpers';
+  import { resolveComponents } from './registry.svelte';
   import { isReadByMe } from './replication/read-state';
   import type { ChatSession } from './session.svelte';
   import type { Message as ChatMessage } from './types';
@@ -51,8 +52,25 @@
   const unreadCount = $derived(countUnread(messages, meUserId, lastReadSeq));
   // Where MessagesList should land on first load: the unread divider if there is one, else −1
   // (MessagesList treats < 1 as "bottom"). This is the ONLY initial-scroll signal — MessagesList
-  // owns the actual scroll so there is a single, race-free driver.
+  // owns the actual scroll so there is a single, race-free driver. (A saved position from a prior
+  // visit — MessagesList's positionKey memory — takes priority over this inside MessagesList.)
   const initialIndex = $derived(unreadId ? messages.findIndex((m) => m._id === unreadId) : -1);
+
+  // One key drives both persistence layers: measured row sizes (VirtualList cacheKey) and the
+  // last scroll position (MessagesList positionKey).
+  const chatKey = $derived(`chat:${session.chatId}`);
+
+  // Cold-open row-height estimates (no measured cache yet): near-final heights kill the visible
+  // estimate→measured correction cascade on first entry. Registered card types supply their own
+  // bubble height via SlotSet.estimateHeight (app knowledge); text/media fall back to kit math.
+  function estimateSize(m: ChatMessage, i: number): number {
+    return estimateMessageHeight(m, messages[i - 1] ?? null, {
+      unreadAnchorId: unreadId,
+      isLast: i === messages.length - 1,
+      mine: !!meUserId && m.userId === meUserId,
+      bubble: resolveComponents(m.type).estimateHeight?.(m),
+    });
+  }
 
   // Debounce read-on-render into one markRead per readDebounceMs, GATED on "the user is actually viewing
   // THIS window" (visible AND focused). The virtualizer mounts an off-screen overscan buffer and sticks to
@@ -90,7 +108,9 @@
     class={cn('px-2', className)}
     data={messages}
     getKey={(m) => m._id}
-    cacheKey={`chat:${session.chatId}`}
+    cacheKey={chatKey}
+    positionKey={chatKey}
+    {estimateSize}
     hasMore={hasMore}
     onLoadOlder={() => session.loadOlder()}
     {initialIndex}

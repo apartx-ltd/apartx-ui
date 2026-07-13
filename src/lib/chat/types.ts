@@ -126,6 +126,10 @@ export interface SlotSet {
   time?: any;
   footer?: any;
   media?: any;
+  /** Estimated rendered BUBBLE height (px) for this message type — app knowledge the kit can't
+   *  derive (e.g. a booking card ≈ 140). Feeds cold-open positioning (see estimateMessageHeight);
+   *  return undefined to fall back to the kit's built-in text/media heuristics. */
+  estimateHeight?: (message: Message) => number | undefined;
 }
 
 /** i18n seam — a translate function. */

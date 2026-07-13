@@ -1,5 +1,41 @@
 # История изменений — apartx-ui
 
+## 2026-07-13
+
+### Версия 0.3.10
+
+### Добавлено (virtual/chat — холодный вход без мельканий + возврат к прежней позиции скролла)
+
+* **`VirtualList.estimateSize`** — оценка высоты строки для ещё не измеренных строк. Источник
+  мельканий ПЕРВОГО входа в чат: virtua стартует с плоского дефолта ~40px, а реальные строки —
+  140px-карточки и 300px-фото; каскад «замер видимых → сдвиг → в viewport въехали новые
+  немеренные → замер → сдвиг…» не успевает сойтись под settle-cap на слабом CPU, и хвост
+  коррекций виден глазами. С оценками первый рендер стоит в почти финальной геометрии — каскада
+  нет. Реализация: синтез virtua `CacheSnapshot` (`[sizes[], defaultSize]` — внутренний формат,
+  закреплён guard-тестом `cache-shape.test.ts`); measured-значения всегда приоритетнее оценок.
+* **Measured-кэш `cacheKey` теперь по id строки (`getKey`), не по индексу** — переживает
+  несовпадение глубины окна между визитами (25 свежих строк против 80 загруженных в прошлый раз)
+  и накапливается за сессию.
+* **`VirtualList`: rekey на переходе empty↔non-empty** (только для списков с
+  `name`/`cacheKey`/`estimateSize`): virtua потребляет `cache` один раз при создании стора, а
+  async-списки монтируются пустыми — теперь VList пересоздаётся, когда данные пришли, и кэш/оценки
+  реально применяются. Заодно чинит offset-restore `name`-списков, монтирующихся пустыми.
+* **`MessagesList.positionKey` — возврат туда, где был** (module-память позиций, как sizeCaches):
+  на каждом settled-скролле сохраняется `{anchorId, delta, pinned, depth}`; на следующем входе
+  сохранённая НЕ-pinned позиция приоритетнее unread divider/низа — anchor-строка возвращается на
+  свой пиксель (`scrollToIndex(idx,{align:'start',offset:delta})`). Недостающая история
+  догружается СКРЫТО в settle-фазе (extended cap 1500мс, depth-cap 200); anchor удалён/не
+  найден или память pinned → прежнее поведение. Экспорт `getSavedPosition`/`clearMessagesPosition`.
+* **`VirtualList.findItemIndex`/`getItemOffset`** — публичные passthrough-методы virtua (нужны
+  anchor-сохранению).
+* **`SlotSet.estimateHeight`** — реестровый хук: высота БАБЛА карточного типа — знание хоста
+  (booking-карточка ≈ 140px); кит сам оценивает текст (по длине), медиа (точная формула бокса
+  ImageMedia из `meta.width/height`), service/deleted/audio/document.
+* **`chat/helpers`: `estimateMessageHeight`/`mediaBoxHeight`/`textBlockHeight`** — чистая
+  математика оценки строки (сепаратор даты, unread divider, группировка, reply-квота, бабл) +
+  юнит-тесты. `ChatMessageList` собирает всё это и передаёт `estimateSize`+`positionKey`
+  (`chat:<chatId>`) в `MessagesList` автоматически — потребителям чата ничего менять не нужно.
+
 ## 2026-07-12
 
 ### Версия 0.3.9
