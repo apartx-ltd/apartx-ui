@@ -155,6 +155,7 @@
   {#if showScrollDown}
     <button
       type="button"
+      data-testid="chat-scroll-down"
       class="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-full border border-outline-variant bg-surface-container text-on-surface-variant shadow-level-2 hover:bg-on-surface/8"
       onclick={() => listCmp?.stick()}
       aria-label={scrollToBottomLabel}

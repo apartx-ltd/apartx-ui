@@ -248,12 +248,26 @@
     settleCap = setTimeout(finishSettle, savedTarget() ? RESTORE_MAX_MS : SETTLE_MAX_MS);
   }
 
+  // "Scrolled away from bottom" for the host's scroll-to-bottom button. Gated on `settled`:
+  // during the hidden settle phase virtua emits scroll events with transient geometry (the
+  // mount-time onscroll(0) against an already-estimated full scrollSize reads as "way off the
+  // bottom"), and the host's button lives OUTSIDE the hidden wrapper — it would flash over the
+  // spinner on every entry. Recomputed once at reveal so a restored mid-history position shows
+  // the button immediately.
+  function updateAway(offset?: number) {
+    if (!list) return;
+    const off = offset ?? list.getScrollOffset();
+    const away = settled && list.getScrollSize() - list.getViewportSize() - off > scrollAwayThreshold;
+    if (away !== prevAway) { prevAway = away; onScrollAwayChange?.(away); }
+  }
+
   function finishSettle() {
     cancelSettleWatch();
-    if (!settling) { setSettled(true); return; }
+    if (!settling) { setSettled(true); updateAway(); return; }
     settling = false;
     setSettled(true);
     if (pinned) scrollToBottom();
+    updateAway();
   }
 
   // On count change: an empty→N transition (fresh load / new session) enters the settle phase;
@@ -271,6 +285,7 @@
       setSettled(false);
       cancelSettleWatch();
       setPinned(true);
+      if (prevAway) { prevAway = false; onScrollAwayChange?.(false); }
       return;
     }
     tick().then(() => {
@@ -330,9 +345,9 @@
       setPinned(offset - scrollSize + viewport >= -stickThreshold);
     }
 
-    // "Scrolled away from bottom" for the host's scroll-to-bottom button (coarser threshold).
-    const away = scrollSize - viewport - offset > scrollAwayThreshold;
-    if (away !== prevAway) { prevAway = away; onScrollAwayChange?.(away); }
+    // "Scrolled away from bottom" for the host's scroll-to-bottom button (coarser threshold;
+    // settle-gated — see updateAway).
+    updateAway(offset);
 
     // Near the top → load older items, keeping position via `shift`. Gated on `settled` so the
     // mount-time onscroll(0) can't prepend and shift indices under the initial positioning.
