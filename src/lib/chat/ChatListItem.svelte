@@ -8,7 +8,7 @@
   // host also owns dialog fetching; this component only renders + emits click/context/remove.
   import { Avatar, Badge, Icon } from '../ui/display';
   import {
-    faTrash, faKey, faHotel, faUser, faBroom, faCalendarDays,
+    faTrash, faKey, faHotel, faHouse, faUser, faBroom, faCalendarDays,
     faExclamationTriangle, faCheckDouble, faCheck, faClock,
   } from '@fortawesome/free-solid-svg-icons';
   import { longpress } from '../hooks/useLongPress.svelte';
@@ -49,6 +49,12 @@
   const chat = $derived(dialog?.chat);
   const lastMessage = $derived(chat?.lastMessage);
 
+  // Booking rows: property photo, or an icon tile when the property has none (the snapshot
+  // carries an empty images list) or the photo fails to load (stale/broken URL) — tracked per
+  // URL so a later snapshot update with a fresh photo retries the <img>.
+  const bookingImage = $derived(chat?.booking?.property?.images?.[0]);
+  let failedBookingImage = $state(null);
+
   // 4-state tick for MY last message (same model as the open chat's MessageTimeDefault):
   // pending → clock, sent → single grey, delivered → double grey, read → double blue, failed →
   // warning. null for incoming messages (no receipt shown on the counterpart's message).
@@ -82,11 +88,21 @@
       <div class="flex flex-shrink-0 items-center">
         {#if chat.booking}
           <div class="relative h-[50px] w-[50px]">
-            <img
-              src={chat.booking.property?.images?.[0]}
-              alt={displayName}
-              class="h-[50px] w-[50px] rounded-lg object-cover"
-            />
+            {#if bookingImage && failedBookingImage !== bookingImage}
+              <img
+                src={bookingImage}
+                alt={displayName}
+                class="h-[50px] w-[50px] rounded-lg object-cover"
+                onerror={() => { failedBookingImage = bookingImage; }}
+              />
+            {:else}
+              <div
+                data-testid="booking-image-fallback"
+                class="flex h-[50px] w-[50px] items-center justify-center rounded-lg bg-primary-container text-on-primary-container"
+              >
+                <Icon icon={faHouse} size="lg" />
+              </div>
+            {/if}
             <!-- flex: a plain div wraps the inline-flex avatar in a line box whose strut leaves a
                  ~7px baseline gap under the circle — the avatar must sit flush with the photo edge -->
             <div class="absolute bottom-0 right-0 flex">
