@@ -125,8 +125,10 @@ contracts.
 1. `POST /Tenant/Booking/create` with `propertyId`, `startDate`, `endDate`
    (plus `roomTypeId`/`ratePlanId`/`roomId` when the property has room types —
    discover from the property payload) → returns the booking document.
-2. `POST /Tenant/Booking/getPaymentUrl` with the booking id → returns a
-   payment-provider URL. Redirect the user to it.
+2. `POST /Tenant/Booking/getPaymentUrl` with the booking id → returns the
+   payment provider's **native response object** (not a normalized wrapper);
+   the redirect URL lives at `Model.Url` and `Success: true` signals the order
+   was created. Redirect the user to that URL.
 3. **Online payment is per-property.** `getPaymentUrl` returns
    `403 errors.online_payment_disabled` unless the property was created with
    online payment enabled (visible in the public payload as
