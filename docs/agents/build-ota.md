@@ -84,6 +84,19 @@ the site repo (see §i18n).
 | `/login` (or modal) | Phone OTP sign-in | `POST /Auth/requestCode` → `POST /Auth/verifyCode` → `GET /Auth/me` |
 | `/booking/[propertyId]` | Confirm dates/guests, create booking, go to payment | `POST /Tenant/Booking/create` → `POST /Tenant/Booking/getPaymentUrl` |
 | `/account/bookings` | The guest's bookings: status, payment link, cancel | `GET /Tenant/Booking/find`, `POST /Tenant/Booking/cancel` |
+| `/account/bookings/[id]` | Booking detail: property summary + dates, booking number, status, price breakdown, pay / cancel actions | `GET /Tenant/Booking/find` (locate by id), `GET /Tenant/Booking/getPaymentInfo`, `GET /Property/findById` |
+
+Every row in `/account/bookings` links to its detail page — a list alone is not
+enough: the confirmation redirect after creating a booking should land on the
+booking's detail page, not on the bare list.
+
+**Search pagination — the URL is the single source of truth.** `findByFilter`
+returns `{ properties, total }`; paginate with `limit`/`skip` and drive the
+current page exclusively from the URL query (`?page=N`) in the server `load`.
+Render the pager from `data` and navigate on page change (update the query via
+`goto`); do NOT mirror the page into local component state (`$state` initialized
+from `data` runs once — back/forward and new searches desync it). Submitting a
+new search (changed city/dates/guests) must reset `page` to 0.
 
 Verify each operation's exact parameters against the OpenAPI spec during
 discovery — the table above names the endpoints, it does not define their
@@ -100,6 +113,12 @@ contracts.
    root server `load` to hydrate "logged in as").
 5. `POST /Auth/logout` destroys the token (it is HTTP-only; call it with the
    Basic header, then drop the cookie).
+6. **The OTP step must survive a page reload.** After `requestCode` succeeds,
+   persist the phone number and the "code sent" state (plus the `nextRetry`
+   timestamp from the response) in `sessionStorage`; on reload, restore the
+   code-entry screen for that phone instead of showing the empty phone form.
+   Never auto-resend the code on reload — offer a "resend" button gated by
+   `nextRetry`.
 
 ## Booking & payment
 
