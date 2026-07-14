@@ -33,9 +33,13 @@ the site repo (see §i18n).
 2. **UI is built from kit components** (`apartx-ui/*`), not hand-rolled
    HTML+Tailwind. Reach for raw markup only when the kit demonstrably has no
    primitive for the job (page-level layout grids are fine).
-3. **SvelteKit SSR with `@sveltejs/adapter-node`.** Search and property pages
-   must render on the server (they are the SEO surface). Authenticated screens
-   may load client-side.
+3. **SvelteKit SSR — a server runtime is mandatory.** Search and property pages
+   must render on the server (they are the SEO surface), and the auth
+   architecture (token in an httpOnly cookie, API calls proxied through server
+   `load`s) cannot exist without one. **`adapter-static` is therefore
+   forbidden** — a static build silently downgrades the site to a client-only
+   SPA and breaks both SEO and auth. Default to `@sveltejs/adapter-node`;
+   §Deployment lists when to swap it.
 4. **TypeScript.** Generate API types from the OpenAPI document
    (e.g. `openapi-typescript`) instead of writing models by hand.
 5. The generated project is **self-contained**: fresh clone + `npm install` +
@@ -207,8 +211,37 @@ Manual screenshots are not acceptance evidence; the spec is.
 Do not build: real payment completion, favorites, chat/messaging, reviews,
 server-side translation loading, landlord/admin functionality, native apps.
 
+## Deployment
+
+The site owner is **not an IT person**: after the initial setup they must never
+touch a terminal — updates ship by `git push` (the platform builds and deploys),
+the custom domain is added through the platform's web UI, TLS is automatic.
+Pick the target with the operator; all of them run the same codebase:
+
+| Target | Adapter | Notes |
+|---|---|---|
+| **Cloudflare Pages** (default) | `@sveltejs/adapter-cloudflare` | Free tier allows commercial use; git-push deploys + preview per PR; custom domain = one screen in the CF dashboard, certs automatic. SSR runs on Workers — no Node built-ins in server code (this playbook's architecture already satisfies that: plain `fetch` only). |
+| **Render** | `adapter-node` (unchanged) | A real Node server — zero runtime quirks; deploys from git or a Dockerfile. Free instances sleep (cold start ≈ 1 min) — use a paid instance for a public site. |
+| **Vercel / Netlify** | `adapter-auto` picks the right one | Smoothest DX; note Vercel's free (Hobby) tier prohibits commercial use — a real OTA needs the paid plan. |
+| **Any VPS / Docker host** | `adapter-node` + Dockerfile | The escape hatch when the owner already rents a server. Ship a multi-stage Dockerfile (`node:22-alpine`: install → build → `node build`) so `docker run -e API_BASE=… -p 3000:3000 <image>` is the whole deploy. |
+
+Rules that apply to every target:
+
+- `API_BASE` must point at a **publicly reachable** ApartX server (production
+  or staging) — a `localhost` dev instance only works for local development.
+- All configuration (`API_BASE`, `LANDLORD_USER_ID`, `BRAND_NAME`) is set as
+  platform environment variables — never hardcoded, so one repo serves any
+  owner/brand.
+- SSR must survive the deploy: after deploying, `curl` the search page and
+  assert the HTML contains rendered property cards (not an empty app shell) —
+  this catches a silent fallback to static/SPA output.
+- Document the chosen target in the README: exact "connect repo → set env vars
+  → add custom domain" steps a non-technical owner can follow.
+
 ## Delivery checklist
 
-- README with: env vars table, how to run dev, how to run e2e.
+- README with: env vars table, how to run dev, how to run e2e, and the
+  §Deployment steps for the chosen target.
 - `.env.example` with every variable named above.
 - CI-friendly scripts: `dev`, `build`, `preview`, `test:e2e`.
+- Dockerfile (when the VPS/Docker or Render-via-Docker target is chosen).
