@@ -98,9 +98,39 @@ Render the pager from `data` and navigate on page change (update the query via
 from `data` runs once — back/forward and new searches desync it). Submitting a
 new search (changed city/dates/guests) must reset `page` to 0.
 
+Two traps that have actually shipped broken pagers — avoid both:
+
+- **Implicit defaults die on the first page click.** If the landing page
+  injects a default query (e.g. a default city) only when the URL has no
+  params, then a page link carrying just `?page=1` no longer "has no params" —
+  the default vanishes and page 2 renders empty. Whatever default the landing
+  applies must be materialized into the URL (redirect `/` → `/?q=<default>`,
+  or have the pager write the full effective query, not only `page`).
+- **Changing `page` must never drop the other filters**, and changing any
+  filter must drop `page`.
+
+Acceptance for the pager (goes into the e2e): from the landing page click
+page 2 → the URL updates, result count is > 0 and the first card differs from
+page 1; browser Back returns to page 1 with page-1 cards.
+
 Verify each operation's exact parameters against the OpenAPI spec during
 discovery — the table above names the endpoints, it does not define their
 contracts.
+
+## UX ground rules
+
+- **Destructive / irreversible actions require confirmation.** Cancelling a
+  booking, logging out — anything the user can't undo goes through the kit's
+  `ConfirmDialog` (`apartx-ui/overlays`), never a bare click → mutation.
+- **Predictable missing input is not an error page.** The property page's
+  "Book" CTA depends on selected dates: carry the dates from the search
+  context into the property page (and on into `/booking/...`); when they are
+  absent, prefill the date picker with the nearest available range from the
+  property's availability/pricing data, or keep the CTA disabled with an
+  inline "select your dates" hint next to the picker. Navigating to the
+  booking page without dates must redirect back to the property page with the
+  picker highlighted — the user must never see a dead-end error screen for a
+  state the UI itself allowed.
 
 ## Auth flow
 
@@ -161,7 +191,10 @@ The project is done when ALL of the following hold:
      `defaults.withOnlinePayment: true` (filter search results for it); if the
      environment has none, the spec must instead assert the graceful
      "payment unavailable" state for the 403;
-   - sees the booking listed in `/account/bookings`.
+   - sees the booking listed in `/account/bookings` and opens its detail page;
+   - cancels the booking via the confirmation dialog (asserts the dialog
+     appears and the status changes to cancelled);
+   - paginates the search results (see the pager acceptance in §Pages).
 3. If `LANDLORD_USER_ID` is set: an e2e check that every search result belongs
    to that landlord (compare against the property payload's owner field).
 4. Both locales render: the e2e toggles `en` → `ru` and asserts a translated
