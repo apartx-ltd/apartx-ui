@@ -87,7 +87,9 @@
               alt={displayName}
               class="h-[50px] w-[50px] rounded-lg object-cover"
             />
-            <div class="absolute bottom-0 right-0">
+            <!-- flex: a plain div wraps the inline-flex avatar in a line box whose strut leaves a
+                 ~7px baseline gap under the circle — the avatar must sit flush with the photo edge -->
+            <div class="absolute bottom-0 right-0 flex">
               <Avatar src={profile.avatarUrl} fallback={profile.initials} alt={displayName} size="sm" />
             </div>
           </div>
