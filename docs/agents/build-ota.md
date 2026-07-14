@@ -225,6 +225,21 @@ Pick the target with the operator; all of them run the same codebase:
 | **Vercel / Netlify** | `adapter-auto` picks the right one | Smoothest DX; note Vercel's free (Hobby) tier prohibits commercial use — a real OTA needs the paid plan. |
 | **Any VPS / Docker host** | `adapter-node` + Dockerfile | The escape hatch when the owner already rents a server. Ship a multi-stage Dockerfile (`node:22-alpine`: install → build → `node build`) so `docker run -e API_BASE=… -p 3000:3000 <image>` is the whole deploy. |
 
+**Agent-driven deploys (CLI only, nothing interactive).** You can perform the
+deploy yourself when the operator supplies a platform API token as an env var —
+never run interactive `login` flows, never create accounts, never touch billing
+(those are the owner's one-time manual steps):
+
+- Cloudflare Pages: `CLOUDFLARE_API_TOKEN` + `wrangler pages project create` /
+  `wrangler pages deploy` (direct upload — no git connection required); env
+  vars and custom domains via the CF API with the same token.
+- Vercel: `VERCEL_TOKEN` + `vercel deploy --prod`, `vercel env add`,
+  `vercel domains add`.
+- Netlify: `NETLIFY_AUTH_TOKEN` + `netlify deploy --prod`, `netlify env:set`.
+- Render: service creation is dashboard/REST-API territory (`RENDER_API_KEY` +
+  their HTTP API); prefer one of the above when the deploy must be fully
+  agent-driven.
+
 Rules that apply to every target:
 
 - `API_BASE` must point at a **publicly reachable** ApartX server (production
