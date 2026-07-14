@@ -85,7 +85,15 @@ the site repo (see §i18n).
 | `/` | Search: free-text city/geo, dates, guests; result cards; pagination | `GET /Tenant/Property/findByFilter` (public) |
 | `/property/[id]` | Gallery, description, amenities, price for selected dates | `GET /Property/findById` (public; accepts `startDate`/`endDate` for date-aware pricing) |
 | `/property/[id]` (authed extra) | Availability calendar | `GET /Tenant/Property/getAvailability` (**auth required** — render the calendar only for logged-in users; anonymous visitors see prices from `findById`. Do not call it anonymously: you'll get 401.) |
-| `/login` (or modal) | Phone OTP sign-in | `POST /Auth/requestCode` → `POST /Auth/verifyCode` → `GET /Auth/me` |
+| auth **Dialog** (no `/login` page) | Phone OTP sign-in in a kit `Dialog`, opened from the header button and inline wherever auth is required (e.g. the booking step) | `POST /Auth/requestCode` → `POST /Auth/verifyCode` → `GET /Auth/me` |
+
+Auth is a **dialog, not a route**: a dedicated login page throws the user out
+of their context, and sign-in is most often needed mid-flow (at booking time).
+The dialog holds both OTP steps (phone → code); on success it closes and the
+interrupted flow continues with its state intact — selected dates and the
+property must survive the sign-in. A guarded server route that requires auth
+redirects back to where the dialog can be shown, never to a standalone login
+screen.
 | `/booking/[propertyId]` | Confirm dates/guests, create booking, go to payment | `POST /Tenant/Booking/create` → `POST /Tenant/Booking/getPaymentUrl` |
 | `/account/bookings` | The guest's bookings: status, payment link, cancel | `GET /Tenant/Booking/find`, `POST /Tenant/Booking/cancel` |
 | `/account/bookings/[id]` | Booking detail: property summary + dates, booking number, status, price breakdown, pay / cancel actions | `GET /Tenant/Booking/find` (locate by id), `GET /Tenant/Booking/getPaymentInfo`, `GET /Property/findById` |
@@ -149,10 +157,10 @@ contracts.
    Basic header, then drop the cookie).
 6. **The OTP step must survive a page reload.** After `requestCode` succeeds,
    persist the phone number and the "code sent" state (plus the `nextRetry`
-   timestamp from the response) in `sessionStorage`; on reload, restore the
-   code-entry screen for that phone instead of showing the empty phone form.
-   Never auto-resend the code on reload — offer a "resend" button gated by
-   `nextRetry`.
+   timestamp from the response) in `sessionStorage`; on reload, reopen the
+   auth dialog at the code-entry step for that phone instead of the empty
+   phone form. Never auto-resend the code on reload — offer a "resend" button
+   gated by `nextRetry`.
 
 ## Booking & payment
 
@@ -220,7 +228,7 @@ Pick the target with the operator; all of them run the same codebase:
 
 | Target | Adapter | Notes |
 |---|---|---|
-| **Cloudflare Pages** (default) | `@sveltejs/adapter-cloudflare` | Free tier allows commercial use; git-push deploys + preview per PR; custom domain = one screen in the CF dashboard, certs automatic. SSR runs on Workers — no Node built-ins in server code (this playbook's architecture already satisfies that: plain `fetch` only). |
+| **Cloudflare Pages** (default) | `@sveltejs/adapter-cloudflare` | Free tier allows commercial use; git-push deploys + preview per PR; custom domain = one screen in the CF dashboard, certs automatic. SSR runs on Workers — no Node built-ins in your own server code (this playbook's architecture already satisfies that: plain `fetch` only). **Required:** enable the `nodejs_compat` compatibility flag — SvelteKit itself uses `node:async_hooks`, without the flag the deploy warns and SSR can fail at runtime. Set it in the project config (`wrangler.toml`: `compatibility_flags = ["nodejs_compat"]`) so it applies to every deploy, or in the dashboard (Settings → Functions → Compatibility flags) for BOTH production and preview environments. |
 | **Render** | `adapter-node` (unchanged) | A real Node server — zero runtime quirks; deploys from git or a Dockerfile. Free instances sleep (cold start ≈ 1 min) — use a paid instance for a public site. |
 | **Vercel / Netlify** | `adapter-auto` picks the right one | Smoothest DX; note Vercel's free (Hobby) tier prohibits commercial use — a real OTA needs the paid plan. |
 | **Any VPS / Docker host** | `adapter-node` + Dockerfile | The escape hatch when the owner already rents a server. Ship a multi-stage Dockerfile (`node:22-alpine`: install → build → `node build`) so `docker run -e API_BASE=… -p 3000:3000 <image>` is the whole deploy. |
