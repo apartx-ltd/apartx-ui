@@ -219,6 +219,12 @@
   }
 
   function onScrollInternal(offset: number) {
+    // Svelte marks an outroing branch (e.g. the leaving page-transition layer) `inert` while it
+    // animates out, and its scroller can collapse to 0 mid-leave (disconnected nodes read
+    // scrollTop 0 at teardown too). Those events are never user scrolls — persisting one would
+    // clobber the snapshot the NEXT instance of this list is about to restore from — so drop
+    // them entirely: no save, no scrollbar reveal, no host callback.
+    if (hostEl && (!hostEl.isConnected || hostEl.closest('[inert]'))) return;
     // A genuine user scroll reveals the scrollbar; programmatic scrolls (the `name`
     // restore, plus the imperative API below) must not.
     if (!restoring && programmaticScrolls === 0) scrolled = true;
