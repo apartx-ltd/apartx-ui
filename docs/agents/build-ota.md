@@ -240,6 +240,33 @@ never run interactive `login` flows, never create accounts, never touch billing
   their HTTP API); prefer one of the above when the deploy must be fully
   agent-driven.
 
+**Guide the owner through getting the token — do not just fail.** When you
+reach the deploy stage and the platform token is missing, stop and walk the
+owner through issuing one, in plain non-technical language: number the steps,
+name the exact buttons, say what to copy and where to paste it. Then wait.
+Token recipes per platform:
+
+- **Cloudflare**: sign up / log in at `dash.cloudflare.com` → click the person
+  icon (top right) → **My Profile → API Tokens → Create Token → Create Custom
+  Token**: name it (e.g. `ota-deploy`), permission **Account → Cloudflare
+  Pages → Edit** (add **Zone → DNS → Edit** only if the custom domain is on
+  Cloudflare), set an expiry, **Continue → Create Token**, copy the token —
+  it is shown only once. Also copy the **Account ID** (Dashboard → Workers &
+  Pages → right-hand sidebar). You need both: `CLOUDFLARE_API_TOKEN` and
+  `CLOUDFLARE_ACCOUNT_ID`.
+- **Vercel**: `vercel.com` → Settings → **Tokens** → Create: name, scope
+  (the personal account or team), expiry → copy as `VERCEL_TOKEN`.
+- **Netlify**: `app.netlify.com` → User settings → **Applications → Personal
+  access tokens → New access token** → copy as `NETLIFY_AUTH_TOKEN`.
+
+Handling rules: the owner pastes the token once; put it straight into the
+project's untracked `.env` (it must be gitignored) and never print, echo or
+commit it. Before deploying, verify it non-interactively (`wrangler whoami`,
+`vercel whoami --token …`, `netlify status`); if verification fails, explain
+which step above likely went wrong instead of dumping raw CLI errors. After a
+successful deploy, tell the owner the live URL and — in the same plain
+language — what a custom domain requires (which DNS record to add and where).
+
 Rules that apply to every target:
 
 - `API_BASE` must point at a **publicly reachable** ApartX server (production
