@@ -14,6 +14,7 @@
   import { cn } from '../utils/cn'
   import { getPagePortalHost } from '../../navigation/context'
   import { getOverlayLayer } from './layer-context'
+  import { useOverlay } from '../../hooks/useOverlay.svelte'
 
   let {
     open = $bindable(false),
@@ -25,6 +26,9 @@
     squareCornersAtTop = true,
     showHandle = true,
     modal = true,
+    // Participate in overlay-back by default (browser/native BACK closes the sheet,
+    // playing the same slide-out as a backdrop/Escape dismiss). Opt out with false.
+    respectBack = true,
     // When false, present/dismiss happen INSTANTLY (no slide, no backdrop fade).
     // Lets a host suppress the enter animation for a restore — e.g. returning to a
     // map with the sheet already open — and re-enable it afterwards so later
@@ -53,6 +57,14 @@
   const layer = getOverlayLayer()
   const scrimZ = $derived(layer ? `z-index:${layer.z};` : '')
   const contentZ = $derived(layer ? `z-index:${layer.z + 1};` : '')
+
+  // History-back participation. Mirror `open` into the overlay-stack so a browser/native
+  // BACK routes through `dismiss()` — the SAME close path as a backdrop tap / Escape /
+  // flick — running the slide-out and firing onWillDismiss/onDidDismiss. The hook only
+  // observes `open`; it never touches the drag/snap geometry or z (the sheet keeps its
+  // own layer-based z above). The unmount seam drops the token without a stray history.back
+  // if the host is navigated away while the sheet is still open.
+  const overlay = useOverlay(() => open, () => dismiss(), { respectBack })
 
   // Resolve the portal destination. For 'page', read the layer element from the
   // PageLayer context (a getter, so it tracks mount/unmount); `?? undefined` lets
