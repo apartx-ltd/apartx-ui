@@ -28,6 +28,11 @@ export function setOverlayLayer(layer: OverlayLayer): void {
   setContext(OVERLAY_LAYER_KEY, layer);
 }
 
+/** Опубликовать z текущего оверлея потомкам (вложенным порталам). Reactive-геттер. */
+export function provideOverlayZ(getZ: () => number | undefined): void {
+  setContext(OVERLAY_LAYER_KEY, { get z() { return getZ() ?? 0; } });
+}
+
 /** Read the injected overlay layer, if any. `undefined` ⇒ use default z classes. */
 export function getOverlayLayer(): OverlayLayer | undefined {
   return getContext<OverlayLayer | undefined>(OVERLAY_LAYER_KEY);
