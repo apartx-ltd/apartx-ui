@@ -74,6 +74,7 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
   }
 
   function registerOverlay({ close }: { close: Close; scrim?: boolean }): OverlayHandle {
+    initOverlayStack(); // idempotent, SSR no-op — guarantees the back-interceptor is installed
     const token = ++seq;
     const z = Z_BASE + stack.length * Z_STEP; // depth = длина стека ДО push
     stack.push({ token, close });

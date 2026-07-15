@@ -41,6 +41,18 @@ describe('createOverlayStack', () => {
     expect(os.overlayCount()).toBe(0);
   });
 
+  it('registerOverlay lazily self-installs the back-interceptor (no explicit initOverlayStack)', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    // NOTE: intentionally NOT calling os.initOverlayStack() here.
+    let closed = false;
+    os.registerOverlay({ close: () => { closed = true; } });
+    // The interceptor must be installed, so a back is consumed and closes the overlay.
+    expect(f.fireBack()).toBe(true);
+    expect(closed).toBe(true);
+    expect(os.overlayCount()).toBe(0);
+  });
+
   it('non-back close pops one synthetic entry via goBack, idempotent', () => {
     const f = fakeAdapter();
     const os = createOverlayStack(f.adapter);
