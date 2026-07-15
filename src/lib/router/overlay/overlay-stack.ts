@@ -62,63 +62,63 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     return true;
   }
 
-  return {
-    overlayCount(): number {
-      return stack.length;
-    },
+  function overlayCount(): number {
+    return stack.length;
+  }
 
-    subscribeOverlay(cb: () => void): () => void {
-      subs.add(cb);
-      return () => {
-        subs.delete(cb);
-      };
-    },
+  function subscribeOverlay(cb: () => void): () => void {
+    subs.add(cb);
+    return () => {
+      subs.delete(cb);
+    };
+  }
 
-    registerOverlay({ close }: { close: Close; scrim?: boolean }): OverlayHandle {
-      const token = ++seq;
-      const z = Z_BASE + stack.length * Z_STEP; // depth = длина стека ДО push
-      stack.push({ token, close });
-      // ADOPT vs PUSH. Normally opening an overlay pushes a synthetic history entry so a
-      // back closes it. But on a BACK-DRIVEN remount (the map sheet survives a property
-      // round-trip and reopens from the survival store), the browser is already SITTING on
-      // the surviving overlay entry — pushing another one there is a programmatic pushState
-      // with NO user gesture, which Chrome's history-manipulation intervention flags
-      // skip-on-back → the next back skips it (and the map) and exits the app. So when this
-      // is the only overlay AND the current entry is already synthetic, ADOPT it (no push);
-      // `position` already matches that entry.
-      const adopt = stack.length === 1 && adapter.onOverlayEntry;
-      if (!adopt) adapter.pushOverlay();
-      notify();
-      return { token, z, close };
-    },
+  function registerOverlay({ close }: { close: Close; scrim?: boolean }): OverlayHandle {
+    const token = ++seq;
+    const z = Z_BASE + stack.length * Z_STEP; // depth = длина стека ДО push
+    stack.push({ token, close });
+    // ADOPT vs PUSH. Normally opening an overlay pushes a synthetic history entry so a
+    // back closes it. But on a BACK-DRIVEN remount (the map sheet survives a property
+    // round-trip and reopens from the survival store), the browser is already SITTING on
+    // the surviving overlay entry — pushing another one there is a programmatic pushState
+    // with NO user gesture, which Chrome's history-manipulation intervention flags
+    // skip-on-back → the next back skips it (and the map) and exits the app. So when this
+    // is the only overlay AND the current entry is already synthetic, ADOPT it (no push);
+    // `position` already matches that entry.
+    const adopt = stack.length === 1 && adapter.onOverlayEntry;
+    if (!adopt) adapter.pushOverlay();
+    notify();
+    return { token, z, close };
+  }
 
-    openOverlay(close: Close): number {
-      return this.registerOverlay({ close }).token;
-    },
+  function openOverlay(close: Close): number {
+    return registerOverlay({ close }).token;
+  }
 
-    closeOverlay(token: number, opts?: { viaBack?: boolean }): void {
-      const i = stack.findIndex((e) => e.token === token);
-      if (i < 0) return; // уже снят (закрыт через back) → no-op, без двойного history.back
-      const wasTop = i === stack.length - 1;
-      stack.splice(i, 1);
-      notify();
-      // Закрыли не через back и это была верхняя → снять синтетическую history-запись.
-      // suppressNextPop гасит вызванный этим popstate, чтобы не закрыть ещё раз.
-      if (!opts?.viaBack && wasTop) {
-        suppressNextPop = true;
-        adapter.goBack();
-      }
-      // Не-верхнее не-back закрытие: history может на шаг разойтись — известное
-      // ограничение (почти все модалки LIFO), не усложняем (YAGNI).
-    },
+  function closeOverlay(token: number, opts?: { viaBack?: boolean }): void {
+    const i = stack.findIndex((e) => e.token === token);
+    if (i < 0) return; // уже снят (закрыт через back) → no-op, без двойного history.back
+    const wasTop = i === stack.length - 1;
+    stack.splice(i, 1);
+    notify();
+    // Закрыли не через back и это была верхняя → снять синтетическую history-запись.
+    // suppressNextPop гасит вызванный этим popstate, чтобы не закрыть ещё раз.
+    if (!opts?.viaBack && wasTop) {
+      suppressNextPop = true;
+      adapter.goBack();
+    }
+    // Не-верхнее не-back закрытие: history может на шаг разойтись — известное
+    // ограничение (почти все модалки LIFO), не усложняем (YAGNI).
+  }
 
-    /** Один раз на клиенте: подключить back-interceptor. SSR — no-op. */
-    initOverlayStack(): void {
-      if (inited || typeof window === 'undefined') return;
-      inited = true;
-      adapter.setBackInterceptor(handleBack);
-    },
-  };
+  /** Один раз на клиенте: подключить back-interceptor. SSR — no-op. */
+  function initOverlayStack(): void {
+    if (inited || typeof window === 'undefined') return;
+    inited = true;
+    adapter.setBackInterceptor(handleBack);
+  }
+
+  return { overlayCount, subscribeOverlay, registerOverlay, openOverlay, closeOverlay, initOverlayStack };
 }
 
 // Default instance for Meteor consumers (browser backend). Preserves the original

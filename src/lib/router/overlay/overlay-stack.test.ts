@@ -6,6 +6,7 @@
 // so opt this file into jsdom to exercise the real init path.
 import { describe, it, expect } from 'vitest';
 import { createOverlayStack } from './overlay-stack';
+import * as overlayStackModule from './overlay-stack';
 import type { HistoryAdapter, Action } from '../history/adapter';
 
 function fakeAdapter() {
@@ -100,6 +101,17 @@ describe('createOverlayStack', () => {
     expect(a.z).toBe(60);
     expect(b.z).toBe(70);
     expect(os.overlayCount()).toBe(2);
+  });
+
+  it('detached module-level openOverlay export works standalone (no `this`)', () => {
+    // The cabinet MessageMenu imports { openOverlay } from 'apartx-ui/router' and calls
+    // it without a receiver. ES modules are strict-mode, so a `this`-based delegation would
+    // throw here. Destructure the module-level exports to exercise that exact shape.
+    const { openOverlay, closeOverlay, overlayCount } = overlayStackModule;
+    const token = openOverlay(() => {}); // must NOT throw
+    expect(typeof token).toBe('number');
+    expect(overlayCount()).toBeGreaterThanOrEqual(1);
+    closeOverlay(token, { viaBack: true }); // cleanup, no real history.back
   });
 
   it('non-top close removes the entry without popping a synthetic history entry', () => {
