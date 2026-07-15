@@ -11,10 +11,20 @@ interface Entry {
   close: Close;
 }
 
+const Z_BASE = 60;
+const Z_STEP = 10;
+
+export interface OverlayHandle {
+  token: number;
+  z: number;
+  close: () => void;
+}
+
 export interface OverlayStack {
   overlayCount(): number;
   subscribeOverlay(cb: () => void): () => void;
-  openOverlay(close: Close): number;
+  registerOverlay(opts: { close: Close; scrim?: boolean }): OverlayHandle;
+  openOverlay(close: Close): number; // back-compat
   closeOverlay(token: number, opts?: { viaBack?: boolean }): void;
   initOverlayStack(): void;
 }
@@ -64,8 +74,9 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
       };
     },
 
-    openOverlay(close: Close): number {
+    registerOverlay({ close }: { close: Close; scrim?: boolean }): OverlayHandle {
       const token = ++seq;
+      const z = Z_BASE + stack.length * Z_STEP; // depth = длина стека ДО push
       stack.push({ token, close });
       // ADOPT vs PUSH. Normally opening an overlay pushes a synthetic history entry so a
       // back closes it. But on a BACK-DRIVEN remount (the map sheet survives a property
@@ -78,7 +89,11 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
       const adopt = stack.length === 1 && adapter.onOverlayEntry;
       if (!adopt) adapter.pushOverlay();
       notify();
-      return token;
+      return { token, z, close };
+    },
+
+    openOverlay(close: Close): number {
+      return this.registerOverlay({ close }).token;
     },
 
     closeOverlay(token: number, opts?: { viaBack?: boolean }): void {

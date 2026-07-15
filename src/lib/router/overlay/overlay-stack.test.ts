@@ -91,6 +91,17 @@ describe('createOverlayStack', () => {
     expect(order).toEqual(['B', 'A']); // LIFO close order
   });
 
+  it('registerOverlay returns depth-based z band (BASE 60, STEP 10)', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const a = os.registerOverlay({ close: () => {} });
+    const b = os.registerOverlay({ close: () => {} });
+    expect(a.z).toBe(60);
+    expect(b.z).toBe(70);
+    expect(os.overlayCount()).toBe(2);
+  });
+
   it('non-top close removes the entry without popping a synthetic history entry', () => {
     const f = fakeAdapter();
     const os = createOverlayStack(f.adapter);
