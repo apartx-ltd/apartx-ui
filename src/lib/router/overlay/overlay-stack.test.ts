@@ -7,6 +7,8 @@
 import { describe, it, expect } from 'vitest';
 import { createOverlayStack } from './overlay-stack';
 import * as overlayStackModule from './overlay-stack';
+import { overlayCount, openOverlay, closeOverlay } from './overlay-stack';
+import { setHistoryAdapter } from '../history/registry';
 import type { HistoryAdapter, Action } from '../history/adapter';
 
 function fakeAdapter() {
@@ -125,5 +127,18 @@ describe('createOverlayStack', () => {
     expect(os.overlayCount()).toBe(1);
     // Non-top non-back close does NOT pop a synthetic entry.
     expect(f.calls.filter((c) => c === 'goBack').length).toBe(goBackBefore);
+  });
+});
+
+describe('default overlay-stack binds to history registry', () => {
+  it('routes pushOverlay through the registered adapter', () => {
+    const f = fakeAdapter();
+    setHistoryAdapter(f.adapter);
+    const token = openOverlay(() => {});
+    expect(f.calls).toContain('pushOverlay');
+    expect(overlayCount()).toBeGreaterThanOrEqual(1);
+    // cleanup
+    closeOverlay(token, { viaBack: true });
+    setHistoryAdapter(null);
   });
 });

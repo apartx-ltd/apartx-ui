@@ -3,7 +3,6 @@
 // Закрытие НЕ через back (бэкдроп/Escape/X/программно) снимает лишнюю history-запись
 // одним guard'ованным history.back(). Идемпотентно: токен уже снят → no-op.
 import type { HistoryAdapter } from '../history/adapter';
-import { browserHistoryAdapter } from '../history/browser';
 
 type Close = () => void;
 interface Entry {
@@ -121,11 +120,23 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
   return { overlayCount, subscribeOverlay, registerOverlay, openOverlay, closeOverlay, initOverlayStack };
 }
 
-// Default instance for Meteor consumers (browser backend). Preserves the original
-// module-level API so spaces only changes the import path.
-const browserStack = createOverlayStack(browserHistoryAdapter);
-export const overlayCount = browserStack.overlayCount;
-export const subscribeOverlay = browserStack.subscribeOverlay;
-export const openOverlay = browserStack.openOverlay;
-export const closeOverlay = browserStack.closeOverlay;
-export const initOverlayStack = browserStack.initOverlayStack;
+// Default instance for kit consumers. Reads the ACTIVE history adapter from the
+// registry lazily (per call), so overlay-back shares the SAME backend the router
+// uses (SvelteKit/Meteor/browser) instead of the import-time hardcoded browser one.
+import { getHistory } from '../history/registry';
+
+const lazyAdapter: HistoryAdapter = new Proxy({} as HistoryAdapter, {
+  get(_t, prop) {
+    const a = getHistory() as any;
+    const v = a[prop];
+    return typeof v === 'function' ? v.bind(a) : v;
+  },
+});
+
+const defaultStack = createOverlayStack(lazyAdapter);
+export const overlayCount = defaultStack.overlayCount;
+export const subscribeOverlay = defaultStack.subscribeOverlay;
+export const registerOverlay = defaultStack.registerOverlay;
+export const openOverlay = defaultStack.openOverlay;
+export const closeOverlay = defaultStack.closeOverlay;
+export const initOverlayStack = defaultStack.initOverlayStack;

@@ -23,8 +23,8 @@ export { setHistoryAdapter, getHistory } from './history/registry';
 
 // Overlay
 export {
-  createOverlayStack, type OverlayStack,
-  overlayCount, subscribeOverlay, openOverlay, closeOverlay, initOverlayStack,
+  createOverlayStack, type OverlayStack, type OverlayHandle,
+  overlayCount, subscribeOverlay, registerOverlay, openOverlay, closeOverlay, initOverlayStack,
 } from './overlay/overlay-stack';
 
 // Navigator binding
