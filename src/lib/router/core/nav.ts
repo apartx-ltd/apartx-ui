@@ -1,9 +1,25 @@
 import { getHistory } from '../history/registry';
+import { overlayCount, dismissForNavigation } from '../overlay/overlay-stack';
 
-/** Программная SPA-навигация (по умолчанию push; replace по опции). */
-export function navigate(to: string, opts?: { replace?: boolean }): void {
-  if (opts?.replace) getHistory().replace(to);
-  else getHistory().push(to);
+/** Программная SPA-навигация. При открытых оверлеях (и без keepOverlays) закрывает их
+ *  (флип open=false, без history.back) и заменяет верхнюю синтетическую overlay-запись
+ *  назначением (вариант A): оверлей исчезает, одинарный back возвращает на исходный
+ *  экран. keepOverlays=true — push ПОД оверлеем (restore-on-back, напр. шторка карты). */
+export function navigate(
+  to: string,
+  opts?: { replace?: boolean; keepOverlays?: boolean },
+): void {
+  const h = getHistory();
+  // replace-with-open-overlay не поддерживается: перезапишет синтетическую запись, но
+  // оставит оверлей в стеке (следующий back закроет фантом). На практике replace зовут
+  // без открытых оверлеев (data-replace ссылки на страницах). Вариант A — ниже.
+  if (opts?.replace) { h.replace(to); return; }
+  if (!opts?.keepOverlays && overlayCount() > 0) {
+    dismissForNavigation();
+    h.replace(to, { action: 'forward' });
+    return;
+  }
+  h.push(to);
 }
 
 function shouldHandle(e: MouseEvent, target: string | null): boolean {

@@ -6,6 +6,9 @@
 // so opt this file into jsdom to exercise the real init path.
 import { describe, it, expect } from 'vitest';
 import { createOverlayStack } from './overlay-stack';
+import * as overlayStackModule from './overlay-stack';
+import { overlayCount, openOverlay, closeOverlay } from './overlay-stack';
+import { setHistoryAdapter } from '../history/registry';
 import type { HistoryAdapter, Action } from '../history/adapter';
 
 function fakeAdapter() {
@@ -34,6 +37,18 @@ describe('createOverlayStack', () => {
     expect(f.calls).toContain('pushOverlay');
     expect(os.overlayCount()).toBe(1);
     expect(f.fireBack()).toBe(true); // consumed
+    expect(closed).toBe(true);
+    expect(os.overlayCount()).toBe(0);
+  });
+
+  it('registerOverlay lazily self-installs the back-interceptor (no explicit initOverlayStack)', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    // NOTE: intentionally NOT calling os.initOverlayStack() here.
+    let closed = false;
+    os.registerOverlay({ close: () => { closed = true; } });
+    // The interceptor must be installed, so a back is consumed and closes the overlay.
+    expect(f.fireBack()).toBe(true);
     expect(closed).toBe(true);
     expect(os.overlayCount()).toBe(0);
   });
@@ -91,6 +106,28 @@ describe('createOverlayStack', () => {
     expect(order).toEqual(['B', 'A']); // LIFO close order
   });
 
+  it('registerOverlay returns depth-based z band (BASE 60, STEP 10)', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const a = os.registerOverlay({ close: () => {} });
+    const b = os.registerOverlay({ close: () => {} });
+    expect(a.z).toBe(60);
+    expect(b.z).toBe(70);
+    expect(os.overlayCount()).toBe(2);
+  });
+
+  it('detached module-level openOverlay export works standalone (no `this`)', () => {
+    // The cabinet MessageMenu imports { openOverlay } from 'apartx-ui/router' and calls
+    // it without a receiver. ES modules are strict-mode, so a `this`-based delegation would
+    // throw here. Destructure the module-level exports to exercise that exact shape.
+    const { openOverlay, closeOverlay, overlayCount } = overlayStackModule;
+    const token = openOverlay(() => {}); // must NOT throw
+    expect(typeof token).toBe('number');
+    expect(overlayCount()).toBeGreaterThanOrEqual(1);
+    closeOverlay(token, { viaBack: true }); // cleanup, no real history.back
+  });
+
   it('non-top close removes the entry without popping a synthetic history entry', () => {
     const f = fakeAdapter();
     const os = createOverlayStack(f.adapter);
@@ -102,5 +139,18 @@ describe('createOverlayStack', () => {
     expect(os.overlayCount()).toBe(1);
     // Non-top non-back close does NOT pop a synthetic entry.
     expect(f.calls.filter((c) => c === 'goBack').length).toBe(goBackBefore);
+  });
+});
+
+describe('default overlay-stack binds to history registry', () => {
+  it('routes pushOverlay through the registered adapter', () => {
+    const f = fakeAdapter();
+    setHistoryAdapter(f.adapter);
+    const token = openOverlay(() => {});
+    expect(f.calls).toContain('pushOverlay');
+    expect(overlayCount()).toBeGreaterThanOrEqual(1);
+    // cleanup
+    closeOverlay(token, { viaBack: true });
+    setHistoryAdapter(null);
   });
 });

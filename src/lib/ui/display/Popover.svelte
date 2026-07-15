@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Popover as BitsPopover } from 'bits-ui';
   import { cn } from '../utils/cn';
+  import { useOverlay } from '../../hooks/useOverlay.svelte';
 
   /**
    * Universal popover — a floating surface anchored to a trigger.
@@ -13,10 +14,11 @@
    * floating-ui virtual `{ getBoundingClientRect() }`) — e.g. to anchor at a
    * cursor point on a canvas. `customAnchor` flows through to bits-ui Content.
    *
-   * `portal`: by default the content renders inline. Set `portal` (true → body,
-   * or a target element/selector) to portal the content out — required when an
-   * ancestor establishes a stacking context / transform containing block (e.g. a
-   * `<PageTransition>` layer) that would otherwise trap the fixed surface.
+   * `portal`: by default the content portals to `<body>` (escapes any clipping /
+   * transform-containing-block ancestor — e.g. a `<PageTransition>` layer or a
+   * scroll container inside a modal — that would otherwise trap the fixed surface).
+   * Pass `portal={false}` to render inline (hover popovers with no scrim), or a
+   * target element/selector to portal elsewhere.
    *
    * `modal`: render a transparent full-screen scrim under the content that closes
    * the popover on click AND blocks the click from reaching whatever is behind
@@ -52,8 +54,9 @@
     align = 'center',
     sideOffset = 4,
     trapFocus = true,
-    portal = false,
+    portal = true,
     modal = false,
+    respectBack = true,
     fitViewport = false,
     customAnchor,
     triggerClass,
@@ -70,6 +73,7 @@
     trapFocus?: boolean;
     portal?: boolean | Element | string;
     modal?: boolean;
+    respectBack?: boolean;
     fitViewport?: boolean;
     customAnchor?: Element | string | { getBoundingClientRect: () => DOMRect } | null;
     triggerClass?: string;
@@ -83,6 +87,10 @@
   // <body> (or the given target).
   const portalDisabled = $derived(portal === false || portal == null);
   const portalTo = $derived(typeof portal === 'boolean' ? undefined : portal);
+
+  // Modal popovers (with a scrim) are click-overlays: browser/native BACK closes them.
+  // Hover popovers (no scrim) do NOT participate. respectBack opts out entirely.
+  const overlay = useOverlay(() => open, () => { open = false; }, { respectBack: respectBack && modal });
 
   // --- fitViewport: re-anchor a tall, overflowing surface to the bottom edge ---
   const VIEWPORT_MARGIN = 8;

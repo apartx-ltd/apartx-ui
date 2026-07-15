@@ -8,6 +8,7 @@
   import Icon from '../display/Icon.svelte';
   import { faCalendar, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
   import { getOverlayLayer } from '../overlays/layer-context';
+  import { useOverlay } from '../../hooks/useOverlay.svelte';
 
   type RangeStr = { start: string; end: string };
   type DateRange = { start: DateValue | undefined; end: DateValue | undefined };
@@ -21,6 +22,7 @@
     minValue,
     maxValue,
     numberOfMonths = 2,
+    respectBack = true,
     class: className,
   }: {
     value?: RangeStr;
@@ -31,6 +33,7 @@
     minValue?: string;
     maxValue?: string;
     numberOfMonths?: number;
+    respectBack?: boolean;
     class?: string;
   } = $props();
 
@@ -67,11 +70,16 @@
 
   let minDV = $derived(safeParse(minValue));
   let maxDV = $derived(safeParse(maxValue));
+
+  let open = $state(false);
+
+  useOverlay(() => open, () => { open = false; }, { respectBack });
 </script>
 
 <div class={cn('flex flex-col gap-1', className)}>
   <BitsRange.Root
     bind:value={range}
+    bind:open
     onValueChange={onRangeChange}
     {disabled}
     {numberOfMonths}

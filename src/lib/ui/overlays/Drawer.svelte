@@ -1,12 +1,16 @@
 <script>
   import { cn } from '../utils/cn';
   import { overlayFade, sheet } from '../utils/motion';
+  import { useOverlay } from '../../hooks/useOverlay.svelte';
 
   let {
     children,
     open = $bindable(false),
     side = 'right',
     onclose,
+    // Participate in overlay-back by default (browser/native BACK closes the drawer,
+    // same exit as a scrim tap / Escape). Opt out with false.
+    respectBack = true,
     class: className,
     ...restProps
   } = $props();
@@ -15,6 +19,11 @@
     open = false;
     onclose?.();
   }
+
+  // Mirror `open` into the overlay-stack so a browser/native BACK routes through the
+  // same `close()` (open=false + onclose) as a scrim tap / Escape. Leaves the
+  // transition/positioning untouched; the drawer keeps its own z-50.
+  const overlay = useOverlay(() => open, close, { respectBack });
 
   function handleKeydown(e) {
     if (e.key === 'Escape') close();

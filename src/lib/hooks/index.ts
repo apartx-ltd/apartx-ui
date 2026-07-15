@@ -6,3 +6,4 @@ export { useNotification } from './useNotification.svelte';
 export { useSearchQuery } from './useSearchQuery.svelte';
 export { longpress } from './useLongPress.svelte';
 export type { LongPressOpts } from './useLongPress.svelte';
+export { useOverlay, type UseOverlay } from './useOverlay.svelte';

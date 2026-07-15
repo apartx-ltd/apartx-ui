@@ -28,6 +28,15 @@ export function setOverlayLayer(layer: OverlayLayer): void {
   setContext(OVERLAY_LAYER_KEY, layer);
 }
 
+/** Опубликовать z текущего оверлея потомкам (вложенным порталам). Reactive-геттер.
+ *  Fallback 60 (не 0): если у оверлея ещё/уже нет своего z (напр. standalone Dialog
+ *  с respectBack={false}, или первый кадр до регистрации), вложенный дропдаун берёт
+ *  z+2 = 62 — выше дефолтного контента диалога (z-50), а не за ним. Совпадает с
+ *  fallback'ом самих дропдаунов (Select/Combobox `: 60`). */
+export function provideOverlayZ(getZ: () => number | undefined): void {
+  setContext(OVERLAY_LAYER_KEY, { get z() { return getZ() ?? 60; } });
+}
+
 /** Read the injected overlay layer, if any. `undefined` ⇒ use default z classes. */
 export function getOverlayLayer(): OverlayLayer | undefined {
   return getContext<OverlayLayer | undefined>(OVERLAY_LAYER_KEY);

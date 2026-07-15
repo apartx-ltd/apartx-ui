@@ -3,7 +3,6 @@
 // Закрытие НЕ через back (бэкдроп/Escape/X/программно) снимает лишнюю history-запись
 // одним guard'ованным history.back(). Идемпотентно: токен уже снят → no-op.
 import type { HistoryAdapter } from '../history/adapter';
-import { browserHistoryAdapter } from '../history/browser';
 
 type Close = () => void;
 interface Entry {
@@ -11,11 +10,22 @@ interface Entry {
   close: Close;
 }
 
+const Z_BASE = 60;
+const Z_STEP = 10;
+
+export interface OverlayHandle {
+  token: number;
+  z: number;
+  close: () => void;
+}
+
 export interface OverlayStack {
   overlayCount(): number;
   subscribeOverlay(cb: () => void): () => void;
-  openOverlay(close: Close): number;
+  registerOverlay(opts: { close: Close; scrim?: boolean }): OverlayHandle;
+  openOverlay(close: Close): number; // back-compat
   closeOverlay(token: number, opts?: { viaBack?: boolean }): void;
+  dismissForNavigation(): void;
   initOverlayStack(): void;
 }
 
@@ -52,65 +62,93 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     return true;
   }
 
-  return {
-    overlayCount(): number {
-      return stack.length;
-    },
+  function overlayCount(): number {
+    return stack.length;
+  }
 
-    subscribeOverlay(cb: () => void): () => void {
-      subs.add(cb);
-      return () => {
-        subs.delete(cb);
-      };
-    },
+  function subscribeOverlay(cb: () => void): () => void {
+    subs.add(cb);
+    return () => {
+      subs.delete(cb);
+    };
+  }
 
-    openOverlay(close: Close): number {
-      const token = ++seq;
-      stack.push({ token, close });
-      // ADOPT vs PUSH. Normally opening an overlay pushes a synthetic history entry so a
-      // back closes it. But on a BACK-DRIVEN remount (the map sheet survives a property
-      // round-trip and reopens from the survival store), the browser is already SITTING on
-      // the surviving overlay entry — pushing another one there is a programmatic pushState
-      // with NO user gesture, which Chrome's history-manipulation intervention flags
-      // skip-on-back → the next back skips it (and the map) and exits the app. So when this
-      // is the only overlay AND the current entry is already synthetic, ADOPT it (no push);
-      // `position` already matches that entry.
-      const adopt = stack.length === 1 && adapter.onOverlayEntry;
-      if (!adopt) adapter.pushOverlay();
-      notify();
-      return token;
-    },
+  function registerOverlay({ close }: { close: Close; scrim?: boolean }): OverlayHandle {
+    initOverlayStack(); // idempotent, SSR no-op — guarantees the back-interceptor is installed
+    const token = ++seq;
+    const z = Z_BASE + stack.length * Z_STEP; // depth = длина стека ДО push
+    stack.push({ token, close });
+    // ADOPT vs PUSH. Normally opening an overlay pushes a synthetic history entry so a
+    // back closes it. But on a BACK-DRIVEN remount (the map sheet survives a property
+    // round-trip and reopens from the survival store), the browser is already SITTING on
+    // the surviving overlay entry — pushing another one there is a programmatic pushState
+    // with NO user gesture, which Chrome's history-manipulation intervention flags
+    // skip-on-back → the next back skips it (and the map) and exits the app. So when this
+    // is the only overlay AND the current entry is already synthetic, ADOPT it (no push);
+    // `position` already matches that entry.
+    const adopt = stack.length === 1 && adapter.onOverlayEntry;
+    if (!adopt) adapter.pushOverlay();
+    notify();
+    return { token, z, close };
+  }
 
-    closeOverlay(token: number, opts?: { viaBack?: boolean }): void {
-      const i = stack.findIndex((e) => e.token === token);
-      if (i < 0) return; // уже снят (закрыт через back) → no-op, без двойного history.back
-      const wasTop = i === stack.length - 1;
-      stack.splice(i, 1);
-      notify();
-      // Закрыли не через back и это была верхняя → снять синтетическую history-запись.
-      // suppressNextPop гасит вызванный этим popstate, чтобы не закрыть ещё раз.
-      if (!opts?.viaBack && wasTop) {
-        suppressNextPop = true;
-        adapter.goBack();
-      }
-      // Не-верхнее не-back закрытие: history может на шаг разойтись — известное
-      // ограничение (почти все модалки LIFO), не усложняем (YAGNI).
-    },
+  function openOverlay(close: Close): number {
+    return registerOverlay({ close }).token;
+  }
 
-    /** Один раз на клиенте: подключить back-interceptor. SSR — no-op. */
-    initOverlayStack(): void {
-      if (inited || typeof window === 'undefined') return;
-      inited = true;
-      adapter.setBackInterceptor(handleBack);
-    },
-  };
+  function closeOverlay(token: number, opts?: { viaBack?: boolean }): void {
+    const i = stack.findIndex((e) => e.token === token);
+    if (i < 0) return; // уже снят (закрыт через back) → no-op, без двойного history.back
+    const wasTop = i === stack.length - 1;
+    stack.splice(i, 1);
+    notify();
+    // Закрыли не через back и это была верхняя → снять синтетическую history-запись.
+    // suppressNextPop гасит вызванный этим popstate, чтобы не закрыть ещё раз.
+    if (!opts?.viaBack && wasTop) {
+      suppressNextPop = true;
+      adapter.goBack();
+    }
+    // Не-верхнее не-back закрытие: history может на шаг разойтись — известное
+    // ограничение (почти все модалки LIFO), не усложняем (YAGNI).
+  }
+
+  function dismissForNavigation(): void {
+    const entries = stack.splice(0, stack.length); // очистить логический стек
+    notify();
+    // close() флипает open=false → useOverlay-effect позовёт closeOverlay(token),
+    // но токен уже снят → no-op (без лишнего history.back). replace съест верхнюю
+    // синтетическую запись; для k>1 нижние k-1 остаются (YAGNI, как non-top закрытия).
+    for (let i = entries.length - 1; i >= 0; i--) entries[i].close();
+  }
+
+  /** Один раз на клиенте: подключить back-interceptor. SSR — no-op. */
+  function initOverlayStack(): void {
+    if (inited || typeof window === 'undefined') return;
+    inited = true;
+    adapter.setBackInterceptor(handleBack);
+  }
+
+  return { overlayCount, subscribeOverlay, registerOverlay, openOverlay, closeOverlay, dismissForNavigation, initOverlayStack };
 }
 
-// Default instance for Meteor consumers (browser backend). Preserves the original
-// module-level API so spaces only changes the import path.
-const browserStack = createOverlayStack(browserHistoryAdapter);
-export const overlayCount = browserStack.overlayCount;
-export const subscribeOverlay = browserStack.subscribeOverlay;
-export const openOverlay = browserStack.openOverlay;
-export const closeOverlay = browserStack.closeOverlay;
-export const initOverlayStack = browserStack.initOverlayStack;
+// Default instance for kit consumers. Reads the ACTIVE history adapter from the
+// registry lazily (per call), so overlay-back shares the SAME backend the router
+// uses (SvelteKit/Meteor/browser) instead of the import-time hardcoded browser one.
+import { getHistory } from '../history/registry';
+
+const lazyAdapter: HistoryAdapter = new Proxy({} as HistoryAdapter, {
+  get(_t, prop) {
+    const a = getHistory() as any;
+    const v = a[prop];
+    return typeof v === 'function' ? v.bind(a) : v;
+  },
+});
+
+const defaultStack = createOverlayStack(lazyAdapter);
+export const overlayCount = defaultStack.overlayCount;
+export const subscribeOverlay = defaultStack.subscribeOverlay;
+export const registerOverlay = defaultStack.registerOverlay;
+export const openOverlay = defaultStack.openOverlay;
+export const closeOverlay = defaultStack.closeOverlay;
+export const dismissForNavigation = defaultStack.dismissForNavigation;
+export const initOverlayStack = defaultStack.initOverlayStack;

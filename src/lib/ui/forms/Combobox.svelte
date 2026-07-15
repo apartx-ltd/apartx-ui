@@ -4,6 +4,7 @@
   import Icon from '../display/Icon.svelte';
   import { faChevronDown, faPlus } from '@fortawesome/free-solid-svg-icons';
   import { getOverlayLayer } from '../overlays/layer-context';
+  import { useOverlay } from '../../hooks/useOverlay.svelte';
 
   // The dropdown portals to <body> at z-50 by default — fine standalone, but when
   // this combobox lives inside a layered overlay (modal registry's <Dialog>, which
@@ -31,6 +32,7 @@
     creatable = false,
     createLabel = 'Create',
     emptyText = 'No results',
+    respectBack = true,
     onValueChange,
     class: className,
     ...restProps
@@ -45,6 +47,7 @@
     creatable?: boolean;
     createLabel?: string;
     emptyText?: string;
+    respectBack?: boolean;
     onValueChange?: (v: string) => void;
     class?: string;
     [key: string]: any;
@@ -52,6 +55,8 @@
 
   let search = $state('');
   let open = $state(false);
+
+  useOverlay(() => open, () => { open = false; }, { respectBack });
 
   let filtered = $derived(
     search
@@ -87,10 +92,11 @@
   <BitsCombobox.Root
     type="single"
     bind:value
+    bind:open
     {disabled}
     {onValueChange}
     inputValue={displayValue}
-    onOpenChange={(o) => { open = o; search = ''; }}
+    onOpenChange={() => { search = ''; }}
     {...restProps}
   >
     <div
