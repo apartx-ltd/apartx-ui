@@ -11,8 +11,9 @@
 
   // Install the single overlay back-interceptor once on the client (idempotent,
   // SSR-safe). This is what makes a browser/native BACK close the topmost open
-  // modal (registered per-instance in registry `open()`) instead of navigating
-  // the page. Mounting <ModalOutlet> at the app root is the host's opt-in.
+  // modal (each Dialog self-registers via useOverlay/registerOverlay) instead of
+  // navigating the page. Now also лениво самоставится на первом registerOverlay,
+  // так что этот вызов — оптимизация/явный opt-in, а не обязателен.
   onMount(() => {
     initOverlayStack();
   });
