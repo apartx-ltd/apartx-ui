@@ -90,7 +90,9 @@
 
   // Modal popovers (with a scrim) are click-overlays: browser/native BACK closes them.
   // Hover popovers (no scrim) do NOT participate. respectBack opts out entirely.
-  const overlay = useOverlay(() => open, () => { open = false; }, { respectBack: respectBack && modal });
+  // exitMs 120 = popOut (styles/animations.css) — overlay-aware navigate ждёт столько, чтобы
+  // уходящая анимация меню проиграла до смены роута, а не мигала при открытии страницы.
+  const overlay = useOverlay(() => open, () => { open = false; }, { respectBack: respectBack && modal, exitMs: 120 });
 
   // --- fitViewport: re-anchor a tall, overflowing surface to the bottom edge ---
   const VIEWPORT_MARGIN = 8;

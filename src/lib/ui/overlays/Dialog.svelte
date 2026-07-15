@@ -73,7 +73,9 @@
   // still register even under a layer (no double-registration risk), and only defer the
   // z number to the layer.
   const layer = getOverlayLayer();
-  const overlay = useOverlay(() => open, () => { open = false; }, { respectBack });
+  // exitMs = длительность contentTransition (motion.ts: sheet 260 / dialogPop 220) — overlay-aware
+  // navigate ждёт столько, чтобы уходящая анимация диалога проиграла до смены роута.
+  const overlay = useOverlay(() => open, () => { open = false; }, { respectBack, exitMs: fullScreen ? 260 : 220 });
   const zBand = $derived(layer ? layer.z : overlay.z);
   const scrimZ = $derived(zBand != null ? `z-index:${zBand};` : '');
   const contentZ = $derived(zBand != null ? `z-index:${zBand + 1};` : '');

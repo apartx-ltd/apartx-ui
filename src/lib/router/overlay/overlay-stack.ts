@@ -8,10 +8,16 @@ type Close = () => void;
 interface Entry {
   token: number;
   close: Close;
+  exitMs: number;
 }
 
 const Z_BASE = 60;
 const Z_STEP = 10;
+// Fallback close-animation duration (ms) for overlays that don't declare one. Overlays with a
+// known exit (Popover 120, Dialog 220 / sheet 260 — see ui/utils/motion.ts) pass their own via
+// registerOverlay/useOverlay; dismissForNavigation waits the longest so variant-A navigation
+// doesn't tear a still-animating overlay off the page.
+const DEFAULT_EXIT_MS = 200;
 
 export interface OverlayHandle {
   token: number;
@@ -22,10 +28,12 @@ export interface OverlayHandle {
 export interface OverlayStack {
   overlayCount(): number;
   subscribeOverlay(cb: () => void): () => void;
-  registerOverlay(opts: { close: Close; scrim?: boolean }): OverlayHandle;
+  registerOverlay(opts: { close: Close; scrim?: boolean; exitMs?: number }): OverlayHandle;
   openOverlay(close: Close): number; // back-compat
   closeOverlay(token: number, opts?: { viaBack?: boolean }): void;
-  dismissForNavigation(): void;
+  /** Закрывает все оверлеи для навигации; возвращает max exit-длительность (ms) — сколько
+   *  подождать перед сменой роута, чтобы уходящая анимация успела проиграть (0 = стек пуст). */
+  dismissForNavigation(): number;
   initOverlayStack(): void;
 }
 
@@ -73,11 +81,11 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     };
   }
 
-  function registerOverlay({ close }: { close: Close; scrim?: boolean }): OverlayHandle {
+  function registerOverlay({ close, exitMs }: { close: Close; scrim?: boolean; exitMs?: number }): OverlayHandle {
     initOverlayStack(); // idempotent, SSR no-op — guarantees the back-interceptor is installed
     const token = ++seq;
     const z = Z_BASE + stack.length * Z_STEP; // depth = длина стека ДО push
-    stack.push({ token, close });
+    stack.push({ token, close, exitMs: exitMs ?? DEFAULT_EXIT_MS });
     // ADOPT vs PUSH. Normally opening an overlay pushes a synthetic history entry so a
     // back closes it. But on a BACK-DRIVEN remount (the map sheet survives a property
     // round-trip and reopens from the survival store), the browser is already SITTING on
@@ -112,13 +120,18 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     // ограничение (почти все модалки LIFO), не усложняем (YAGNI).
   }
 
-  function dismissForNavigation(): void {
+  function dismissForNavigation(): number {
     const entries = stack.splice(0, stack.length); // очистить логический стек
     notify();
     // close() флипает open=false → useOverlay-effect позовёт closeOverlay(token),
     // но токен уже снят → no-op (без лишнего history.back). replace съест верхнюю
     // синтетическую запись; для k>1 нижние k-1 остаются (YAGNI, как non-top закрытия).
-    for (let i = entries.length - 1; i >= 0; i--) entries[i].close();
+    let wait = 0;
+    for (let i = entries.length - 1; i >= 0; i--) {
+      if (entries[i].exitMs > wait) wait = entries[i].exitMs;
+      entries[i].close();
+    }
+    return wait;
   }
 
   /** Один раз на клиенте: подключить back-interceptor. SSR — no-op. */

@@ -15,8 +15,19 @@ export function navigate(
   // без открытых оверлеев (data-replace ссылки на страницах). Вариант A — ниже.
   if (opts?.replace) { h.replace(to); return; }
   if (!opts?.keepOverlays && overlayCount() > 0) {
-    dismissForNavigation();
-    h.replace(to, { action: 'forward' });
+    const wait = dismissForNavigation();
+    // Дать уходящей анимации оверлея проиграть перед сменой роута: синхронный replace
+    // уносит хостовую страницу (и оверлей) на полукадре — оверлей просто мигает. Ждём одну
+    // exit-длительность, затем replace (съедает верхнюю синтетическую запись). При
+    // reduced-motion анимации уже 0ms → навигируем сразу, без искусственной задержки.
+    const reduce =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (wait > 0 && !reduce) {
+      setTimeout(() => h.replace(to, { action: 'forward' }), wait);
+    } else {
+      h.replace(to, { action: 'forward' });
+    }
     return;
   }
   h.push(to);

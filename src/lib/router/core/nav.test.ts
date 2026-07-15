@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { navigate } from './nav';
 import { setHistoryAdapter } from '../history/registry';
 import { registerOverlay, dismissForNavigation } from '../overlay/overlay-stack';
@@ -22,8 +22,8 @@ function fakeAdapter() {
 }
 
 describe('overlay-aware navigate', () => {
-  beforeEach(() => setHistoryAdapter(null));
-  afterEach(() => dismissForNavigation());
+  beforeEach(() => { vi.useFakeTimers(); setHistoryAdapter(null); });
+  afterEach(() => { dismissForNavigation(); vi.runAllTimers(); vi.useRealTimers(); });
 
   it('no overlays -> plain push', () => {
     const f = fakeAdapter();
@@ -37,9 +37,13 @@ describe('overlay-aware navigate', () => {
     const f = fakeAdapter();
     setHistoryAdapter(f.adapter);
     let closed = false;
-    registerOverlay({ close: () => { closed = true; } }); // pushOverlay
+    registerOverlay({ close: () => { closed = true; }, exitMs: 120 }); // pushOverlay
     navigate('/booking/1');
+    // Overlay closes synchronously; the route swap is HELD for the exit-animation window so the
+    // overlay can animate out (not blink away) before its host page unmounts.
     expect(closed).toBe(true);
+    expect(f.calls).not.toContain('replace:/booking/1:forward');
+    vi.advanceTimersByTime(120);
     expect(f.calls).toContain('replace:/booking/1:forward');
     expect(f.calls).not.toContain('push:/booking/1');
     setHistoryAdapter(null);
