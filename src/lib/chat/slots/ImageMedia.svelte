@@ -4,9 +4,14 @@
   // padding for full-bleed types and the bubble's overflow-hidden clips the corners, so this fills
   // the whole bubble. `openLightbox` is injected via the kit slot context (host) — clicking a loaded
   // image opens the shared lightbox; absent → opens in a new tab.
+  import { createMediaTapGuard } from '../helpers';
+
   let { message, openLightbox } = $props();
 
   const MAX = 300;
+
+  // Tap opens the lightbox; long-press / right-click opens the message menu — never both.
+  const tapGuard = createMediaTapGuard(() => openLightbox(url));
 
   let isVideo = $derived((message.type || '').indexOf('video') > -1);
   // "Sending" covers BOTH paths: kit-optimistic sends (session.sendMedia → sendState) and any legacy
@@ -43,11 +48,11 @@
   {:else if url}
     {@const imgClass = `w-full h-full object-cover ${message.sendState === 'sending' ? 'opacity-60' : ''}`}
     {#if openLightbox && message.sendState !== 'sending'}
-      <button type="button" class="block w-full h-full cursor-zoom-in" onclick={(e) => { e.stopPropagation(); openLightbox(url); }} aria-label="View image">
+      <button type="button" class="block w-full h-full cursor-zoom-in" onpointerdown={tapGuard.onpointerdown} oncontextmenu={tapGuard.oncontextmenu} onclick={tapGuard.onclick} aria-label="View image">
         <img src={url} alt="" class={imgClass} />
       </button>
     {:else}
-      <a href={message.meta?.file?.url ?? url} target="_blank" rel="noopener" class="block w-full h-full" onclick={(e) => e.stopPropagation()}>
+      <a href={message.meta?.file?.url ?? url} target="_blank" rel="noopener" class="block w-full h-full" onclick={(e) => e.stopPropagation()} oncontextmenu={(e) => e.preventDefault()}>
         <img src={url} alt="" class={imgClass} />
       </a>
     {/if}

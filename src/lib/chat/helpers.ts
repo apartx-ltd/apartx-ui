@@ -11,6 +11,39 @@ export function isFullBleedMedia(type?: string): boolean {
   return type === 'image' || type === 'video' || type.indexOf('image') > -1 || type.indexOf('video') > -1;
 }
 
+/**
+ * A press on chat media must trigger EITHER the media viewer (a tap / left-click) OR the message
+ * context menu (a long-press / right-click) — never both. The kit opens the menu from the message
+ * bubble's `oncontextmenu`; on a touch long-press the browser ALSO emits a trailing `click`, which
+ * would open the viewer on top of the menu (the double-open bug — `stopPropagation` on the media's
+ * `onclick` can't touch the separate `contextmenu` event). Spread these handlers onto the media
+ * element: `oncontextmenu` keeps bubbling so the message menu still opens (only the native browser
+ * menu is suppressed) and arms a flag; the trailing `onclick` is then swallowed so the viewer stays
+ * shut. A plain tap — no preceding contextmenu — opens the viewer. `onclick` always stops
+ * propagation so a media tap never reaches the row's tap-to-menu target either.
+ */
+export function createMediaTapGuard(openViewer: () => void) {
+  let menuArmed = false;
+  return {
+    onpointerdown: () => {
+      menuArmed = false; // a fresh gesture — disarm
+    },
+    oncontextmenu: (e: Event) => {
+      e.preventDefault(); // suppress the native browser menu; keep bubbling → message menu
+      menuArmed = true;
+    },
+    onclick: (e: Event) => {
+      e.stopPropagation(); // a media tap never reaches the row's tap-to-menu target
+      if (menuArmed) {
+        menuArmed = false;
+        e.preventDefault(); // trailing click of a long-press → menu already opened, don't also open the viewer
+        return;
+      }
+      openViewer();
+    },
+  };
+}
+
 /** True if anyone OTHER than me has read the message (legacy read[] / boolean). */
 export function isReadByOther(message: Message, meUserId?: string): boolean {
   const read = message.read;

@@ -9,7 +9,7 @@
   // viewerjs-backed Lightbox, whose static `viewerjs/dist/viewer.css` import would otherwise be
   // dragged into every chat bundle. VideoLightbox itself lazy-loads media-chrome, so it's cheap.
   import VideoLightbox from '../../lightbox/VideoLightbox.svelte';
-  import { formatDuration } from '../helpers';
+  import { formatDuration, createMediaTapGuard } from '../helpers';
 
   let { message } = $props();
 
@@ -33,6 +33,9 @@
 
   let open = $state(false);
   const canPlay = $derived(!!url && !sending);
+
+  // Tap opens the player; long-press / right-click opens the message menu — never both.
+  const tapGuard = createMediaTapGuard(() => { open = true; });
 </script>
 
 <!-- Unknown dimensions still get a FIXED box (16:9, poster covers) — an intrinsic-height fallback
@@ -49,7 +52,9 @@
   {#if canPlay}
     <button
       type="button"
-      onclick={(e) => { e.stopPropagation(); open = true; }}
+      onpointerdown={tapGuard.onpointerdown}
+      oncontextmenu={tapGuard.oncontextmenu}
+      onclick={tapGuard.onclick}
       class="absolute inset-0 grid place-items-center"
       aria-label="Play video"
     >
