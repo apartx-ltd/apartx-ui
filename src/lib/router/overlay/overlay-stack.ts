@@ -25,6 +25,7 @@ export interface OverlayStack {
   registerOverlay(opts: { close: Close; scrim?: boolean }): OverlayHandle;
   openOverlay(close: Close): number; // back-compat
   closeOverlay(token: number, opts?: { viaBack?: boolean }): void;
+  dismissForNavigation(): void;
   initOverlayStack(): void;
 }
 
@@ -110,6 +111,15 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     // ограничение (почти все модалки LIFO), не усложняем (YAGNI).
   }
 
+  function dismissForNavigation(): void {
+    const entries = stack.splice(0, stack.length); // очистить логический стек
+    notify();
+    // close() флипает open=false → useOverlay-effect позовёт closeOverlay(token),
+    // но токен уже снят → no-op (без лишнего history.back). replace съест верхнюю
+    // синтетическую запись; для k>1 нижние k-1 остаются (YAGNI, как non-top закрытия).
+    for (let i = entries.length - 1; i >= 0; i--) entries[i].close();
+  }
+
   /** Один раз на клиенте: подключить back-interceptor. SSR — no-op. */
   function initOverlayStack(): void {
     if (inited || typeof window === 'undefined') return;
@@ -117,7 +127,7 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     adapter.setBackInterceptor(handleBack);
   }
 
-  return { overlayCount, subscribeOverlay, registerOverlay, openOverlay, closeOverlay, initOverlayStack };
+  return { overlayCount, subscribeOverlay, registerOverlay, openOverlay, closeOverlay, dismissForNavigation, initOverlayStack };
 }
 
 // Default instance for kit consumers. Reads the ACTIVE history adapter from the
@@ -139,4 +149,5 @@ export const subscribeOverlay = defaultStack.subscribeOverlay;
 export const registerOverlay = defaultStack.registerOverlay;
 export const openOverlay = defaultStack.openOverlay;
 export const closeOverlay = defaultStack.closeOverlay;
+export const dismissForNavigation = defaultStack.dismissForNavigation;
 export const initOverlayStack = defaultStack.initOverlayStack;
