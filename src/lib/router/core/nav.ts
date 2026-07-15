@@ -10,6 +10,9 @@ export function navigate(
   opts?: { replace?: boolean; keepOverlays?: boolean },
 ): void {
   const h = getHistory();
+  // replace-with-open-overlay не поддерживается: перезапишет синтетическую запись, но
+  // оставит оверлей в стеке (следующий back закроет фантом). На практике replace зовут
+  // без открытых оверлеев (data-replace ссылки на страницах). Вариант A — ниже.
   if (opts?.replace) { h.replace(to); return; }
   if (!opts?.keepOverlays && overlayCount() > 0) {
     dismissForNavigation();
