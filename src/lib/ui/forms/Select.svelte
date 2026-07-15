@@ -16,7 +16,7 @@
   // (modal registry injects a layer) sit at `layer.z + 2`; otherwise `60` — above a
   // standalone Dialog's `z-50` content. No layer ⇒ backwards-compatible.
   const overlayLayer = getOverlayLayer();
-  const menuZ = overlayLayer ? overlayLayer.z + 2 : 60;
+  const menuZ = $derived(overlayLayer ? overlayLayer.z + 2 : 60);
 
   let {
     value = $bindable(''),
