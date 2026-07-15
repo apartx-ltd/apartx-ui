@@ -13,10 +13,11 @@
    * floating-ui virtual `{ getBoundingClientRect() }`) — e.g. to anchor at a
    * cursor point on a canvas. `customAnchor` flows through to bits-ui Content.
    *
-   * `portal`: by default the content renders inline. Set `portal` (true → body,
-   * or a target element/selector) to portal the content out — required when an
-   * ancestor establishes a stacking context / transform containing block (e.g. a
-   * `<PageTransition>` layer) that would otherwise trap the fixed surface.
+   * `portal`: by default the content portals to `<body>` (escapes any clipping /
+   * transform-containing-block ancestor — e.g. a `<PageTransition>` layer or a
+   * scroll container inside a modal — that would otherwise trap the fixed surface).
+   * Pass `portal={false}` to render inline (hover popovers with no scrim), or a
+   * target element/selector to portal elsewhere.
    *
    * `modal`: render a transparent full-screen scrim under the content that closes
    * the popover on click AND blocks the click from reaching whatever is behind
@@ -52,7 +53,7 @@
     align = 'center',
     sideOffset = 4,
     trapFocus = true,
-    portal = false,
+    portal = true,
     modal = false,
     fitViewport = false,
     customAnchor,
