@@ -1,5 +1,55 @@
 # История изменений — apartx-ui
 
+## 2026-07-15
+
+### Версия 0.4.0
+
+### Оверлеи «правильно по умолчанию» — portal + z + history-back + overlay-aware навигация
+
+Единый примитив для всех scrim-оверлеев: `registerOverlay`/`useOverlay` берёт на себя
+portal, z-band из глубины стека и участие в history-back — раньше это цеплялось руками на
+каждом колл-сайте.
+
+* **`registerOverlay()` + хук `useOverlay(getOpen, close, { respectBack })`** (`router/overlay`,
+  `hooks/useOverlay.svelte`). Регистрация оверлея в LIFO-стек: возвращает reactive `z`
+  (scrim `z`, content `z+1`, вложенный попап `z+2`; BASE 60/STEP 10), кладёт синтетическую
+  history-запись (Back закрывает верхний), и снимает токен на unmount без лишнего `history.back`.
+* **Back закрывает scrim-оверлеи по умолчанию.** Участвуют: `Dialog`, `BottomSheet`, `Drawer`,
+  `Lightbox`, `VideoLightbox` (через `Dialog`), `DropdownMenu`, `Popover` (в `modal`-режиме),
+  дропдауны `Select`/`Combobox`/`DatePicker`/`DateRangePicker`. **`Tooltip` и hover-`Popover`
+  (без scrim) — НЕ участвуют.** Opt-out на компоненте: `respectBack={false}`.
+* **Ленивый self-init перехватчика.** `registerOverlay` идемпотентно ставит back-interceptor на
+  первом открытии — любой хост с кит-роутером получает back-закрытие без ручного
+  `initOverlayStack()` (он остаётся как явный opt-in для `ModalOutlet`/SvelteKit-адаптера).
+* **Overlay-aware `navigate()` (вариант A) + `keepOverlays`.** При открытых оверлеях
+  `navigate(to)` закрывает их и заменяет верхнюю синтетическую запись назначением — оверлей
+  исчезает, одинарный Back возвращает на исходный экран (убирает костыль «навигировать в
+  onDidDismiss»). `navigate(to, { keepOverlays: true })` — `push` ПОД оверлеем для restore-on-back
+  паттернов (шторка карты). `dismissForNavigation()` в стеке.
+* **Portal-в-`<body>` по умолчанию.** `Popover` — дефолт `portal={true}` (было `false`; opt-out
+  `portal={false}` для inline hover). `DropdownMenu` переписан с inline `absolute` на portal +
+  fixed-позиционирование от триггера (больше не клипается scroll/overflow-предком).
+* **z вложенных порталов — автоматический.** `provideOverlayZ` публикует z оверлея потомкам:
+  `Select`-внутри-`Dialog` сам ложится поверх диалога, без ручного проброса `getOverlayLayer()`.
+  Fallback 60 (дропдаун над контентом диалога даже без явного z).
+
+### Исправлено
+
+* **overlay-stack больше не рассинхронизируется с роутером.** Module-level default-инстанс был
+  захардкожен на `browserHistoryAdapter` в момент импорта; теперь читает активный адаптер из
+  `router/history/registry` (`getHistory()`) лениво — в SvelteKit/Meteor-хостах overlay-back и
+  роутер работают на одном источнике истории.
+* Методы `createOverlayStack` — closure-based (без `this`): detached-экспорт `openOverlay` из
+  барреля больше не бросает при standalone-вызове.
+
+### Breaking-behavior
+
+* **Standalone-оверлеи теперь закрываются по Back** (раньше — нет). Ожидаемо и является целью;
+  требует регресс-прохода у потребителей (admin/cabinet/spaces).
+* **z standalone `Dialog` сдвинулся с классовых `z-40/z-50` на инлайновые `60/61`** (из слота
+  стека). Элемент, намеренно припаркованный между `z-50` и `z-60` (напр. тост над диалогами),
+  теперь окажется ниже — поднимите его выше `60`.
+
 ## 2026-07-14
 
 ### Версия 0.3.11
