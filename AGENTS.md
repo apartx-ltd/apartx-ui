@@ -16,6 +16,7 @@ through their own bundler. `package.json` `exports` point straight at
 
 - [README.md](README.md) — component catalog, Navigator contract example
 - [docs/consuming.md](docs/consuming.md) — wiring the kit into a new SvelteKit/Vite consumer (submodule, aliases, deps, Tailwind, theme)
+- [docs/agents/README.md](docs/agents/README.md) — agent playbooks: catalog, operator guide, launch prompt template
 - [docs/agents/build-ota.md](docs/agents/build-ota.md) — agent playbook: build an OTA booking site on the ApartX public API with this kit
 - [History.md](History.md) — release notes per version
 
