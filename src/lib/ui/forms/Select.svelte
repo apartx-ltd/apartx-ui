@@ -1,6 +1,7 @@
 <script>
   import { cn } from '../utils/cn';
   import { getOverlayLayer } from '../overlays/layer-context';
+  import { useOverlay } from '../../hooks/useOverlay.svelte';
 
   // Move a node to <body> so it escapes clipping/stacking ancestors.
   function portal(node) {
@@ -27,12 +28,15 @@
     disabled = false,
     required = false,
     multiple = false,
+    respectBack = true,
     class: className,
     onchange,
     ...restProps
   } = $props();
 
   let open = $state(false);
+
+  useOverlay(() => open, () => { open = false; }, { respectBack });
   let triggerEl = $state();
   let pos = $state({ top: 0, left: 0, width: 0 });
 

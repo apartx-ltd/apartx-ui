@@ -5,6 +5,7 @@
   import { faCalendar, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
   import Icon from '../display/Icon.svelte';
   import { getOverlayLayer } from '../overlays/layer-context';
+  import { useOverlay } from '../../hooks/useOverlay.svelte';
 
   let {
     value = $bindable(''),
@@ -15,6 +16,7 @@
     error = '',
     minValue,
     maxValue,
+    respectBack = true,
     class: className,
   }: {
     value?: string;
@@ -25,6 +27,7 @@
     error?: string;
     minValue?: string;
     maxValue?: string;
+    respectBack?: boolean;
     class?: string;
   } = $props();
 
@@ -53,11 +56,16 @@
 
   let minDV = $derived(safeParse(minValue));
   let maxDV = $derived(safeParse(maxValue));
+
+  let open = $state(false);
+
+  useOverlay(() => open, () => { open = false; }, { respectBack });
 </script>
 
 <div class={cn('flex flex-col gap-1', className)}>
   <BitsDatePicker.Root
     bind:value={dateValue}
+    bind:open
     {disabled}
     minValue={minDV}
     maxValue={maxDV}
