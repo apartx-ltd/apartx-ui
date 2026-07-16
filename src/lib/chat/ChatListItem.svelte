@@ -153,7 +153,7 @@
       <!-- right rail -->
       <div class="absolute right-0 flex h-full flex-col justify-between p-1">
         {#if lastMessage}
-          <div class="text-right text-label-sm text-on-surface-variant">
+          <div class="text-right text-label-sm text-on-surface-variant" data-tick={tick}>
             {#if tick === 'failed'}
               <Icon icon={faExclamationTriangle} class="mr-0.5 text-error" />
             {:else if tick === 'read'}
