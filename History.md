@@ -1,5 +1,28 @@
 # История изменений — apartx-ui
 
+## 2026-07-17
+
+### Версия 0.5.0
+
+### `Select` переписан на bits-ui-примитив (dismissable-слой) — не роняет родительскую модалку
+
+* **`Select` теперь построен на `bits-ui` `Select` (как `Combobox`), а не самописный body-portal.**
+  Раньше меню портировалось в `<body>` «руками» и НЕ участвовало в стеке dismissable-слоёв bits-ui:
+  клик по опции, чья Y-координата уходила ниже нижней кромки родительского `<Dialog>` (длинный
+  список), bits-ui засчитывал модалке как «клик снаружи» (`isClickTrulyOutside` — координатная
+  проверка) и **закрывал модалку**. Симптом: в модалке создания объекта выбор нижнего пункта в
+  Select с типом объекта закрывал всю модалку. Теперь `Select.Content` — настоящий bits-ui
+  dismissable-слой: он становится верхним «ответственным» слоём, и клик внутри него для модалки
+  больше не «снаружи». Причина закрыта по корню, поведение единое с `Combobox`.
+* **Публичный API сохранён байт-в-байт:** `value` (bindable, string | string[]), `label`,
+  `options: {value,label}[]`, `error` (string | boolean), `placeholder`, `disabled`, `required`,
+  `multiple`, `respectBack`, `class`, `onchange?.({ target: { value } })`, спред `...restProps`
+  (data-testid) на корневой `<div>`, clear-кнопка (✕) и сводка «N selected». Меню портируется в
+  `<body>` через `Select.Portal`, z из overlay-layer (`layer.z + 2`, как `Combobox`), ширина по
+  `--bits-select-anchor-width`, `useOverlay` для history-back.
+* **Clear (✕) гасит `pointerdown`** (bits-триггер открывается на pointerdown) — сброс значения не
+  открывает дропдаун.
+
 ## 2026-07-16
 
 ### Версия 0.4.2
