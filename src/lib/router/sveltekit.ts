@@ -2,7 +2,8 @@
 import { goto, beforeNavigate, afterNavigate, pushState } from '$app/navigation';
 import { page } from '$app/state';
 import type { HistoryAdapter, Action } from './history/adapter';
-import { createOverlayStack, type OverlayStack } from './overlay/overlay-stack';
+import { defaultOverlayStack, type OverlayStack } from './overlay/overlay-stack';
+import { setHistoryAdapter } from './history/registry';
 import { setNavigator, setRouteKey, matchActive } from '../navigation/context';
 
 /** Overlay nesting depth carried in SvelteKit's shallow page.state. */
@@ -101,13 +102,19 @@ export interface SvelteKitNavigation {
 
 /**
  * Call once in the root +layout.svelte. Wires the kit Navigator + route key to
- * SvelteKit, sets up the overlay-stack over the SvelteKit adapter, and exposes the
- * direction signal for <PageTransition>.
+ * SvelteKit, registers the SvelteKit history adapter as the ACTIVE backend, and
+ * exposes the direction signal for <PageTransition>.
+ *
+ * Registering via `setHistoryAdapter(adapter)` (not a private stack) is what makes
+ * overlays work: kit components close over the module-singleton `defaultOverlayStack`,
+ * whose `lazyAdapter` reads `getHistory()` per call. Building a LOCAL stack here would
+ * leave those components on the browser adapter → Dialog ✕/Escape/scrim wouldn't close
+ * under SvelteKit. So the host must hand the singleton stack the SvelteKit backend.
  */
 export function useSvelteKitNavigation(): SvelteKitNavigation {
   const adapter = createSvelteKitHistoryAdapter();
-  const overlay = createOverlayStack(adapter);
-  overlay.initOverlayStack();
+  setHistoryAdapter(adapter);
+  defaultOverlayStack.initOverlayStack();
 
   setNavigator({
     push: (href) => adapter.push(href),
@@ -120,6 +127,6 @@ export function useSvelteKitNavigation(): SvelteKitNavigation {
 
   return {
     get direction() { return adapter.action; },
-    overlay,
+    overlay: defaultOverlayStack,
   };
 }

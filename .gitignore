@@ -9,3 +9,7 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .DS_Store
 .claude
+/test-results
+/playwright-report
+/blob-report
+/.playwright

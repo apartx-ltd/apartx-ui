@@ -1,5 +1,25 @@
 # История изменений — apartx-ui
 
+## 2026-07-18
+
+### Версия 0.5.1
+
+### SvelteKit-хост: `useSvelteKitNavigation()` регистрирует адаптер глобально + e2e-харнесс демо
+
+* **`useSvelteKitNavigation()` теперь регистрирует SvelteKit-адаптер как активный backend
+  (`setHistoryAdapter(adapter)`) и возвращает единый дефолтный overlay-stack**, а не строит
+  локальный. Компоненты кита закрываются над module-singleton `defaultOverlayStack`
+  (`useOverlay` → `registerOverlay`), чей `lazyAdapter` читает `getHistory()` per-call. Раньше хук
+  создавал приватный стек и НЕ звал `setHistoryAdapter`, поэтому под SvelteKit компоненты сидели на
+  browser-адаптере и **Dialog не закрывался по ✕/Escape/scrim** (баг проявлялся только в демо-
+  плейграунде — у Meteor-консюмеров свой адаптер уже зарегистрирован). `overlay-stack.ts` экспортит
+  `defaultOverlayStack`, чтобы хост вернул именно синглтон-стек. Демо-`+layout.svelte` переведён на
+  `useSvelteKitNavigation()` вместо ручного `setNavigator` — это и есть эталонная разводка хоста.
+* **Playwright e2e-харнесс в ките** (`playwright.config.ts`, `e2e/overlays.spec.ts`, `npm run
+  test:e2e`): регрессии оверлеев на демо — Dialog закрывается ✕/Escape/scrim, и `Select` внутри
+  `Dialog` при выборе нижнего пункта (рендерится ниже кромки диалога) НЕ рвёт модалку. Прогон в CI:
+  job `e2e` в GitHub Actions гейтит деплой демо и бежит на PR.
+
 ## 2026-07-17
 
 ### Версия 0.5.0

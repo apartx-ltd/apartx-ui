@@ -3,9 +3,8 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { base } from '$app/paths';
-  import { goto, beforeNavigate } from '$app/navigation';
   import { applyTheme } from '$lib/theme/apply-theme';
-  import { setNavigator, matchActive, type Navigator } from '$lib/navigation';
+  import { useSvelteKitNavigation } from '$lib/router/sveltekit';
   import PageTransition from '$lib/navigation/PageTransition.svelte';
   import { Icon } from '$lib/ui/display';
   import { faBars } from '@fortawesome/free-solid-svg-icons';
@@ -13,39 +12,12 @@
 
   let { children } = $props();
 
-  // Page-transition direction, derived straight from the router's navigation
-  // events — no heuristic. push/link → forward, popstate-back → back, replace →
-  // none (crossfade). `replace` can't be read off the navigation event, so the
-  // adapter flags it; back/forward come from popstate `delta`.
-  let transitionDir = $state<'forward' | 'back' | 'none'>('forward');
-  let replaceNext = false;
-
-  beforeNavigate((nav) => {
-    if (replaceNext) {
-      transitionDir = 'none';
-      replaceNext = false;
-    } else if (nav.type === 'popstate') {
-      transitionDir = (nav.delta ?? 0) < 0 ? 'back' : 'forward';
-    } else {
-      transitionDir = 'forward';
-    }
-  });
-
-  // Adapt SvelteKit's router to the kit's Navigator contract — example of how a
-  // host wires the UI Kit. Meteor consumers would adapt their own router here.
-  const navigator: Navigator = {
-    push: (href) => goto(href),
-    replace: (href) => {
-      replaceNext = true;
-      return goto(href, { replaceState: true });
-    },
-    back: () => history.back(),
-    get current() {
-      return { pathname: page.url.pathname, search: page.url.search, hash: page.url.hash };
-    },
-    isActive: (href, opts) => matchActive(page.url.pathname, href, opts),
-  };
-  setNavigator(navigator);
+  // Wire SvelteKit → kit: registers the SvelteKit history adapter as the active
+  // backend (so kit overlays close), adapts the Navigator, and exposes the
+  // page-transition direction. This is the canonical host wiring; Meteor consumers
+  // adapt their own router the same way. `skNav.direction` is read lazily (function
+  // form) at transition time — the adapter's action isn't a reactive signal.
+  const skNav = useSvelteKitNavigation();
 
   onMount(() => {
     applyTheme('#1976d2');
@@ -134,7 +106,7 @@
     <main class="flex-1 overflow-hidden">
       <PageTransition
         key={page.url.pathname}
-        direction={transitionDir}
+        direction={() => skNav.direction}
         restoreScroll
         contentClass="p-5 sm:p-8"
       >

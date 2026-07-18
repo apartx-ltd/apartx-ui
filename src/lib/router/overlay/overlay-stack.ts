@@ -158,6 +158,9 @@ const lazyAdapter: HistoryAdapter = new Proxy({} as HistoryAdapter, {
 });
 
 const defaultStack = createOverlayStack(lazyAdapter);
+/** The single stack every kit component uses (useOverlay → registerOverlay). SvelteKit
+ *  hosts return THIS from useSvelteKitNavigation so their `overlay` matches components. */
+export const defaultOverlayStack: OverlayStack = defaultStack;
 export const overlayCount = defaultStack.overlayCount;
 export const subscribeOverlay = defaultStack.subscribeOverlay;
 export const registerOverlay = defaultStack.registerOverlay;
