@@ -19,6 +19,11 @@
   test:e2e`): регрессии оверлеев на демо — Dialog закрывается ✕/Escape/scrim, и `Select` внутри
   `Dialog` при выборе нижнего пункта (рендерится ниже кромки диалога) НЕ рвёт модалку. Прогон в CI:
   job `e2e` в GitHub Actions гейтит деплой демо и бежит на PR.
+* **Демо-стили: подключён кит-барель `styles/index.css` вместо ручного списка.** Демо-`app.css`
+  импортировал `tokens`/`typescale`/`page-transitions` руками и пропускал `animations.css` (и
+  `utilities.css`) → enter-`@keyframes` оверлеев (`dlg-in-pop`, `dr-slide`, `pop-anim`) не были
+  определены, поэтому Dialog/Drawer появлялись БЕЗ входящей анимации, тогда как Svelte `out:`-exit
+  играл. Демо-only (`src/lib/**` не тронут), библиотека без изменений.
 
 ## 2026-07-17
 

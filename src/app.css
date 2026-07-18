@@ -1,10 +1,11 @@
 @import 'tailwindcss';
-@import '$lib/styles/tokens.css';
-@import '$lib/styles/typescale.css';
-/* Global rules PageTransition/PageLayer rely on (.pt-layer absolute inset:0,
-   .pt-content height:100%, slide/fade keyframes). Without this, fill-height pages
-   (e.g. /chat) collapse to content height and transitions don't animate. */
-@import '$lib/styles/page-transitions.css';
+/* The kit stylesheet barrel — tokens, typescale, utilities, animations,
+   page-transitions, in the order the kit expects. This is exactly how a real
+   consumer wires the kit; importing the files individually risks missing one —
+   the demo used to skip animations.css, so overlay ENTER @keyframes (dlg-in-pop,
+   dr-slide, pop-anim) were undefined and dialogs/drawers popped in with no open
+   animation while their Svelte `out:` exit still played. */
+@import '$lib/styles/index.css';
 
 /* Scan the library and the demo routes for Tailwind class usage. */
 @source './lib/**/*.{svelte,ts}';
