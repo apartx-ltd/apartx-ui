@@ -2,6 +2,16 @@
   import { Popover as BitsPopover } from 'bits-ui';
   import { cn } from '../utils/cn';
   import { useOverlay } from '../../hooks/useOverlay.svelte';
+  import { getOverlayLayer } from '../overlays/layer-context';
+
+  // The content portals to <body> at z-50 by default — fine standalone, but when the
+  // popover lives inside a layered overlay (modal registry's <Dialog> renders at
+  // `layer.z + 1`), z-50 falls *behind* the dialog and the menu items become
+  // unclickable (the dialog body intercepts the clicks). Read the same overlay layer
+  // the Dialog uses and render the content at `layer.z + 2` (the modal scrim at
+  // `layer.z + 1`). No layer ⇒ keep z-50/z-40 (fully backwards-compatible).
+  // Mirrors Combobox/Select.
+  const overlayLayer = getOverlayLayer();
 
   /**
    * Universal popover — a floating surface anchored to a trigger.
@@ -151,6 +161,7 @@
            the same click reach e.g. a canvas and open another popover. -->
       <div
         class="fixed inset-0 z-40"
+        style={overlayLayer ? `z-index:${overlayLayer.z + 1};` : ''}
         role="presentation"
         onclick={() => (open = false)}
         oncontextmenu={(e) => { e.preventDefault(); open = false; }}
@@ -163,6 +174,7 @@
       customAnchor={effectiveAnchor}
       {sideOffset}
       {trapFocus}
+      style={overlayLayer ? `z-index:${overlayLayer.z + 2};` : ''}
       class={cn(
         'z-50 rounded-sm bg-surface shadow-level-3 border border-outline-variant overflow-hidden',
         // Enter + exit animation (fade + scale from the anchor corner), driven by bits-ui's
