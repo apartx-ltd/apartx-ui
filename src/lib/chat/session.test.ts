@@ -54,6 +54,20 @@ describe('ChatSession', () => {
     expect(s.composer.draft).to.equal(''); // cleared
   });
 
+  it('ingest() appends an externally-sent server message; a later live upsert dedupes by _id', async () => {
+    const { transport, emit } = fakeTransport();
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me' });
+    await s.open();
+    // A host attach-flow sent a custom-type message via its own RPC (outside the composer seams).
+    const server: Message = { _id: 'srv-1', chatId: 'c', seq: 10, type: 'property', createdAt: new Date(), meta: { propertyId: 'p1' } };
+    s.ingest(server);
+    expect(s.messages.at(-1)?._id).to.equal('srv-1');
+    expect(s.messages.at(-1)?.sendState).to.equal(undefined);
+    // The eventual replication pull re-delivers the same message — no duplicate row.
+    emit({ type: 'upsert', message: server });
+    expect(s.messages.filter((x) => x._id === 'srv-1').length).to.equal(1);
+  });
+
   it('send() failure marks the optimistic message failed; retry re-sends', async () => {
     let calls = 0;
     const { transport } = fakeTransport({ sendMessage: async (d) => { calls++; if (calls === 1) throw new Error('net'); return { _id: 'real', chatId: d.chatId, seq: 9, text: d.text, createdAt: new Date(), meta: { clientToken: d.clientToken } }; } });

@@ -193,6 +193,15 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
     }
   }
 
+  // Insert a server-confirmed message that was sent OUTSIDE the session's composer seams
+  // (e.g. a host attach-flow calling its send RPC directly for a custom message type).
+  // Without this the sender sees their own message only when the next replication pull
+  // delivers it — i.e. never, if the live signal is slow or wedged. Upsert by _id: the
+  // eventual pull re-delivers the same message and mergeById dedupes it.
+  function ingest(serverMessage: Message) {
+    win = applyLiveUpsert(win, { ...serverMessage, sendState: undefined });
+  }
+
   async function retry(message: Message) {
     const clientToken = message.meta?.clientToken ?? nextToken();
     win = { ...win, messages: win.messages.map((x) => (x._id === message._id ? { ...x, sendState: 'sending' } : x)) };
@@ -217,6 +226,6 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
     get olderStatus() { return win.olderStatus; },
     get unreadAnchorId() { return unreadAnchorId; },
     composer,
-    open, loadOlder, read, markRead, send, sendMedia, retry, dispose,
+    open, loadOlder, read, markRead, send, sendMedia, retry, ingest, dispose,
   };
 }
