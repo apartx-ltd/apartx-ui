@@ -44,6 +44,17 @@ test.describe('Dialog close paths', () => {
     await page.mouse.click(8, 8);
     await expect(body).toBeHidden();
   });
+
+  test('closes via browser BACK (and back does not leave the app)', async ({ page }) => {
+    const body = await openOverlay(page, 'open-dialog', 'dialog-body');
+    // Opening pushed a synthetic history entry; a browser BACK must close the overlay
+    // and stay on the same page (not navigate away).
+    await page.goBack();
+    await expect(body).toBeHidden();
+    await expect(page).toHaveURL(/\/overlays$/);
+    // The overview heading of THIS page is still there — we didn't leave.
+    await expect(page.getByRole('heading', { name: 'Overlays' })).toBeVisible();
+  });
 });
 
 test.describe('Select inside Dialog', () => {

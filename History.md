@@ -2,6 +2,22 @@
 
 ## 2026-07-18
 
+### Версия 0.5.2
+
+### fix: `useSvelteKitNavigation()` мемоизирует адаптер — чинит history-back для оверлеев
+
+* **`useSvelteKitNavigation()` теперь мемоизирует SK-history-адаптер** (module-singleton `skAdapter`
+  через `??=`) вместо создания нового на каждый вызов. Svelte пере-прогоняет setup-эффект layout'а
+  (в демо — несколько раз), а хост мог звать хук в нескольких местах → создавалось несколько
+  адаптеров, и провод оверлеев расщеплялся: back-interceptor садился на ПЕРВЫЙ адаптер (one-shot
+  guard `inited` в `initOverlayStack`), а `setHistoryAdapter` переуказывал ленивый push/goBack на
+  ПОЗДНИЙ. Итог: браузерный BACK снимал синтетическую history-запись, но НЕ закрывал оверлей (и
+  каждый вызов протекал ещё одним popstate-листенером). Мемоизация схлопывает в один адаптер / один
+  popstate-листенер. Проявлялось в SvelteKit-демо (v0.5.1 включил `setHistoryAdapter`); e2e-регрессия
+  `closes via browser BACK` в `e2e/overlays.spec.ts`.
+
+## 2026-07-18
+
 ### Версия 0.5.1
 
 ### SvelteKit-хост: `useSvelteKitNavigation()` регистрирует адаптер глобально + e2e-харнесс демо

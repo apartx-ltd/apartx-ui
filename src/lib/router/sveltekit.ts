@@ -101,18 +101,28 @@ export interface SvelteKitNavigation {
 }
 
 /**
- * Call once in the root +layout.svelte. Wires the kit Navigator + route key to
- * SvelteKit, registers the SvelteKit history adapter as the ACTIVE backend, and
- * exposes the direction signal for <PageTransition>.
+ * Call in the root +layout.svelte. Wires the kit Navigator + route key to SvelteKit,
+ * registers the SvelteKit history adapter as the ACTIVE backend, and exposes the
+ * direction signal for <PageTransition>.
  *
  * Registering via `setHistoryAdapter(adapter)` (not a private stack) is what makes
  * overlays work: kit components close over the module-singleton `defaultOverlayStack`,
  * whose `lazyAdapter` reads `getHistory()` per call. Building a LOCAL stack here would
  * leave those components on the browser adapter → Dialog ✕/Escape/scrim wouldn't close
  * under SvelteKit. So the host must hand the singleton stack the SvelteKit backend.
+ *
+ * Idempotent — the adapter is memoized. SvelteKit's router/history is a singleton, so
+ * the adapter must be too, but this function can run more than once (Svelte re-runs the
+ * layout's setup effect; a host might call it in several places). A fresh adapter per
+ * call split-brained the overlay wiring: the back-interceptor landed on the FIRST
+ * adapter (initOverlayStack's one-shot `inited` guard) while `setHistoryAdapter`
+ * repointed the lazy push/goBack path at a LATER one — so a browser BACK popped the
+ * history entry but never closed the overlay, and each call leaked another popstate
+ * listener. Memoizing collapses it to one adapter, one popstate listener, one truth.
  */
+let skAdapter: HistoryAdapter | null = null;
 export function useSvelteKitNavigation(): SvelteKitNavigation {
-  const adapter = createSvelteKitHistoryAdapter();
+  const adapter = (skAdapter ??= createSvelteKitHistoryAdapter());
   setHistoryAdapter(adapter);
   defaultOverlayStack.initOverlayStack();
 
