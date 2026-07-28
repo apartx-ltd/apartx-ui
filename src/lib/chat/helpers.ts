@@ -327,8 +327,13 @@ export function newerWatermark(a: Message | null, b: Message): Message {
 // 40px-vs-300px flashes. Numbers mirror the real Message.svelte/slot layout (Tailwind spacing,
 // body-md 20px line-height, ImageMedia's MAX=300 clamp) — keep them in sync when that changes.
 
-/** Max media box edge — mirrors ImageMedia/VideoMedia `MAX`. */
+/** Ширина медиа-коробки в пузыре: картинка/видео занимают пузырь целиком по горизонтали. */
 export const MEDIA_BOX_MAX = 300;
+/** Потолок ВЫСОТЫ медиа-коробки. Вертикальная картинка обрезается по нему (`object-cover`),
+ *  а не ужимается по ширине: раньше потолок 300 стоял на обе стороны, и кадр 590×1210
+ *  съезжал в 146×300 — вдвое уже пузыря, растянутого подписью. Полный кадр остаётся
+ *  доступен в лайтбоксе. */
+export const MEDIA_BOX_MAX_H = 400;
 const LINE_H = 20; // text-body-md line height
 const BUBBLE_PAD_Y = 12; // bubble px-2 py-1.5 → 6px top + 6px bottom
 const CHARS_PER_LINE = 35; // ≈ chars per body-md line in an 80%-width mobile bubble
@@ -336,15 +341,32 @@ const CHARS_PER_LINE = 35; // ≈ chars per body-md line in an 80%-width mobile 
  *  и оценка высоты не разъезжались. */
 export const DOC_ROW_H = 56;
 
-/** Rendered media box height per ImageMedia's reserve formula: scale w×h into MAX, or the fixed
+/**
+ * Коробка медиа в пузыре по натуральным размерам кадра. ЕДИНСТВЕННОЕ место, где живёт эта
+ * математика: её одинаково читают `ImageMedia`, `VideoMedia` (рисуют коробку) и `mediaBoxHeight`
+ * (оценивает высоту строки для `VirtualList.estimateSize`). Разъехавшись, оценка и раскладка дают
+ * видимую коррекцию скролла при холодном открытии чата — поэтому дублировать формулу нельзя.
+ *
+ *   - ширина = min(MEDIA_BOX_MAX, w) — вверх НИКОГДА не растягиваем, мелкая картинка остаётся мелкой;
+ *   - высота = по соотношению сторон от полученной ширины;
+ *   - высота выше MEDIA_BOX_MAX_H срезается — вертикальный кадр обрезается `object-cover`,
+ *     а не ужимается в узкую полоску посреди пузыря.
+ *
+ * `null` — размеры неизвестны или нулевые; потребитель рисует свою фиксированную коробку-фолбэк.
+ */
+export function mediaBox(w?: number | null, h?: number | null): { w: number; h: number } | null {
+  if (!w || !h || w < 0 || h < 0) return null;
+  const boxW = Math.min(MEDIA_BOX_MAX, w);
+  const boxH = Math.round((h * boxW) / w);
+  return { w: Math.round(boxW), h: Math.min(MEDIA_BOX_MAX_H, boxH) };
+}
+
+/** Rendered media box height per ImageMedia's reserve formula (`mediaBox`), or the fixed
  *  4:3 fallback box when dimensions are unknown. */
 export function mediaBoxHeight(m: Message): number {
   const meta: any = m.meta;
-  const w = meta?.file?.width ?? meta?.width;
-  const h = meta?.file?.height ?? meta?.height;
-  if (!w || !h) return Math.round(MEDIA_BOX_MAX * 0.75);
-  const scale = Math.min(1, MEDIA_BOX_MAX / w, MEDIA_BOX_MAX / h);
-  return Math.round(h * scale);
+  const box = mediaBox(meta?.file?.width ?? meta?.width, meta?.file?.height ?? meta?.height);
+  return box ? box.h : Math.round(MEDIA_BOX_MAX * 0.75);
 }
 
 /** Estimated rendered height of a text block (explicit newlines + soft wrap by CHARS_PER_LINE). */

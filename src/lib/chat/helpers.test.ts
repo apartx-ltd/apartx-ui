@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, mediaBoxHeight, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX, messageAttachments, splitAttachments, albumBoxHeight, albumLayout, ALBUM_MAX_CELLS, DOC_ROW_H } from './helpers';
+import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, mediaBox, mediaBoxHeight, MEDIA_BOX_MAX_H, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX, messageAttachments, splitAttachments, albumBoxHeight, albumLayout, ALBUM_MAX_CELLS, DOC_ROW_H } from './helpers';
 import type { Message } from './types';
 
 const m = (over: Partial<Message> = {}): Message => ({ _id: 'm', chatId: 'c', userId: 'u1', createdAt: new Date('2026-06-30T10:00:00Z'), ...over });
@@ -442,11 +442,41 @@ describe('formatDuration', () => {
 describe('cold-open height estimation', () => {
   const prev = m({ _id: 'p', userId: 'u1' }); // same author, same day → no separator, no group start
 
-  it('mediaBoxHeight scales known dimensions into the MAX clamp (ImageMedia formula)', () => {
-    // 1200×900 → scale 0.25 → 300×225
+  it('mediaBox: картинка занимает пузырь по ширине, высота режется потолком', () => {
+    // Вертикальный кадр из отчёта: на полную ширину пузыря, лишняя высота уходит в object-cover.
+    expect(mediaBox(590, 1210)).to.deep.equal({ w: 300, h: 400 });
+    // Горизонтальный — как и было: 1200×800 → 300×200.
+    expect(mediaBox(1200, 800)).to.deep.equal({ w: 300, h: 200 });
+    // Мельче ширины коробки — НЕ апскейлим, остаётся натуральный размер.
+    expect(mediaBox(100, 80)).to.deep.equal({ w: 100, h: 80 });
+    // Узкий и длинный: ширина натуральная (200 < 300), высота срезана потолком.
+    expect(mediaBox(200, 1000)).to.deep.equal({ w: 200, h: 400 });
+  });
+
+  it('mediaBox: ровно на потолке не режет, на пиксель выше — режет', () => {
+    // 300×400 при ширине 300 даёт ровно 400 — граница включительно, обрезки нет.
+    expect(mediaBox(300, 400)).to.deep.equal({ w: 300, h: 400 });
+    // +1 к исходной высоте → 401 > 400 → срез до потолка.
+    expect(mediaBox(300, 401)).to.deep.equal({ w: 300, h: 400 });
+    expect(MEDIA_BOX_MAX_H).to.equal(400);
+  });
+
+  it('mediaBox: неизвестные/нулевые размеры → null (потребитель рисует фолбэк-коробку)', () => {
+    expect(mediaBox(undefined, undefined)).to.equal(null);
+    expect(mediaBox(300, undefined)).to.equal(null);
+    expect(mediaBox(undefined, 300)).to.equal(null);
+    expect(mediaBox(0, 0)).to.equal(null);
+    expect(mediaBox(300, 0)).to.equal(null);
+    expect(mediaBox(0, 300)).to.equal(null);
+  });
+
+  it('mediaBoxHeight — тонкая обёртка над mediaBox, с прежним фолбэком', () => {
+    // Регрессия горизонтальных: 1200×800 обязано остаться 200, как до правки потолка.
+    expect(mediaBoxHeight(m({ meta: { width: 1200, height: 800 } }))).to.equal(200);
+    // 1200×900 → 225, тоже без изменений.
     expect(mediaBoxHeight(m({ meta: { width: 1200, height: 900 } }))).to.equal(225);
-    // Portrait 600×1200 → scale 0.25 → 150×300
-    expect(mediaBoxHeight(m({ meta: { width: 600, height: 1200 } }))).to.equal(300);
+    // Вертикальная 600×1200: раньше ужималась до 150×300, теперь 300×400 — высота ВЫРОСЛА.
+    expect(mediaBoxHeight(m({ meta: { width: 600, height: 1200 } }))).to.equal(MEDIA_BOX_MAX_H);
     // Smaller than MAX → untouched
     expect(mediaBoxHeight(m({ meta: { width: 200, height: 100 } }))).to.equal(100);
     // attachment-style dims under meta.file win over meta

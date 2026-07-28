@@ -4,11 +4,9 @@
   // padding for full-bleed types and the bubble's overflow-hidden clips the corners, so this fills
   // the whole bubble. `openLightbox` is injected via the kit slot context (host) — clicking a loaded
   // image opens the shared lightbox; absent → opens in a new tab.
-  import { createMediaTapGuard } from '../helpers';
+  import { createMediaTapGuard, mediaBox, MEDIA_BOX_MAX } from '../helpers';
 
   let { message, openLightbox } = $props();
-
-  const MAX = 300;
 
   // Tap opens the lightbox; long-press / right-click opens the message menu — never both.
   const tapGuard = createMediaTapGuard(() => openLightbox(url));
@@ -25,14 +23,9 @@
 
   // Reserve the media box up front from known dimensions (attachment carries width/height from the
   // server; optimistic sends carry meta.width/height) so the row doesn't reflow — and virtua doesn't
-  // re-measure — once media loads.
-  let box = $derived.by(() => {
-    const w = message.meta?.file?.width ?? message.meta?.width;
-    const h = message.meta?.file?.height ?? message.meta?.height;
-    if (!w || !h) return null;
-    const scale = Math.min(1, MAX / w, MAX / h);
-    return { w: Math.round(w * scale), h: Math.round(h * scale) };
-  });
+  // re-measure — once media loads. Формула ОДНА на всех (`mediaBox` в helpers): её же читает
+  // `mediaBoxHeight` для оценки высоты строки, разойтись им нельзя — поедет скролл.
+  let box = $derived(mediaBox(message.meta?.file?.width ?? message.meta?.width, message.meta?.file?.height ?? message.meta?.height));
 </script>
 
 <!-- Unknown dimensions still get a FIXED box (4:3, object-fit cover crops the odd aspect) — an
@@ -40,7 +33,7 @@
      what keeps the virtualized list's scroll position deterministic. -->
 <div
   class="relative overflow-hidden bg-surface-container-high"
-  style={box ? `width:${box.w}px;height:${box.h}px` : `width:${MAX}px;max-width:100%;aspect-ratio:4/3`}
+  style={box ? `width:${box.w}px;height:${box.h}px` : `width:${MEDIA_BOX_MAX}px;max-width:100%;aspect-ratio:4/3`}
 >
   {#if url && isVideo}
     <!-- svelte-ignore a11y_media_has_caption -->

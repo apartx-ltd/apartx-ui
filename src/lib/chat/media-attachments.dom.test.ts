@@ -62,6 +62,21 @@ describe('MediaAttachments — одиночное вложение (регрес
     expect(el.textContent).toContain('42%'); // meta.uploadProgress доехал до слота
   });
 
+  it('вертикальная картинка занимает пузырь по ширине и обрезается по высоте', () => {
+    // 590×1210 раньше давало 146×300 — половина ширины пузыря. Теперь 300×400 + object-cover:
+    // проверяется именно РАЗМЕТКА, потому что с object-contain кадр бы ужался вместо обрезки.
+    const message = msg({
+      type: 'image',
+      meta: { file: { url: 'https://cdn/tall.jpg', type: 'image/jpeg', width: 590, height: 1210 } },
+    } as any);
+    const el = render({ message, openLightbox: () => {} });
+
+    const style = (el.querySelector('div[style]') as HTMLElement).getAttribute('style') ?? '';
+    expect(style).toContain('width: 300px');
+    expect(style).toContain('height: 400px');
+    expect((el.querySelector('img') as HTMLImageElement).className).toContain('object-cover');
+  });
+
   it('делегирует DocumentMedia — одиночный документ рисуется прежней строкой', () => {
     const message = msg({
       type: 'document',

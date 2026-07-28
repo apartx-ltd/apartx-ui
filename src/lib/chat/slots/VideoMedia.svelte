@@ -9,11 +9,9 @@
   // viewerjs-backed Lightbox, whose static `viewerjs/dist/viewer.css` import would otherwise be
   // dragged into every chat bundle. VideoLightbox itself lazy-loads media-chrome, so it's cheap.
   import VideoLightbox from '../../lightbox/VideoLightbox.svelte';
-  import { formatDuration, createMediaTapGuard } from '../helpers';
+  import { formatDuration, createMediaTapGuard, mediaBox, MEDIA_BOX_MAX } from '../helpers';
 
   let { message } = $props();
-
-  const MAX = 300;
 
   let file = $derived(message.meta?.file ?? {});
   let url = $derived(file.url ?? (message.sendState === 'sending' ? message.meta?.previewUrl : undefined));
@@ -23,13 +21,9 @@
   let sending = $derived(message.sendState === 'sending' || message.meta?.status === 'sending');
   let failed = $derived(message.sendState === 'failed' || message.meta?.status === 'error');
 
-  let box = $derived.by(() => {
-    const w = file.width ?? message.meta?.width;
-    const h = file.height ?? message.meta?.height;
-    if (!w || !h) return null;
-    const scale = Math.min(1, MAX / w, MAX / h);
-    return { w: Math.round(w * scale), h: Math.round(h * scale) };
-  });
+  // Та же общая формула, что у картинки: `mediaBoxHeight` (оценка высоты строки) одна на оба типа
+  // (через `isFullBleedMedia`), так что видео обязано считать коробку ровно так же.
+  let box = $derived(mediaBox(file.width ?? message.meta?.width, file.height ?? message.meta?.height));
 
   let open = $state(false);
   const canPlay = $derived(!!url && !sending);
@@ -43,7 +37,7 @@
      virtualized list's scroll position deterministic. -->
 <div
   class="relative overflow-hidden bg-surface-container-high"
-  style={box ? `width:${box.w}px;height:${box.h}px` : `width:${MAX}px;max-width:100%;aspect-ratio:16/9`}
+  style={box ? `width:${box.w}px;height:${box.h}px` : `width:${MEDIA_BOX_MAX}px;max-width:100%;aspect-ratio:16/9`}
 >
   {#if poster}
     <img src={poster} alt="" class="h-full w-full object-cover" />
