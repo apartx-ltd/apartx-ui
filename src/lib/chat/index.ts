@@ -21,4 +21,7 @@ export { default as ImageMedia } from './slots/ImageMedia.svelte';
 export { default as VideoMedia } from './slots/VideoMedia.svelte';
 export { default as AudioMedia } from './slots/AudioMedia.svelte';
 export { default as DocumentMedia } from './slots/DocumentMedia.svelte';
+export { default as DocumentRow } from './slots/DocumentRow.svelte';
+export { default as AlbumMedia } from './slots/AlbumMedia.svelte';
+export { default as MediaAttachments } from './slots/MediaAttachments.svelte';
 export { default as ChatListItem } from './ChatListItem.svelte';

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, mediaBoxHeight, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX, messageAttachments, splitAttachments, albumBoxHeight, ALBUM_MAX_CELLS, DOC_ROW_H } from './helpers';
+import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, mediaBoxHeight, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX, messageAttachments, splitAttachments, albumBoxHeight, albumLayout, ALBUM_MAX_CELLS, DOC_ROW_H } from './helpers';
 import type { Message } from './types';
 
 const m = (over: Partial<Message> = {}): Message => ({ _id: 'm', chatId: 'c', userId: 'u1', createdAt: new Date('2026-06-30T10:00:00Z'), ...over });
@@ -300,6 +300,44 @@ describe('albumBoxHeight', () => {
   });
 });
 
+describe('albumLayout', () => {
+  const img = (n: number) => ({ url: `${n}.jpg`, type: 'image/jpeg' });
+  const pdf = { url: 'a.pdf', type: 'application/pdf' };
+
+  it('нечётное число превью → hero-ячейка на обе колонки', () => {
+    const l = albumLayout([img(1), img(2), img(3)]);
+    expect(l.cells).toHaveLength(3);
+    expect(l.hero).to.equal(true);
+    expect(l.overflow).to.equal(0);
+  });
+  it('чётное число превью → hero нет', () => {
+    expect(albumLayout([img(1), img(2)]).hero).to.equal(false);
+    expect(albumLayout([img(1), img(2), img(3), img(4)]).hero).to.equal(false);
+  });
+  it('больше ALBUM_MAX_CELLS → рисуются только 4, остальное в «+N»', () => {
+    const l = albumLayout([1, 2, 3, 4, 5, 6].map(img));
+    expect(l.cells).toHaveLength(ALBUM_MAX_CELLS);
+    expect(l.overflow).to.equal(2);
+    expect(l.hero).to.equal(false); // shown = 4, чётное
+    expect(l.cells[3]).toEqual(img(4)); // оверлей ложится на четвёртое превью, пятое-шестое не рисуются
+  });
+  it('документы уходят строками под сетку, порядок сохраняется', () => {
+    const l = albumLayout([img(1), pdf, img(2)]);
+    expect(l.cells).toEqual([img(1), img(2)]);
+    expect(l.docs).toEqual([pdf]);
+  });
+  it('только документы → сетки нет', () => {
+    const l = albumLayout([pdf, pdf]);
+    expect(l.cells).toHaveLength(0);
+    expect(l.hero).to.equal(false);
+    expect(l.docs).toHaveLength(2);
+  });
+  it('высота сетки считается по тем же ячейкам, что и рисуются', () => {
+    const l = albumLayout([1, 2, 3, 4, 5].map(img));
+    expect(albumBoxHeight(l.cells.length)).to.equal(albumBoxHeight(ALBUM_MAX_CELLS));
+  });
+});
+
 describe('chatImageGallery', () => {
   const img = (id: string, over: Partial<Message> = {}): Message =>
     m({ _id: id, type: 'image', meta: { file: { url: `https://cdn/${id}.jpg` } } as any, ...over });
@@ -468,6 +506,17 @@ describe('cold-open height estimation', () => {
     ];
     const mixed = m({ _id: 'x', type: 'image', meta: { files, file: files[0] } as any });
     expect(estimateMessageHeight(mixed, prev, { mine: true })).to.equal(2 + albumBoxHeight(2) + 2 * DOC_ROW_H);
+  });
+
+  it('одна картинка + pdf: резервируется СЕТКА (её и рисует альбом), а не одиночная коробка', () => {
+    // Вложений больше одного → слот выбирает AlbumMedia, значит и оценка обязана считать по
+    // albumBoxHeight: одно превью ложится hero-ячейкой 16:9 (169), а не коробкой 1200×900 (225).
+    const files = [
+      { url: 'https://cdn/1.jpg', type: 'image/jpeg', width: 1200, height: 900 },
+      { url: 'https://cdn/a.pdf', type: 'application/pdf' },
+    ];
+    const mixed = m({ _id: 'x', type: 'image', meta: { files, file: files[0] } as any });
+    expect(estimateMessageHeight(mixed, prev, { mine: true })).to.equal(2 + albumBoxHeight(1) + DOC_ROW_H);
   });
 
   it('a document message with three attachments reserves three rows, not one', () => {
