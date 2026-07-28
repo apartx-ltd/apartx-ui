@@ -109,17 +109,90 @@ export function deliveryTick(
 }
 
 /**
+ * Единая точка чтения вложений сообщения. Сервер кладёт упорядоченный массив в `meta.files` и
+ * дублирует ПЕРВОЕ вложение в `meta.file` для легаси-читателей — если читать только `meta.file`,
+ * альбом схлопывается в одну картинку. `meta.files` поэтому главнее, `meta.file` — фолбэк для
+ * сообщений, отправленных до появления альбомов.
+ */
+export function messageAttachments(m: Message): any[] {
+  const meta: any = m?.meta;
+  if (!meta) return [];
+  if (Array.isArray(meta.files) && meta.files.length) return meta.files;
+  if (meta.file) return [meta.file];
+  return [];
+}
+
+/** Вложение показывается превью в сетке (image/video), а не строкой-документом. */
+function isVisualAttachment(att: any): boolean {
+  const type = att?.type;
+  if (typeof type !== 'string') return false; // mime отсутствует/битый → безопаснее строка документа
+  return type.indexOf('image/') === 0 || type.indexOf('video/') === 0;
+}
+
+/**
+ * Делит вложения на превью-сетку (`visual`) и строки-документы (`docs`), сохраняя исходный порядок
+ * внутри каждой группы — сервер отдаёт вложения в том порядке, в каком их выбрал отправитель.
+ */
+export function splitAttachments(files: readonly any[]): { visual: any[]; docs: any[] } {
+  const visual: any[] = [];
+  const docs: any[] = [];
+  for (const att of files ?? []) (isVisualAttachment(att) ? visual : docs).push(att);
+  return { visual, docs };
+}
+
+/** Больше 4 превью в сетку не влезает — остальные схлопываются в оверлей «+N» на последней ячейке. */
+export const ALBUM_MAX_CELLS = 4;
+const ALBUM_GAP = 2; // px между ячейками сетки
+
+/**
+ * Высота сетки превью альбома при ширине `MEDIA_BOX_MAX`. Раскладка (её один-в-один рисует
+ * компонент, менять только вместе с ним):
+ *
+ *   - грид в 2 колонки, `gap: 2px`, полная ширина = MEDIA_BOX_MAX (300);
+ *   - ячейка обычной строки квадратная (`aspect-square`, `object-cover`),
+ *     её сторона `cell = (MEDIA_BOX_MAX - ALBUM_GAP) / 2` = 149;
+ *   - показываем `shown = min(visualCount, ALBUM_MAX_CELLS)` ячеек; при нечётном `shown` ПЕРВАЯ
+ *     ячейка растянута на обе колонки (`col-span-2`) с соотношением 16:9 → hero = round(300*9/16) = 169,
+ *     чтобы остаток делился на 2 колонки без дырки;
+ *   - оставшиеся `shown - hero?1:0` ячеек ложатся в `rows` строк по 2 штуки.
+ *
+ * Отсюда высота = hero + (rows ? ALBUM_GAP + rows*cell + (rows-1)*ALBUM_GAP : 0), что даёт
+ * 149 (2 шт.), 320 (3 шт.), 300 (4 шт. и больше — сетка не растёт, лишнее уходит в «+N»).
+ *
+ * `visualCount === 1` сеткой НЕ рисуется: одиночное вложение остаётся обычным ImageMedia/VideoMedia
+ * с настоящим соотношением сторон, его высоту считает `mediaBoxHeight`.
+ */
+export function albumBoxHeight(visualCount: number): number {
+  const shown = Math.min(Math.max(0, Math.floor(visualCount || 0)), ALBUM_MAX_CELLS);
+  if (shown <= 0) return 0;
+  const cell = (MEDIA_BOX_MAX - ALBUM_GAP) / 2;
+  const hero = shown % 2 === 1 ? Math.round((MEDIA_BOX_MAX * 9) / 16) : 0;
+  const rows = (shown - (hero ? 1 : 0)) / 2;
+  if (!rows) return hero;
+  const grid = rows * cell + (rows - 1) * ALBUM_GAP;
+  return Math.round(hero + (hero ? ALBUM_GAP : 0) + grid);
+}
+
+/**
  * Ordered list of viewable image attachments in a message set — the gallery a chat lightbox opens
- * over. Includes only `image`-type messages whose upload has resolved to a file URL (skips videos and
- * still-uploading optimistic sends, which have only a transient preview blob). `src` mirrors what
- * ImageMedia renders, so a clicked thumbnail's URL indexes straight into this list.
+ * over. Идёт по ВСЕМ сообщениям и всем их вложениям: у смешанного альбома тип сообщения задаётся
+ * первым вложением (pdf первым → `type === 'document'`), поэтому фильтровать по типу сообщения
+ * нельзя — картинки из такого альбома просто исчезали бы из лайтбокса. Still-uploading отправки
+ * отсекаются требованием непустого `url` (у них только transient preview blob).
  */
 export function chatImageGallery(messages: readonly Message[]): { src: string; alt: string }[] {
   const out: { src: string; alt: string }[] = [];
   for (const m of messages) {
-    if ((m.type || '') !== 'image') continue;
-    const src = (m.meta as any)?.file?.url;
-    if (typeof src === 'string' && src) out.push({ src, alt: '' });
+    // Легаси: сервер проставлял `meta.file.type` только когда находил документ файла, поэтому у
+    // старых сообщений mime может отсутствовать — тогда решает тип самого сообщения.
+    const legacyImage = (m.type || '') === 'image';
+    for (const att of messageAttachments(m)) {
+      const src = att?.url;
+      if (typeof src !== 'string' || !src) continue;
+      const mime = typeof att?.type === 'string' ? att.type : '';
+      const isImage = mime ? mime.indexOf('image/') === 0 : legacyImage;
+      if (isImage) out.push({ src, alt: '' });
+    }
   }
   return out;
 }
@@ -228,6 +301,9 @@ export const MEDIA_BOX_MAX = 300;
 const LINE_H = 20; // text-body-md line height
 const BUBBLE_PAD_Y = 12; // bubble px-2 py-1.5 → 6px top + 6px bottom
 const CHARS_PER_LINE = 35; // ≈ chars per body-md line in an 80%-width mobile bubble
+/** Высота строки вложения-документа/аудио: icon row + paddings. Экспортируется, чтобы компонент
+ *  и оценка высоты не разъезжались. */
+export const DOC_ROW_H = 56;
 
 /** Rendered media box height per ImageMedia's reserve formula: scale w×h into MAX, or the fixed
  *  4:3 fallback box when dimensions are unknown. */
@@ -272,12 +348,23 @@ export function estimateMessageHeight(
   if (meta?.replyMessage) h += 40; // reply-quote header block
   if (!ctx.mine && groupStart(m, prev)) h += 18; // incoming group-start author line
   if (isFullBleedMedia(m.type)) {
-    h += mediaBoxHeight(m);
+    const files = messageAttachments(m);
+    const { visual, docs } = splitAttachments(files);
+    // Одна картинка рисуется с настоящим соотношением сторон, альбом — квадратной сеткой.
+    h += visual.length > 1 ? albumBoxHeight(visual.length) : mediaBoxHeight(m);
+    // Легаси без mime: единственное вложение media-сообщения — это сама картинка/видео, а не
+    // приложенный документ, строку под него резервировать нельзя (иначе оценка поедет на 56px).
+    const docRows = visual.length === 0 && files.length === 1 ? 0 : docs.length;
+    h += docRows * DOC_ROW_H;
     const caption = textBlockHeight(m.text);
     if (caption) h += caption + BUBBLE_PAD_Y;
     return h;
   }
-  if (m.type === 'audio' || m.type === 'document') return h + 56; // icon row + paddings
+  if (m.type === 'audio' || m.type === 'document') {
+    const { visual, docs } = splitAttachments(messageAttachments(m));
+    // max(1, …): у сообщения без разобранных вложений всё равно рисуется одна строка.
+    return h + (visual.length > 1 ? albumBoxHeight(visual.length) : 0) + Math.max(1, docs.length) * DOC_ROW_H;
+  }
   // Plain text (and unknown types without a host estimate): floated-time text bubble.
   return h + Math.max(LINE_H, textBlockHeight(m.text)) + BUBBLE_PAD_Y;
 }
