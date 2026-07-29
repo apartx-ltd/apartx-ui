@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, mediaBoxHeight, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX } from './helpers';
+import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, mediaBox, mediaBoxHeight, MEDIA_BOX_MAX_H, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX, messageAttachments, splitAttachments, albumBoxHeight, albumLayout, ALBUM_MAX_CELLS, DOC_ROW_H } from './helpers';
 import type { Message } from './types';
 
 const m = (over: Partial<Message> = {}): Message => ({ _id: 'm', chatId: 'c', userId: 'u1', createdAt: new Date('2026-06-30T10:00:00Z'), ...over });
@@ -242,6 +242,102 @@ describe('createReadFlusher — read-on-render gated by viewing', () => {
   });
 });
 
+describe('messageAttachments', () => {
+  it('prefers the ordered meta.files array', () => {
+    const files = [{ url: 'a', type: 'image/jpeg' }, { url: 'b', type: 'application/pdf' }];
+    expect(messageAttachments(m({ meta: { files, file: files[0] } as any }))).toEqual(files);
+  });
+  it('falls back to legacy meta.file when meta.files is empty', () => {
+    const file = { url: 'a', type: 'image/jpeg' };
+    expect(messageAttachments(m({ meta: { files: [], file } as any }))).toEqual([file]);
+  });
+  it('reads a lone legacy meta.file', () => {
+    const file = { url: 'a' };
+    expect(messageAttachments(m({ meta: { file } as any }))).toEqual([file]);
+  });
+  it('returns [] for a message with no attachments', () => {
+    expect(messageAttachments(m({ type: 'text' }))).toEqual([]);
+    expect(messageAttachments(m({ meta: {} as any }))).toEqual([]);
+  });
+});
+
+describe('splitAttachments', () => {
+  it('splits image/video from everything else, keeping order inside each group', () => {
+    const a = { url: '1', type: 'image/jpeg' };
+    const b = { url: '2', type: 'application/pdf' };
+    const c = { url: '3', type: 'video/mp4' };
+    const d = { url: '4', type: 'audio/ogg' };
+    expect(splitAttachments([a, b, c, d])).toEqual({ visual: [a, c], docs: [b, d] });
+  });
+  it('treats an attachment without a usable mime as a document row', () => {
+    const noType = { url: '1' };
+    const badType = { url: '2', type: 42 as any };
+    expect(splitAttachments([noType, badType])).toEqual({ visual: [], docs: [noType, badType] });
+  });
+  it('handles an empty list', () => {
+    expect(splitAttachments([])).toEqual({ visual: [], docs: [] });
+  });
+});
+
+describe('albumBoxHeight', () => {
+  // Сетка 300px шириной, gap 2 → квадратная ячейка 149; нечётное количество даёт hero 16:9 = 169.
+  it('is 0 when there is nothing to show', () => {
+    expect(albumBoxHeight(0)).to.equal(0);
+    expect(albumBoxHeight(-3)).to.equal(0);
+  });
+  it('lays 2 cells in one square row', () => {
+    expect(albumBoxHeight(2)).to.equal(149);
+  });
+  it('gives an odd count a full-width 16:9 hero plus one square row', () => {
+    expect(albumBoxHeight(3)).to.equal(169 + 2 + 149);
+  });
+  it('lays 4 cells in two square rows', () => {
+    expect(albumBoxHeight(4)).to.equal(149 * 2 + 2);
+  });
+  it('does not grow past ALBUM_MAX_CELLS — the rest collapses into the "+N" overlay', () => {
+    expect(albumBoxHeight(7)).to.equal(albumBoxHeight(ALBUM_MAX_CELLS));
+    expect(albumBoxHeight(7)).to.equal(300);
+  });
+});
+
+describe('albumLayout', () => {
+  const img = (n: number) => ({ url: `${n}.jpg`, type: 'image/jpeg' });
+  const pdf = { url: 'a.pdf', type: 'application/pdf' };
+
+  it('нечётное число превью → hero-ячейка на обе колонки', () => {
+    const l = albumLayout([img(1), img(2), img(3)]);
+    expect(l.cells).toHaveLength(3);
+    expect(l.hero).to.equal(true);
+    expect(l.overflow).to.equal(0);
+  });
+  it('чётное число превью → hero нет', () => {
+    expect(albumLayout([img(1), img(2)]).hero).to.equal(false);
+    expect(albumLayout([img(1), img(2), img(3), img(4)]).hero).to.equal(false);
+  });
+  it('больше ALBUM_MAX_CELLS → рисуются только 4, остальное в «+N»', () => {
+    const l = albumLayout([1, 2, 3, 4, 5, 6].map(img));
+    expect(l.cells).toHaveLength(ALBUM_MAX_CELLS);
+    expect(l.overflow).to.equal(2);
+    expect(l.hero).to.equal(false); // shown = 4, чётное
+    expect(l.cells[3]).toEqual(img(4)); // оверлей ложится на четвёртое превью, пятое-шестое не рисуются
+  });
+  it('документы уходят строками под сетку, порядок сохраняется', () => {
+    const l = albumLayout([img(1), pdf, img(2)]);
+    expect(l.cells).toEqual([img(1), img(2)]);
+    expect(l.docs).toEqual([pdf]);
+  });
+  it('только документы → сетки нет', () => {
+    const l = albumLayout([pdf, pdf]);
+    expect(l.cells).toHaveLength(0);
+    expect(l.hero).to.equal(false);
+    expect(l.docs).toHaveLength(2);
+  });
+  it('высота сетки считается по тем же ячейкам, что и рисуются', () => {
+    const l = albumLayout([1, 2, 3, 4, 5].map(img));
+    expect(albumBoxHeight(l.cells.length)).to.equal(albumBoxHeight(ALBUM_MAX_CELLS));
+  });
+});
+
 describe('chatImageGallery', () => {
   const img = (id: string, over: Partial<Message> = {}): Message =>
     m({ _id: id, type: 'image', meta: { file: { url: `https://cdn/${id}.jpg` } } as any, ...over });
@@ -269,6 +365,54 @@ describe('chatImageGallery', () => {
 
   it('returns an empty gallery for a set with no images', () => {
     expect(chatImageGallery([m({ type: 'text' })])).toEqual([]);
+  });
+
+  it('collects every image of an album, in attachment order', () => {
+    const album = m({
+      _id: 'al', type: 'image',
+      meta: {
+        files: [
+          { url: 'https://cdn/1.jpg', type: 'image/jpeg' },
+          { url: 'https://cdn/2.png', type: 'image/png' },
+          { url: 'https://cdn/3.jpg', type: 'image/jpeg' },
+        ],
+        file: { url: 'https://cdn/1.jpg', type: 'image/jpeg' },
+      } as any,
+    });
+    expect(chatImageGallery([album])).toEqual([
+      { src: 'https://cdn/1.jpg', alt: '' },
+      { src: 'https://cdn/2.png', alt: '' },
+      { src: 'https://cdn/3.jpg', alt: '' },
+    ]);
+  });
+
+  it('still collects images from a MIXED album whose first attachment is a pdf (message type "document")', () => {
+    const mixed = m({
+      _id: 'mx', type: 'document',
+      meta: {
+        files: [
+          { url: 'https://cdn/doc.pdf', type: 'application/pdf' },
+          { url: 'https://cdn/a.jpg', type: 'image/jpeg' },
+          { url: 'https://cdn/v.mp4', type: 'video/mp4' },
+          { url: 'https://cdn/b.jpg', type: 'image/jpeg' },
+        ],
+        file: { url: 'https://cdn/doc.pdf', type: 'application/pdf' },
+      } as any,
+    });
+    expect(chatImageGallery([mixed])).toEqual([
+      { src: 'https://cdn/a.jpg', alt: '' },
+      { src: 'https://cdn/b.jpg', alt: '' },
+    ]);
+  });
+
+  it('REGRESSION: a legacy image message whose meta.file has no mime is still in the gallery', () => {
+    // Сервер ставил att.type только когда находил документ файла — у старых сообщений mime нет,
+    // решает тип сообщения. Без этого фолбэка вся старая история выпала бы из лайтбокса.
+    const legacy = m({ _id: 'lg', type: 'image', meta: { file: { url: 'https://cdn/legacy.jpg' } } as any });
+    expect(chatImageGallery([legacy])).toEqual([{ src: 'https://cdn/legacy.jpg', alt: '' }]);
+    // Тот же файл без mime, но у сообщения-документа — не картинка.
+    const legacyDoc = m({ _id: 'ld', type: 'document', meta: { file: { url: 'https://cdn/legacy.bin' } } as any });
+    expect(chatImageGallery([legacyDoc])).toEqual([]);
   });
 });
 
@@ -298,11 +442,41 @@ describe('formatDuration', () => {
 describe('cold-open height estimation', () => {
   const prev = m({ _id: 'p', userId: 'u1' }); // same author, same day → no separator, no group start
 
-  it('mediaBoxHeight scales known dimensions into the MAX clamp (ImageMedia formula)', () => {
-    // 1200×900 → scale 0.25 → 300×225
+  it('mediaBox: картинка занимает пузырь по ширине, высота режется потолком', () => {
+    // Вертикальный кадр из отчёта: на полную ширину пузыря, лишняя высота уходит в object-cover.
+    expect(mediaBox(590, 1210)).to.deep.equal({ w: 300, h: 400 });
+    // Горизонтальный — как и было: 1200×800 → 300×200.
+    expect(mediaBox(1200, 800)).to.deep.equal({ w: 300, h: 200 });
+    // Мельче ширины коробки — НЕ апскейлим, остаётся натуральный размер.
+    expect(mediaBox(100, 80)).to.deep.equal({ w: 100, h: 80 });
+    // Узкий и длинный: ширина натуральная (200 < 300), высота срезана потолком.
+    expect(mediaBox(200, 1000)).to.deep.equal({ w: 200, h: 400 });
+  });
+
+  it('mediaBox: ровно на потолке не режет, на пиксель выше — режет', () => {
+    // 300×400 при ширине 300 даёт ровно 400 — граница включительно, обрезки нет.
+    expect(mediaBox(300, 400)).to.deep.equal({ w: 300, h: 400 });
+    // +1 к исходной высоте → 401 > 400 → срез до потолка.
+    expect(mediaBox(300, 401)).to.deep.equal({ w: 300, h: 400 });
+    expect(MEDIA_BOX_MAX_H).to.equal(400);
+  });
+
+  it('mediaBox: неизвестные/нулевые размеры → null (потребитель рисует фолбэк-коробку)', () => {
+    expect(mediaBox(undefined, undefined)).to.equal(null);
+    expect(mediaBox(300, undefined)).to.equal(null);
+    expect(mediaBox(undefined, 300)).to.equal(null);
+    expect(mediaBox(0, 0)).to.equal(null);
+    expect(mediaBox(300, 0)).to.equal(null);
+    expect(mediaBox(0, 300)).to.equal(null);
+  });
+
+  it('mediaBoxHeight — тонкая обёртка над mediaBox, с прежним фолбэком', () => {
+    // Регрессия горизонтальных: 1200×800 обязано остаться 200, как до правки потолка.
+    expect(mediaBoxHeight(m({ meta: { width: 1200, height: 800 } }))).to.equal(200);
+    // 1200×900 → 225, тоже без изменений.
     expect(mediaBoxHeight(m({ meta: { width: 1200, height: 900 } }))).to.equal(225);
-    // Portrait 600×1200 → scale 0.25 → 150×300
-    expect(mediaBoxHeight(m({ meta: { width: 600, height: 1200 } }))).to.equal(300);
+    // Вертикальная 600×1200: раньше ужималась до 150×300, теперь 300×400 — высота ВЫРОСЛА.
+    expect(mediaBoxHeight(m({ meta: { width: 600, height: 1200 } }))).to.equal(MEDIA_BOX_MAX_H);
     // Smaller than MAX → untouched
     expect(mediaBoxHeight(m({ meta: { width: 200, height: 100 } }))).to.equal(100);
     // attachment-style dims under meta.file win over meta
@@ -335,6 +509,52 @@ describe('cold-open height estimation', () => {
     expect(estimateMessageHeight(m({ _id: 'x', type: 'service', text: 'joined' }), prev, {})).to.equal(28);
     const deleted = m({ _id: 'x', type: 'image', removedAt: new Date(), meta: { width: 1200, height: 900 } });
     expect(estimateMessageHeight(deleted, prev, { mine: true })).to.equal(2 + 32);
+  });
+
+  it('a SINGLE attachment keeps exactly the pre-album height (no album math leaks in)', () => {
+    // Зафиксировано числом по старой формуле: mt-0.5 (2) + mediaBoxHeight(1200×900 → 225) = 227.
+    const one = m({ _id: 'x', type: 'image', meta: { file: { url: 'https://cdn/a.jpg', type: 'image/jpeg', width: 1200, height: 900 } } as any });
+    expect(estimateMessageHeight(one, prev, { mine: true })).to.equal(227);
+    // Легаси-вложение без mime не должно превратиться в строку документа (+56).
+    const legacy = m({ _id: 'x', type: 'image', meta: { file: { url: 'https://cdn/a.jpg', width: 1200, height: 900 } } as any });
+    expect(estimateMessageHeight(legacy, prev, { mine: true })).to.equal(227);
+  });
+
+  it('an album of 3 images is taller than a single image (grid, not one box)', () => {
+    const files = [1, 2, 3].map((i) => ({ url: `https://cdn/${i}.jpg`, type: 'image/jpeg', width: 1200, height: 900 }));
+    const album = m({ _id: 'x', type: 'image', meta: { files, file: files[0] } as any });
+    expect(estimateMessageHeight(album, prev, { mine: true })).to.equal(2 + albumBoxHeight(3));
+    expect(estimateMessageHeight(album, prev, { mine: true })).to.be.greaterThan(227);
+  });
+
+  it('a mixed album reserves the grid plus one document row per attached file', () => {
+    const files = [
+      { url: 'https://cdn/1.jpg', type: 'image/jpeg' },
+      { url: 'https://cdn/2.jpg', type: 'image/jpeg' },
+      { url: 'https://cdn/a.pdf', type: 'application/pdf' },
+      { url: 'https://cdn/b.pdf', type: 'application/pdf' },
+    ];
+    const mixed = m({ _id: 'x', type: 'image', meta: { files, file: files[0] } as any });
+    expect(estimateMessageHeight(mixed, prev, { mine: true })).to.equal(2 + albumBoxHeight(2) + 2 * DOC_ROW_H);
+  });
+
+  it('одна картинка + pdf: резервируется СЕТКА (её и рисует альбом), а не одиночная коробка', () => {
+    // Вложений больше одного → слот выбирает AlbumMedia, значит и оценка обязана считать по
+    // albumBoxHeight: одно превью ложится hero-ячейкой 16:9 (169), а не коробкой 1200×900 (225).
+    const files = [
+      { url: 'https://cdn/1.jpg', type: 'image/jpeg', width: 1200, height: 900 },
+      { url: 'https://cdn/a.pdf', type: 'application/pdf' },
+    ];
+    const mixed = m({ _id: 'x', type: 'image', meta: { files, file: files[0] } as any });
+    expect(estimateMessageHeight(mixed, prev, { mine: true })).to.equal(2 + albumBoxHeight(1) + DOC_ROW_H);
+  });
+
+  it('a document message with three attachments reserves three rows, not one', () => {
+    const files = [1, 2, 3].map((i) => ({ url: `https://cdn/${i}.pdf`, type: 'application/pdf' }));
+    const docs = m({ _id: 'x', type: 'document', meta: { files, file: files[0] } as any });
+    expect(estimateMessageHeight(docs, prev, { mine: true })).to.equal(2 + 3 * DOC_ROW_H);
+    // Без разобранных вложений всё равно одна строка — прежнее поведение.
+    expect(estimateMessageHeight(m({ _id: 'x', type: 'document' }), prev, { mine: true })).to.equal(2 + DOC_ROW_H);
   });
 
   it('separators/divider/group-start add on top', () => {

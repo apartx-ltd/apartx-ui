@@ -4,7 +4,7 @@
   // brand/solid icon + brand color. Renders nothing for native in-app messages.
   import Fa from 'svelte-fa';
   import { faWhatsapp, faTelegram, faAirbnb } from '@fortawesome/free-brands-svg-icons';
-  import { faHotel, faGroupArrowsRotate } from '@fortawesome/free-solid-svg-icons';
+  import { faHotel, faGroupArrowsRotate, faEnvelope } from '@fortawesome/free-solid-svg-icons';
   import type { Message } from '../types';
   import { messengerKey } from '../helpers';
 
@@ -17,6 +17,7 @@
     airbnb: { icon: faAirbnb, color: '#FF5A5F' },
     'booking.com': { icon: faHotel, color: '#003580' },
     channex: { icon: faGroupArrowsRotate, color: '#0088cc' },
+    email: { icon: faEnvelope, color: '#6b7280' },
   };
 
   const info = $derived.by(() => {
