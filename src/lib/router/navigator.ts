@@ -13,6 +13,8 @@ type Router = ReturnType<typeof useRouter>;
  */
 export function createNavigatorFromRouter(router: Router): Navigator {
   return {
+    // router.push идёт через navigate() (overlay-aware, вариант A) — kit-компоненты,
+    // зовущие Navigator.push при открытом оверлее, не теряют свежую history-запись.
     push: (href) => router.push(href),
     replace: (href) => router.replace(href),
     back: (href) => router.back(href),

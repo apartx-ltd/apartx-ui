@@ -72,6 +72,42 @@ describe('createOverlayStack', () => {
     expect(f.calls).not.toContain('pushOverlay'); // adopted, no push
   });
 
+  it('does NOT adopt a dying entry: register while a close pop is pending pushes its own', () => {
+    // Dropdown item opens a confirm dialog: closeOverlay(dropdown) armed suppressNextPop and
+    // issued a guarded goBack (a TASK), but the confirm's register effect runs as a MICROTASK
+    // first — history.state still shows __overlay. Adopting that dying entry means the confirm
+    // owns nothing and ITS close pops the real route entry (Escape → about:blank).
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const dropdown = os.openOverlay(() => {}); // pushOverlay → onOverlayEntry=true
+    os.closeOverlay(dropdown); // non-back close: goBack queued, suppressNextPop armed
+    expect(f.calls.filter((c) => c === 'goBack').length).toBe(1);
+    // Same tick, before the popstate lands: the confirm registers. Must PUSH, not adopt.
+    os.openOverlay(() => {});
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(2);
+    // The pending popstate arrives: consumed by suppressNextPop, confirm untouched.
+    expect(f.fireBack()).toBe(true);
+    expect(os.overlayCount()).toBe(1);
+    // A back now closes the confirm itself — the route entry stays intact.
+    expect(f.fireBack()).toBe(true);
+    expect(os.overlayCount()).toBe(0);
+  });
+
+  it('still ADOPTs once the pending pop has been consumed (flag lifecycle intact)', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const a = os.openOverlay(() => {});
+    os.closeOverlay(a); // arms suppressNextPop
+    expect(f.fireBack()).toBe(true); // pop consumed → flag reset
+    // Back-driven remount case: sitting on a genuinely surviving synthetic entry.
+    f.setOverlayEntry(true);
+    const pushes = f.calls.filter((c) => c === 'pushOverlay').length;
+    os.openOverlay(() => {});
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(pushes); // adopted, no push
+  });
+
   it('suppressNextPop: the popstate from a non-back close is consumed without re-closing', () => {
     const f = fakeAdapter();
     const os = createOverlayStack(f.adapter);

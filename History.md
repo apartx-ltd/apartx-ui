@@ -1,5 +1,47 @@
 # История изменений — apartx-ui
 
+## 2026-07-31
+
+### Версия 0.5.7
+
+### fix(router): overlay-aware навигация из коробки — router.push и Navigator.push через navigate()
+
+* Программная навигация при открытом оверлее теряла URL. С 0.4.0 каждый оверлей кладёт
+  синтетическую history-запись, и `closeOverlay()` снимает её отложенным guarded
+  `history.back()`. Из трёх хостовых путей навигации overlay-aware был только один:
+  `use:link`/`<Link>` шли через `navigate()`, а `useRouter().push` и
+  `createNavigatorFromRouter(...).push` били напрямую в `history.push` — свежая запись
+  ложилась ПОВЕРХ синтетической, и back закрывающегося оверлея тут же её съедал
+  (страница отрисована, URL откатился; ловилось в admin: открытый drawer + тап по
+  пункту меню → URL возвращался на предыдущий роут).
+* Теперь `router.push(url, opts)` идёт через `navigate()`: открытые оверлеи закрываются,
+  их верхняя запись заменяется назначением (вариант A), `keepOverlays: true` — push ПОД
+  оверлеем, как и раньше у ссылок. `navigate()` научился пробрасывать `{action}` в
+  history на путях без оверлеев, так что `push(url, {action})` сохраняет направление
+  транзишена. `Navigator.push` чинится делегированием — код не менялся.
+* `router.replace` сознательно оставлен НЕ overlay-aware: replace поверх открытого
+  оверлея — легитимный паттерн (spaces: открытие property из шторки карты замещает её
+  синтетическую запись, шторка живёт в survival store); автозакрытие сломало бы его.
+  Комментарии в `nav.ts`/`useRouter` теперь проговаривают это явно.
+
+### fix(router): новый оверлей не адоптит умирающую запись закрывающегося
+
+* Гонка «оверлей открывается в тот же тик, когда другой закрывается»: `closeOverlay()`
+  взводит `suppressNextPop` и вызывает guarded `history.back()` (задача), а register-эффект
+  нового оверлея выполняется микротаской — раньше. `history.state` ещё показывает
+  `__overlay`, adopt-эвристика присваивала новому оверлею запись, которая вот-вот
+  исчезнет: он владел «ничем», и его собственный close снимал уже НАСТОЯЩУЮ route-запись
+  (ловилось в admin: пункт dropdown открывает confirm → Escape уводил на about:blank).
+* Условие адопта теперь учитывает pending-pop: `stack.length === 1 && !suppressNextPop &&
+  adapter.onOverlayEntry`. Пока guarded back в полёте — новый оверлей всегда push'ит свою
+  запись; исходный adopt-кейс (back-driven remount выжившей шторки карты, где push без
+  жеста ловил Chrome history-manipulation intervention) не задет — флаг сбрасывается
+  popstate-обработчиком до любого следующего register.
+* Тесты: новые кейсы в `overlay-stack.test.ts` (register при pending-pop push'ит; после
+  консьюма флага adopt работает), `nav.test.ts` (проброс `{action}`), новый
+  `useRouter.test.ts` с mount-пробой — push при оверлее/`keepOverlays`/`{action}`/replace
+  и тот же контракт через `createNavigatorFromRouter`.
+
 ## 2026-07-28
 
 ### Версия 0.5.6

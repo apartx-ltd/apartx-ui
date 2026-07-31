@@ -94,7 +94,16 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     // skip-on-back → the next back skips it (and the map) and exits the app. So when this
     // is the only overlay AND the current entry is already synthetic, ADOPT it (no push);
     // `position` already matches that entry.
-    const adopt = stack.length === 1 && adapter.onOverlayEntry;
+    //
+    // НО не адоптить умирающую запись: closeOverlay() уже взвёл suppressNextPop и вызвал
+    // guarded history.back() (это ЗАДАЧА), а новый оверлей регистрируется Svelte-эффектом
+    // МИКРОТАСКОЙ — раньше. history.state в этот момент всё ещё показывает __overlay, но
+    // запись вот-вот схлопнется; адопт получил бы «ничьё» место, и его собственный close
+    // снял бы уже НАСТОЯЩУЮ route-запись (Escape в confirm → уход на about:blank). Пока
+    // pending-pop в полёте — всегда push своей записи; suppressNextPop сбрасывается
+    // popstate-обработчиком, так что настоящий adopt-кейс (back-driven remount выжившей
+    // шторки) не задет.
+    const adopt = stack.length === 1 && !suppressNextPop && adapter.onOverlayEntry;
     if (!adopt) adapter.pushOverlay();
     notify();
     return { token, z, close };
