@@ -24,23 +24,34 @@
   синтетическую запись, шторка живёт в survival store); автозакрытие сломало бы его.
   Комментарии в `nav.ts`/`useRouter` теперь проговаривают это явно.
 
-### fix(router): новый оверлей не адоптит умирающую запись закрывающегося
+### fix(router): same-tick handoff оверлеев — отложенная синтетическая запись вместо адопта умирающей
 
-* Гонка «оверлей открывается в тот же тик, когда другой закрывается»: `closeOverlay()`
-  взводит `suppressNextPop` и вызывает guarded `history.back()` (задача), а register-эффект
-  нового оверлея выполняется микротаской — раньше. `history.state` ещё показывает
-  `__overlay`, adopt-эвристика присваивала новому оверлею запись, которая вот-вот
-  исчезнет: он владел «ничем», и его собственный close снимал уже НАСТОЯЩУЮ route-запись
-  (ловилось в admin: пункт dropdown открывает confirm → Escape уводил на about:blank).
-* Условие адопта теперь учитывает pending-pop: `stack.length === 1 && !suppressNextPop &&
-  adapter.onOverlayEntry`. Пока guarded back в полёте — новый оверлей всегда push'ит свою
-  запись; исходный adopt-кейс (back-driven remount выжившей шторки карты, где push без
-  жеста ловил Chrome history-manipulation intervention) не задет — флаг сбрасывается
-  popstate-обработчиком до любого следующего register.
-* Тесты: новые кейсы в `overlay-stack.test.ts` (register при pending-pop push'ит; после
-  консьюма флага adopt работает), `nav.test.ts` (проброс `{action}`), новый
-  `useRouter.test.ts` с mount-пробой — push при оверлее/`keepOverlays`/`{action}`/replace
-  и тот же контракт через `createNavigatorFromRouter`.
+* Гонка «оверлей открывается в тот же тик, когда другой закрывается» (admin: пункт
+  dropdown открывает confirm): `closeOverlay()` взводит `suppressNextPop` и вызывает
+  guarded `history.back()` (задача), а register-эффект нового оверлея выполняется
+  микротаской — раньше. `history.state` ещё показывает `__overlay`, adopt-эвристика
+  присваивала новому оверлею запись, которая вот-вот исчезнет: он владел «ничем», и его
+  собственный close снимал уже НАСТОЯЩУЮ route-запись (Escape уводил на about:blank).
+* Просто запретить адопт при pending-pop недостаточно (проверено на admin e2e): браузер
+  резолвит цель выпущенного `back()` в момент ВЫЗОВА, поэтому запись, запушенная до его
+  приземления, не спасает — траверс всё равно уносит НИЖЕ неё (свежая запись остаётся
+  мёртвым forward-хвостом), и close нового оверлея опять снимает route-запись.
+* Механизм: register во время pending-pop кладёт оверлей в стек сразу (z-band,
+  back-interceptor работают), но его синтетическая запись ОТКЛАДЫВАЕТСЯ
+  (`deferredEntry`); popstate-обработчик, потребив `suppressNextPop` (браузер осел на
+  route-записи), создаёт отложенные записи — pushState ложится поверх route-записи, и
+  close оверлея корректно снимает ровно её одним back. Края: оверлей, закрытый ДО
+  приземления pop'а, записи не имел — close не выпускает back, а flush его не push'ит
+  (он уже выбыл из стека); несколько register'ов за один pending-pop получают свои
+  записи снизу вверх. Исходный adopt-кейс (back-driven remount выжившей шторки карты,
+  где push без жеста ловил Chrome history-manipulation intervention) не задет — там
+  никакой close не в полёте.
+* Тесты: новые кейсы в `overlay-stack.test.ts` (handoff: отложенная запись создаётся на
+  приземлении pop'а, push/pop сбалансированы, route-запись цела; close до приземления —
+  без back и без записи; несколько deferred за один pop; настоящий adopt после консьюма
+  флага работает), `nav.test.ts` (проброс `{action}`), новый `useRouter.test.ts` с
+  mount-пробой — push при оверлее/`keepOverlays`/`{action}`/replace и тот же контракт
+  через `createNavigatorFromRouter`.
 
 ## 2026-07-28
 

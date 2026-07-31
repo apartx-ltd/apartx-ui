@@ -9,6 +9,11 @@ interface Entry {
   token: number;
   close: Close;
   exitMs: number;
+  /** Оверлей зарегистрирован, пока guarded back закрывающегося оверлея ещё в полёте:
+   *  его синтетическая запись ОТЛОЖЕНА (создастся в popstate-обработчике, когда браузер
+   *  осядет на до-оверлейной записи). Пока флаг стоит — записи в history НЕТ, и close
+   *  не должен снимать её через back. */
+  deferredEntry?: boolean;
 }
 
 const Z_BASE = 60;
@@ -50,6 +55,20 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
   function handleBack(): boolean {
     if (suppressNextPop) {
       suppressNextPop = false;
+      // Догнать отложенные синтетические записи (register во время pending-pop, см.
+      // registerOverlay): браузер ТОЛЬКО ЧТО осел на до-оверлейной записи, так что эти
+      // pushState ложатся поверх route-записи — оверлей получает НАСТОЯЩУЮ запись,
+      // которую его close корректно снимет одним back. Раньше нельзя: back(),
+      // выпущенный closeOverlay, резолвит цель в момент ВЫЗОВА (Chrome), и запись,
+      // запушенная до его приземления, не спасает — траверс всё равно уносит на
+      // до-оверлейную, а следующий close-back съедает уже route-запись (about:blank).
+      // Закрытые до приземления оверлеи уже выбыли из stack → для них пуша не будет.
+      for (const e of stack) {
+        if (e.deferredEntry) {
+          e.deferredEntry = false;
+          adapter.pushOverlay();
+        }
+      }
       // The synthetic overlay entry has now been popped, so history.position is back
       // to its pre-overlay depth. closeOverlay() already fired notify() BEFORE this
       // popstate — while canGoBack was still inflated by this entry — so any subscriber
@@ -85,7 +104,8 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     initOverlayStack(); // idempotent, SSR no-op — guarantees the back-interceptor is installed
     const token = ++seq;
     const z = Z_BASE + stack.length * Z_STEP; // depth = длина стека ДО push
-    stack.push({ token, close, exitMs: exitMs ?? DEFAULT_EXIT_MS });
+    const entry: Entry = { token, close, exitMs: exitMs ?? DEFAULT_EXIT_MS };
+    stack.push(entry);
     // ADOPT vs PUSH. Normally opening an overlay pushes a synthetic history entry so a
     // back closes it. But on a BACK-DRIVEN remount (the map sheet survives a property
     // round-trip and reopens from the survival store), the browser is already SITTING on
@@ -95,16 +115,24 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     // is the only overlay AND the current entry is already synthetic, ADOPT it (no push);
     // `position` already matches that entry.
     //
-    // НО не адоптить умирающую запись: closeOverlay() уже взвёл suppressNextPop и вызвал
-    // guarded history.back() (это ЗАДАЧА), а новый оверлей регистрируется Svelte-эффектом
-    // МИКРОТАСКОЙ — раньше. history.state в этот момент всё ещё показывает __overlay, но
-    // запись вот-вот схлопнется; адопт получил бы «ничьё» место, и его собственный close
-    // снял бы уже НАСТОЯЩУЮ route-запись (Escape в confirm → уход на about:blank). Пока
-    // pending-pop в полёте — всегда push своей записи; suppressNextPop сбрасывается
-    // popstate-обработчиком, так что настоящий adopt-кейс (back-driven remount выжившей
-    // шторки) не задет.
-    const adopt = stack.length === 1 && !suppressNextPop && adapter.onOverlayEntry;
-    if (!adopt) adapter.pushOverlay();
+    // НО: register во время pending-pop (suppressNextPop взведён) — особый режим.
+    // closeOverlay() уже вызвал guarded history.back() (это ЗАДАЧА), а новый оверлей
+    // регистрируется Svelte-эффектом МИКРОТАСКОЙ — раньше. history.state ещё показывает
+    // __overlay, но запись вот-вот схлопнется: адопт получил бы «ничьё» место. Push
+    // прямо сейчас тоже НЕ спасает: back() резолвит цель в момент вызова (Chrome), и
+    // траверс всё равно уносит НИЖЕ свежезапушенной записи — она остаётся мёртвым
+    // forward-хвостом, а close нового оверлея снимает уже НАСТОЯЩУЮ route-запись
+    // (Escape в confirm → уход на about:blank). Поэтому запись ОТКЛАДЫВАЕТСЯ
+    // (deferredEntry): оверлей сразу в стеке (z, back-interceptor), а его pushState
+    // выполнит popstate-обработчик, когда pending-pop приземлится и браузер осядет на
+    // route-записи. Настоящий adopt-кейс (back-driven remount выжившей шторки) не
+    // задет — там никакой close не в полёте и suppressNextPop снят.
+    if (suppressNextPop) {
+      entry.deferredEntry = true;
+    } else {
+      const adopt = stack.length === 1 && adapter.onOverlayEntry;
+      if (!adopt) adapter.pushOverlay();
+    }
     notify();
     return { token, z, close };
   }
@@ -117,8 +145,12 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     const i = stack.findIndex((e) => e.token === token);
     if (i < 0) return; // уже снят (закрыт через back) → no-op, без двойного history.back
     const wasTop = i === stack.length - 1;
-    stack.splice(i, 1);
+    const [entry] = stack.splice(i, 1);
     notify();
+    // Запись оверлея ещё отложена (pending-pop не приземлился) → её просто НЕ существует:
+    // снимать нечего, back выпускать нельзя (он бы съел чужую запись). Выбытие из stack
+    // уже гарантирует, что flush в popstate-обработчике её не создаст.
+    if (entry.deferredEntry) return;
     // Закрыли не через back и это была верхняя → снять синтетическую history-запись.
     // suppressNextPop гасит вызванный этим popstate, чтобы не закрыть ещё раз.
     if (!opts?.viaBack && wasTop) {
