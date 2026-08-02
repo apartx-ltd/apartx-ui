@@ -44,6 +44,7 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
   let action: Action = 'none';
   let backInterceptor: (() => boolean) | null = null;
   let depth = 0; // our view of the current overlay nesting depth
+  let selfNav = false; // навигацию инициировал кит (push/replace ниже) — не хост
   const listeners = new Set<() => void>();
   const notify = () => listeners.forEach((l) => l());
 
@@ -53,8 +54,34 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
     } else {
       action = 'forward';
     }
+    // Хостовая навигация (plain <a>, адресная строка, host goto) при открытых
+    // оверлеях: отпустить их, history не трогать (вариант B — см. дизайн
+    // docs/plans/2026-08-02-kit-overlay-host-navigation в репо apartx).
+    // selfNav = навигация пришла из push/replace НИЖЕ (вариант A кита или
+    // keepOverlays-путь) — кит сам управляет стеком, не вмешиваемся.
+    // Shallow-pop оверлея сюда не попадает: SvelteKit не зовёт beforeNavigate
+    // для shallow-навигаций (см. комментарий адаптера выше).
+    if (selfNav) { selfNav = false; return; }
+    // Уход со страницы целиком (закрытие вкладки, внешняя ссылка, beforeunload):
+    // dismiss необратим, а такую навигацию пользователь ещё может отменить в
+    // нативном диалоге — снимем оверлеи и останемся с закрытым «без причины».
+    // На уходящей странице снимать их всё равно незачем.
+    if (nav.willUnload) return;
+    defaultOverlayStack.dismissForHostNavigation();
   });
-  afterNavigate(() => notify());
+  afterNavigate(() => {
+    // Страховка от протухшего selfNav: goto, не породивший beforeNavigate
+    // (тот же URL, отмена другим слушателем), не должен съесть dismiss у
+    // СЛЕДУЮЩЕЙ хостовой навигации.
+    selfNav = false;
+    // depth — правда из history, а не ручной счётчик: реальная навигация раньше
+    // его не трогала, и после хостового push поверх синтетической записи
+    // popstate считал closed = 0 (вторая половина бага). Shallow pushState
+    // afterNavigate не дёргает, так что depth от pushOverlay не затирается;
+    // а если бы дёргал — depthFromHistory() всё равно вернул бы верный depth.
+    depth = depthFromHistory();
+    notify();
+  });
 
   if (typeof window !== 'undefined') {
     window.addEventListener('popstate', () => {
@@ -82,8 +109,8 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
     },
     get onOverlayEntry() { return overlayDepthOf(page.state) > 0; },
     listen(cb) { listeners.add(cb); return () => { listeners.delete(cb); }; },
-    push(url, opts) { action = opts?.action ?? 'forward'; void goto(url); },
-    replace(url, opts) { action = opts?.action ?? 'none'; void goto(url, { replaceState: true }); },
+    push(url, opts) { action = opts?.action ?? 'forward'; selfNav = true; void goto(url); },
+    replace(url, opts) { action = opts?.action ?? 'none'; selfNav = true; void goto(url, { replaceState: true }); },
     pushOverlay() {
       action = 'forward';
       depth = overlayDepthOf(page.state) + 1;
