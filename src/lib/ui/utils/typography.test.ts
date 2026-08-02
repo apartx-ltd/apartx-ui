@@ -31,6 +31,13 @@ describe('typography maps', () => {
     expect(all).toHaveLength(new Set(all).size);
   });
 
+  test('ROLES синхронизирован с алиасами в typography-roles.css', () => {
+    // Роль без CSS-правила рендерится вообще без стилей — тихо, мимо сборки и типов.
+    const css = readFileSync(new URL('../../styles/typography-roles.css', import.meta.url), 'utf8');
+    const aliases = [...css.matchAll(/^\s*\.text-([a-z-]+)\s*\{/gm)].map((m) => m[1]);
+    expect(aliases.sort()).toEqual([...ROLES].sort());
+  });
+
   test('COLORS синхронизирован с --color-* из tokens.css (анти-дрейф)', () => {
     // Новый токен без записи здесь снова начнёт молча съедать шкалу в twMerge.
     const css = readFileSync(new URL('../../styles/tokens.css', import.meta.url), 'utf8');

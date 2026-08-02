@@ -7,7 +7,9 @@
  * …) gets added here, so consumers pick it up without touching their entry.
  *
  * Order matters: tokens first (defines `@theme` colour/shape/motion vars the
- * rest reads through), then the `@utility` layers.
+ * rest reads through), then the `@utility` layers. `typography-roles.css` is the
+ * one exception — it authors into `@layer components` on purpose, so a single
+ * utility token still overrides the role alias it belongs to.
  */
 @import './tokens.css';
 @import './typescale.css';
