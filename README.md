@@ -72,8 +72,11 @@ The consumer's bundler must:
 2. Resolve the `apartx-ui` alias to `apartx-ui/src/lib` (and the subpaths).
 3. Scan the submodule for Tailwind classes — add to the app's `app.css`:
    `@source '../../apartx-ui/src/lib/**/*.{svelte,ts}';`
-4. Import the token styles once (after `@import 'tailwindcss'`):
-   `@import 'apartx-ui/styles/tokens.css';` and `typescale.css`.
+4. Import the kit stylesheet barrel once (after `@import 'tailwindcss'`):
+   `@import 'apartx-ui/styles';`. Import the barrel, not individual files —
+   it carries tokens, typescale, role aliases, utilities and animations, and
+   picks up anything added later. Cherry-picking silently drops whatever the
+   list misses (`<Text>` renders unstyled without `typography-roles.css`).
 
 `bits-ui`, `svelte`, and `svelte-fa` are **peer dependencies** — keep a single
 version across the consumer and the kit (a second `bits-ui` instance breaks
