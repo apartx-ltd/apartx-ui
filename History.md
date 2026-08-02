@@ -1,5 +1,22 @@
 # История изменений — apartx-ui
 
+## 2026-08-02
+
+### Версия 0.5.8
+
+### feat(typography): ролевая типографика — <Text>, алиасы text-<role>, фикс cn/twMerge
+
+* Новый компонент `display/Text` (`role × tone × as`) и 11 utility-алиасов
+  `text-<role>` в `@layer components` — текст описывается ролью (hint, caption,
+  section-title, …) вместо ручной пары «M3-шкала + цвет» на каждом call-site.
+  Источник правды — `ui/utils/typography.ts`.
+* fix(cn): `twMerge` → `extendTailwindMerge` с явными группами font-size /
+  text-color / text-role. Раньше кастомные M3-классы падали в один catch-all:
+  `cn('text-title-lg text-on-surface …')` молча терял размер. Побочно чинит
+  Title (22px), ListHeader/DataTable th (14px/500), Pagination и ячейки
+  календарей (14px) — в консьюмерах проявится на бампе сабмодуля, нужен
+  e2e-прогон кабинета.
+
 ## 2026-07-31
 
 ### Версия 0.5.7

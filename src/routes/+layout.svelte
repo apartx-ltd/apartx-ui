@@ -27,6 +27,7 @@
     { path: '/', label: 'Overview' },
     { path: '/components', label: 'Components' },
     { path: '/display', label: 'Display' },
+    { path: '/typography', label: 'Typography' },
     { path: '/structure', label: 'Structure' },
     { path: '/data', label: 'Data' },
     { path: '/forms', label: 'Forms' },
