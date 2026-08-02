@@ -3,6 +3,10 @@
   "version": "0.5.8",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apartx-ltd/apartx-ui.git"
+  },
   "description": "ApartX Svelte 5 UI Kit — themeable design system, source-based (no build step)",
   "svelte": "./src/lib/index.ts",
   "types": "./src/lib/index.ts",
