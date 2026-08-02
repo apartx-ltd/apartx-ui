@@ -8,7 +8,15 @@
   import PageTransition from '$lib/navigation/PageTransition.svelte';
   import { Icon } from '$lib/ui/display';
   import { faBars } from '@fortawesome/free-solid-svg-icons';
+  import { faGithub } from '@fortawesome/free-brands-svg-icons';
   import { Drawer } from '$lib/ui/overlays';
+  // Named imports (not a default import of the whole file) so Vite tree-shakes
+  // the rest of package.json out of the client bundle. The route is prerendered,
+  // so both values are baked in at build time.
+  import { version, repository } from '../../package.json';
+
+  // package.json carries the npm-style `git+…​.git` form; strip it for an href.
+  const repoUrl = repository.url.replace(/^git\+/, '').replace(/\.git$/, '');
 
   let { children } = $props();
 
@@ -50,23 +58,43 @@
   });
 </script>
 
+<!-- Rendered twice — desktop <aside> and the mobile <Drawer> — so the version
+     footer lands on both surfaces from one place. min-h-full (not h-full) lets
+     the column grow past the viewport when the nav is long: the footer then
+     scrolls with the list instead of squashing it. -->
 {#snippet sidebar()}
-  <a href="{base}/" class="mb-6 block">
-    <span class="text-title-lg text-primary font-semibold">ApartX UI</span>
-    <span class="block text-body-sm text-on-surface-variant">Svelte 5 · Tailwind v4</span>
-  </a>
-  <nav class="flex flex-col gap-1">
-    {#each nav as item (item.path)}
+  <div class="flex min-h-full flex-col">
+    <a href="{base}/" class="mb-6 block">
+      <span class="text-title-lg text-primary font-semibold">ApartX UI</span>
+      <span class="block text-body-sm text-on-surface-variant">Svelte 5 · Tailwind v4</span>
+    </a>
+    <nav class="flex flex-1 flex-col gap-1">
+      {#each nav as item (item.path)}
+        <a
+          href={item.path === '/' ? base || '/' : `${base}${item.path}`}
+          class="rounded-sm px-3 py-2 text-label-lg transition-colors hover:bg-primary/8"
+          class:bg-primary={current === item.path}
+          class:text-on-primary={current === item.path}
+        >
+          {item.label}
+        </a>
+      {/each}
+    </nav>
+    <footer
+      class="mt-6 flex items-center justify-between gap-2 border-t border-outline-variant pt-3"
+    >
+      <span class="text-caption">v{version}</span>
       <a
-        href={item.path === '/' ? base || '/' : `${base}${item.path}`}
-        class="rounded-sm px-3 py-2 text-label-lg transition-colors hover:bg-primary/8"
-        class:bg-primary={current === item.path}
-        class:text-on-primary={current === item.path}
+        href={repoUrl}
+        target="_blank"
+        rel="noreferrer"
+        class="text-label inline-flex items-center gap-1.5 transition-colors hover:text-on-surface"
       >
-        {item.label}
+        <Icon icon={faGithub} />
+        GitHub
       </a>
-    {/each}
-  </nav>
+    </footer>
+  </div>
 {/snippet}
 
 <!-- h-dvh (not h-screen/100vh): on mobile the browser chrome shrinks the visible
