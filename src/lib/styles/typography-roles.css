@@ -1,0 +1,24 @@
+/*
+ * Ролевые алиасы типографики — второй вход в те же роли, что у <Text>
+ * (для мест, где компонент неудобен: внутренности кита, псевдоэлементы,
+ * сторонние слоты). Имя = text-<role>; список ролей — ui/utils/typography.ts.
+ *
+ * Именно @layer components, НЕ @utility: Tailwind объявляет порядок
+ * `@layer theme, base, components, utilities`, поэтому одиночный токен из
+ * utilities (`text-error`, `text-inherit`, `text-title-sm`) перебивает
+ * соответствующую часть алиаса без !important. Дефолтный тон роли зашит
+ * прямо сюда — проп tone у <Text> и ручной класс тона его переопределяют.
+ */
+@layer components {
+  .text-page-title    { @apply text-headline-md text-on-surface; }
+  .text-section-title { @apply text-title-lg text-on-surface; }
+  .text-group-title   { @apply text-title-md text-on-surface; }
+  .text-item-title    { @apply text-title-md text-on-surface; }
+  .text-item-subtitle { @apply text-title-sm text-on-surface-variant; }
+  .text-body          { @apply text-body-lg text-on-surface; }
+  .text-hint          { @apply text-body-md text-on-surface-variant; }
+  .text-caption       { @apply text-body-sm text-on-surface-variant; }
+  .text-action        { @apply text-label-lg text-on-surface; }
+  .text-label         { @apply text-label-md text-on-surface-variant; }
+  .text-overline      { @apply text-label-sm text-on-surface-variant; }
+}

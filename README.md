@@ -25,7 +25,7 @@ src/
 │   │   │                     #   Menu, DrawerButton
 │   │   ├── display/          # Button, Icon, Badge, Card, Chip, Avatar, Tabs,
 │   │   │                     #   Separator, Progress, Skeleton, Loading, Fab,
-│   │   │                     #   Link, Accordion, AccordionItem, PopoverJson
+│   │   │                     #   Link, Accordion, AccordionItem, PopoverJson, Text
 │   │   ├── data/             # List, Item, ListHeader, DataTable, Pagination
 │   │   ├── forms/            # TextField, Select, Checkbox, Switch, FormField,
 │   │   │                     #   DatePicker, createForm
@@ -72,8 +72,11 @@ The consumer's bundler must:
 2. Resolve the `apartx-ui` alias to `apartx-ui/src/lib` (and the subpaths).
 3. Scan the submodule for Tailwind classes — add to the app's `app.css`:
    `@source '../../apartx-ui/src/lib/**/*.{svelte,ts}';`
-4. Import the token styles once (after `@import 'tailwindcss'`):
-   `@import 'apartx-ui/styles/tokens.css';` and `typescale.css`.
+4. Import the kit stylesheet barrel once (after `@import 'tailwindcss'`):
+   `@import 'apartx-ui/styles';`. Import the barrel, not individual files —
+   it carries tokens, typescale, role aliases, utilities and animations, and
+   picks up anything added later. Cherry-picking silently drops whatever the
+   list misses (`<Text>` renders unstyled without `typography-roles.css`).
 
 `bits-ui`, `svelte`, and `svelte-fa` are **peer dependencies** — keep a single
 version across the consumer and the kit (a second `bits-ui` instance breaks
@@ -84,6 +87,45 @@ Dialog/DatePicker/Accordion context).
 The kit ships a neutral ApartX-blue fallback palette in `styles/tokens.css`.
 To rebrand at runtime, call `applyTheme(seedHex)` once near app start; it
 generates the full palette from a seed and sets the `--theme-*` CSS variables.
+
+### Typography — `<Text>` and the `text-<role>` aliases
+
+Text is described by a **role**, not by a hand-picked "scale + colour" pair:
+
+```svelte
+<script>
+  import { Text } from 'apartx-ui/display';
+</script>
+
+<Text role="hint">Verify your phone or email first</Text>
+<Text role="caption" tone="error" as="span">That code has expired</Text>
+
+<p class="text-hint">…</p>   <!-- where the component is inconvenient -->
+```
+
+Roles (tag · scale · default tone; unmarked = the default `on-surface`):
+`page-title` (h1 · headline-md), `section-title` (h2 · title-lg),
+`group-title` (h3 · title-md), `item-title` (div · title-md), `item-subtitle`
+(div · title-sm · muted), `body` (p · body-lg), `hint` (p · body-md · muted),
+`caption` (p · body-sm · muted), `action` (span · label-lg), `label` (span ·
+label-md · muted), `overline` (span · label-sm · muted).
+
+Tones: `default`, `muted`, `inherit`, `primary`, `secondary`, `tertiary`,
+`error`, `success`, `warning`. Use `tone="inherit"` for text on a coloured
+surface (`bg-* text-on-*` on the container) — the colour is inherited rather
+than repeated on every child.
+
+`role` is **required**: there is no dominant role, and a silent default would
+mask a forgotten choice. `as` overrides the role's tag; a `tone` prop or a bare
+utility class always wins over the alias, because the aliases are authored into
+`@layer components` and utilities outrank them.
+
+The aliases live in `styles/typography-roles.css` (pulled in by the
+`apartx-ui/styles` barrel); the role list itself is `ui/utils/typography.ts`.
+
+Not to be confused with `structure/Title` — that is the toolbar heading
+(truncating, for the header slot), not a text role. For a page heading inside
+the content use `<Text role="page-title">`.
 
 ### Navigation — router-agnostic
 

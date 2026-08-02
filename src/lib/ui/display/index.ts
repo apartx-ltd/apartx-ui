@@ -18,6 +18,9 @@ export { default as PopoverJson } from './PopoverJson.svelte';
 export { default as Popover } from './Popover.svelte';
 export { default as BottomNav } from './BottomNav.svelte';
 export { default as ScrollArea } from './ScrollArea.svelte';
+export { default as Text } from './Text.svelte';
+export { ROLES as TEXT_ROLES, TONES as TEXT_TONES } from '../utils/typography';
+export type { TextRole, TextTone } from '../utils/typography';
 
 // Navigation contract lives in `apartx-ui/navigation` (setNavigator/getNavigator).
 export type { LinkNavigate } from '../../navigation/context';
