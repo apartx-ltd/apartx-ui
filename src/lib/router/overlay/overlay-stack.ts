@@ -36,8 +36,11 @@ export interface OverlayStack {
   registerOverlay(opts: { close: Close; scrim?: boolean; exitMs?: number }): OverlayHandle;
   openOverlay(close: Close): number; // back-compat
   closeOverlay(token: number, opts?: { viaBack?: boolean }): void;
-  /** Закрывает все оверлеи для навигации; возвращает max exit-длительность (ms) — сколько
-   *  подождать перед сменой роута, чтобы уходящая анимация успела проиграть (0 = стек пуст). */
+  /** Навигацию инициирует САМ КИТ (вариант A: navigate()/<Link> — см. core/nav.ts).
+   *  Закрывает все оверлеи; возвращает max exit-длительность (ms) — сколько подождать
+   *  перед сменой роута, чтобы уходящая анимация успела проиграть (0 = стек пуст).
+   *  Верхнюю синтетическую запись съест последующий replace самой навигации — в отличие
+   *  от dismissForHostNavigation (навигация МИМО кита), history здесь трогать не нужно. */
   dismissForNavigation(): number;
   /** Хост навигирует МИМО кита (plain <a>, адресная строка, host goto): снять оверлеи
    *  логически, history НЕ трогать — наша синтетическая запись уже не вершина, слепой
@@ -182,8 +185,12 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
   }
 
   function dismissForHostNavigation(): void {
-    // suppressNextPop значит «наш guarded back в полёте» — хостовая навигация этот
-    // план отменила; не сбросить = залипание, молча съедающее следующий настоящий back.
+    // suppressNextPop взведён из closeOverlay() СИНХРОННО перед adapter.goBack() —
+    // popstate уже выпущен и обязательно приземлится, отменить его нельзя. Сброс флага
+    // не отменяет этот pop, а меняет его судьбу: вместо «молча поглощён» он дойдёт до
+    // handleBack на уже пустом стеке и будет доложен роутеру как обычный back (false) —
+    // безобидно, запись same-URL. Не сбросить было бы хуже: залипший флаг молча съел бы
+    // СЛЕДУЮЩИЙ настоящий back пользователя.
     suppressNextPop = false;
     const entries = stack.splice(0, stack.length);
     if (entries.length === 0) return;
