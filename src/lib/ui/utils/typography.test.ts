@@ -24,6 +24,13 @@ describe('typography maps', () => {
     expect(SCALE).toHaveLength(15);
   });
 
+  test('SCALE, COLORS и ROLES не пересекаются', () => {
+    // Каждый список — отдельная classGroup в cn.ts. Общий литерал (например роль
+    // с именем primary) заставил бы одну группу молча затенить другую.
+    const all = [...SCALE, ...COLORS, ...ROLES];
+    expect(all).toHaveLength(new Set(all).size);
+  });
+
   test('COLORS синхронизирован с --color-* из tokens.css (анти-дрейф)', () => {
     // Новый токен без записи здесь снова начнёт молча съедать шкалу в twMerge.
     const css = readFileSync(new URL('../../styles/tokens.css', import.meta.url), 'utf8');
