@@ -224,6 +224,115 @@ describe('createOverlayStack', () => {
     // Non-top non-back close does NOT pop a synthetic entry.
     expect(f.calls.filter((c) => c === 'goBack').length).toBe(goBackBefore);
   });
+
+  it('dismissForHostNavigation: чистит стек, зовёт close() LIFO, history не трогает', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const order: string[] = [];
+    os.openOverlay(() => { order.push('A'); });
+    os.openOverlay(() => { order.push('B'); });
+    const pushes = f.calls.filter((c) => c === 'pushOverlay').length;
+    os.dismissForHostNavigation();
+    expect(os.overlayCount()).toBe(0);
+    expect(order).toEqual(['B', 'A']);
+    expect(f.calls.filter((c) => c === 'goBack').length).toBe(0);
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(pushes);
+  });
+
+  it('dismissForHostNavigation: closeOverlay бывшего жителя после — no-op без goBack', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const token = os.openOverlay(() => {});
+    os.dismissForHostNavigation();
+    os.closeOverlay(token); // флип open=false докатился после dismiss
+    expect(f.calls.filter((c) => c === 'goBack').length).toBe(0);
+  });
+
+  it('dismissForHostNavigation: сбрасывает взведённый suppressNextPop (back не съедается)', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const a = os.openOverlay(() => {});
+    os.closeOverlay(a); // не-back закрытие: suppressNextPop взведён, guarded goBack «в полёте»
+    os.dismissForHostNavigation();
+    // Guarded back из closeOverlay уже выпущен и приземлится — dismiss его не отменяет.
+    // f.fireBack() ниже — это ЕГО popstate (не «следующий настоящий»), уже in-flight.
+    // Сброс suppressNextPop меняет его судьбу: на пустом стеке handleBack доложит его
+    // роутеру как обычный back (false = не поглощён; безобидно — запись same-URL).
+    // Не сбросить было бы хуже: залипший флаг молча съел бы уже СЛЕДУЮЩИЙ, настоящий
+    // back пользователя.
+    expect(f.fireBack()).toBe(false);
+  });
+
+  it('dismissForHostNavigation при pending-pop: deferred-записи не флашатся', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const a = os.openOverlay(() => {}); // pushOverlay #1
+    os.closeOverlay(a); // suppress взведён, goBack #1
+    os.openOverlay(() => {}); // deferredEntry — записи в history нет
+    os.dismissForHostNavigation();
+    expect(os.overlayCount()).toBe(0);
+    expect(f.fireBack()).toBe(false); // suppression снят, флашить нечего
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(1); // deferred так и не создан
+  });
+
+  it('dismissForHostNavigation на пустом стеке: no-op, подписчиков не дёргает', () => {
+    // Единственная ветка, где notify() пропускается (асимметрия с dismissForNavigation) —
+    // и после подключения к beforeNavigate это станет hot path: метод будет зваться на
+    // КАЖДОЙ хостовой навигации, а стек почти всегда пуст. Зафиксировать, иначе будущая
+    // «унификация» с dismissForNavigation молча начнёт дёргать подписчиков на каждой
+    // навигации мимо кита.
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    let n = 0;
+    os.subscribeOverlay(() => { n++; });
+    os.dismissForHostNavigation();
+    expect(n).toBe(0);
+    expect(f.calls.length).toBe(0);
+  });
+
+  it('после dismissForHostNavigation следующий оверлей АДОПТИРУЕТ брошенную запись', () => {
+    // Синтетическая запись НЕ снята (dismiss не трогает history) — её URL совпадает со
+    // страницей под ней, и следующий оверлей садится ровно на неё вместо push. Это самая
+    // неочевидная часть модели владения (кит «одолжил» чужую запись под свой стек), стоит
+    // закрепить явно.
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    os.openOverlay(() => {});
+    os.dismissForHostNavigation();
+    const pushes = f.calls.filter((c) => c === 'pushOverlay').length;
+    os.openOverlay(() => {});
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(pushes);
+  });
+
+  it('dismissForHostNavigation со смешанным стеком (реальная + deferred запись)', () => {
+    // A — с настоящей записью, B закрыт не-back'ом (suppress взведён, его goBack «в
+    // полёте»), C зарегистрирован ПОКА pop ещё не приземлился → C.deferredEntry=true.
+    // Стек в момент dismiss — [A, C]: LIFO-слив идёт «через» отложенную запись, это не
+    // покрыто существующим deferred-тестом (там стек — ровно одна deferred-запись).
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const order: string[] = [];
+    os.openOverlay(() => { order.push('A'); }); // pushOverlay #1, реальная запись
+    const b = os.openOverlay(() => { order.push('B'); }); // pushOverlay #2
+    os.closeOverlay(b); // не-back close: goBack, suppressNextPop взведён
+    os.openOverlay(() => { order.push('C'); }); // pending-pop → deferredEntry, без push
+    const pushesBefore = f.calls.filter((c) => c === 'pushOverlay').length;
+    const goBackBefore = f.calls.filter((c) => c === 'goBack').length;
+    os.dismissForHostNavigation();
+    expect(os.overlayCount()).toBe(0);
+    expect(order).toEqual(['C', 'A']); // LIFO: верх стека (C) первым, затем A
+    expect(f.calls.filter((c) => c === 'goBack').length).toBe(goBackBefore); // history не тронута
+    // suppression снят, но C уже выбыл из stack → flush в handleBack его не создаст.
+    expect(f.fireBack()).toBe(false);
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(pushesBefore);
+  });
 });
 
 describe('default overlay-stack binds to history registry', () => {

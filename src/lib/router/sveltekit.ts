@@ -34,8 +34,14 @@ const depthFromHistory = (): number => {
  * back-interceptor cannot hang off `beforeNavigate`. Instead we listen to the
  * native `popstate` (which always fires) and, when the overlay depth DROPS, invoke
  * the interceptor once per closed level — driving the exact same `handleBack` the
- * browser adapter uses. `beforeNavigate` is kept ONLY to compute the forward/back
- * direction for `<PageTransition>` on real navigations.
+ * browser adapter uses. `beforeNavigate` computes the forward/back direction for
+ * `<PageTransition>` on real navigations, AND is the entry point for variant B
+ * (dismissForHostNavigation — see the callback body): it fires on every navigation
+ * SvelteKit itself routes (plain `<a>`, address bar, host goto). One known gap: a
+ * hash-only link (same pathname, different `#hash`) never reaches it at all — in
+ * `client.js`'s anchor click handler the `hash_navigating` branch calls
+ * `update_url(url)` and returns WITHOUT `event.preventDefault()`, so the browser
+ * performs a native hash navigation and pushes the history entry itself.
  *
  * Must be constructed during component init (registers before/afterNavigate +
  * popstate), e.g. inside `useSvelteKitNavigation()`.
@@ -44,6 +50,7 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
   let action: Action = 'none';
   let backInterceptor: (() => boolean) | null = null;
   let depth = 0; // our view of the current overlay nesting depth
+  let selfNav = false; // навигацию инициировал кит (push/replace ниже) — не хост
   const listeners = new Set<() => void>();
   const notify = () => listeners.forEach((l) => l());
 
@@ -53,8 +60,49 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
     } else {
       action = 'forward';
     }
+    // Хостовая навигация (plain <a>, адресная строка, host goto) при открытых
+    // оверлеях: отпустить их, history не трогать (вариант B — см. дизайн
+    // docs/plans/2026-08-02-kit-overlay-host-navigation в репо apartx).
+    // selfNav = навигация пришла из push/replace НИЖЕ (вариант A кита или
+    // keepOverlays-путь) — кит сам управляет стеком, не вмешиваемся.
+    // Shallow-pop оверлея сюда обычно не попадает: SvelteKit не зовёт beforeNavigate
+    // для shallow-навигаций (см. комментарий адаптера выше) — НО это верно только при
+    // has_navigated === true. Формула в client.js: shallow = navigation_index ===
+    // current_navigation_index && (has_navigated || is_hash_change). После холодной
+    // перезагрузки НА синтетической записи оверлея has_navigated ещё false → самый
+    // первый back идёт полной навигацией, и beforeNavigate таки сработает (см. guard
+    // на depthFromHistory() ниже — итог для пользователя тот же: оверлей закрыт, back
+    // поглощён).
+    if (selfNav) { selfNav = false; return; }
+    // Уход со страницы целиком (закрытие вкладки, внешняя ссылка, beforeunload):
+    // dismiss необратим, а такую навигацию пользователь ещё может отменить в
+    // нативном диалоге — снимем оверлеи и останемся с закрытым «без причины».
+    // На уходящей странице снимать их всё равно незачем.
+    if (nav.willUnload) return;
+    // Back, приземляющийся НА синтетическую запись оверлея, — это возврат к НАШЕЙ
+    // записи, а не хостовая навигация: на popstate history.state уже обновлён, так
+    // что depth читается с приземлившейся записи. Без этого restore-on-back
+    // (keepOverlays: шторка карты переживает уход на детальную страницу и обратно)
+    // убивал бы выживший оверлей на обратном пути.
+    if (nav.type === 'popstate' && depthFromHistory() > 0) return;
+    defaultOverlayStack.dismissForHostNavigation();
   });
-  afterNavigate(() => notify());
+  afterNavigate(() => {
+    // Страховка от протухшего selfNav: goto, не породивший beforeNavigate
+    // (тот же URL, отмена другим слушателем), не должен съесть dismiss у
+    // СЛЕДУЮЩЕЙ хостовой навигации.
+    selfNav = false;
+    // Ресинк depth — подстраховка «на всякий случай», а не несущая часть фикса
+    // (dismiss в beforeNavigate уже снял оверлеи логически): ручной счётчик,
+    // разъехавшийся с реальной history, — мина для будущих правок, а не баг
+    // сам по себе. Худший случай протухшего depth — лишний closed = 1 на уже
+    // пустом стеке, где handleBack() просто вернёт false без побочек. Shallow
+    // pushState afterNavigate не дёргает, так что depth от pushOverlay не
+    // затирается; а если бы дёргал — depthFromHistory() всё равно вернул бы
+    // верный depth.
+    depth = depthFromHistory();
+    notify();
+  });
 
   if (typeof window !== 'undefined') {
     window.addEventListener('popstate', () => {
@@ -82,8 +130,8 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
     },
     get onOverlayEntry() { return overlayDepthOf(page.state) > 0; },
     listen(cb) { listeners.add(cb); return () => { listeners.delete(cb); }; },
-    push(url, opts) { action = opts?.action ?? 'forward'; void goto(url); },
-    replace(url, opts) { action = opts?.action ?? 'none'; void goto(url, { replaceState: true }); },
+    push(url, opts) { action = opts?.action ?? 'forward'; selfNav = true; void goto(url).catch(() => { selfNav = false; }); },
+    replace(url, opts) { action = opts?.action ?? 'none'; selfNav = true; void goto(url, { replaceState: true }).catch(() => { selfNav = false; }); },
     pushOverlay() {
       action = 'forward';
       depth = overlayDepthOf(page.state) + 1;
@@ -119,6 +167,15 @@ export interface SvelteKitNavigation {
  * repointed the lazy push/goBack path at a LATER one — so a browser BACK popped the
  * history entry but never closed the overlay, and each call leaked another popstate
  * listener. Memoizing collapses it to one adapter, one popstate listener, one truth.
+ *
+ * Caveat this trades in: `beforeNavigate`/`afterNavigate` are registered via SvelteKit's
+ * own `onMount` (see `add_navigation_callback` in `client.js`) and are REMOVED when the
+ * component that registered them unmounts, while the adapter closing over them is
+ * memoized at module scope. If the component whose `useSvelteKitNavigation()` call first
+ * created the adapter ever unmounts while some other component keeps using the memoized
+ * instance, both callbacks silently vanish and dismiss-on-navigate stops firing — no
+ * error, just dead functionality. Harmless today because every host calls this from the
+ * root layout, which never unmounts, but the cost of getting it wrong has gone up.
  */
 let skAdapter: HistoryAdapter | null = null;
 export function useSvelteKitNavigation(): SvelteKitNavigation {

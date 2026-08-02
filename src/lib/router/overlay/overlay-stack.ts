@@ -36,9 +36,27 @@ export interface OverlayStack {
   registerOverlay(opts: { close: Close; scrim?: boolean; exitMs?: number }): OverlayHandle;
   openOverlay(close: Close): number; // back-compat
   closeOverlay(token: number, opts?: { viaBack?: boolean }): void;
-  /** Закрывает все оверлеи для навигации; возвращает max exit-длительность (ms) — сколько
-   *  подождать перед сменой роута, чтобы уходящая анимация успела проиграть (0 = стек пуст). */
+  /** Навигацию инициирует САМ КИТ через navigate() (вариант A — см. core/nav.ts).
+   *  Закрывает все оверлеи; возвращает max exit-длительность (ms) — сколько подождать
+   *  перед сменой роута, чтобы уходящая анимация успела проиграть (0 = стек пуст).
+   *  Верхнюю синтетическую запись съест последующий replace самой навигации — в отличие
+   *  от dismissForHostNavigation (навигация МИМО кита), history здесь трогать не нужно.
+   *
+   *  Не гарантия для ЛЮБОГО `<Link>` — их два. `router/core/Link.svelte` идёт через
+   *  `use:link` → navigate() всегда, это чистый вариант A. `ui/display/Link.svelte`
+   *  (framework-agnostic) зовёт вместо этого инжектированный Navigator — сюда он
+   *  попадает, только если ХОСТ собрал этот Navigator через `createNavigatorFromRouter()`
+   *  (её push/replace сами идут через navigate() — см. router/navigator.ts). Хосты, что
+   *  подключают `Navigator.push` напрямую к своему адаптеру в обход navigate() (так
+   *  делает `useSvelteKitNavigation()` в sveltekit.ts), этот метод для клика по
+   *  `ui/display/Link.svelte` вообще не вызывают. */
   dismissForNavigation(): number;
+  /** Хост навигирует МИМО кита (plain <a>, адресная строка, host goto): снять оверлеи
+   *  логически, history НЕ трогать — наша синтетическая запись уже не вершина, слепой
+   *  back() снёс бы чужую запись (откат навигации хоста). Синтетическая запись бросается:
+   *  её URL совпадает со страницей, первый back корректен, мёртв только следующий.
+   *  Дизайн: docs/plans/2026-08-02-kit-overlay-host-navigation (оркестратор). */
+  dismissForHostNavigation(): void;
   initOverlayStack(): void;
 }
 
@@ -175,6 +193,23 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     return wait;
   }
 
+  function dismissForHostNavigation(): void {
+    // suppressNextPop взведён из closeOverlay() СИНХРОННО перед adapter.goBack() —
+    // popstate уже выпущен и обязательно приземлится, отменить его нельзя. Сброс флага
+    // не отменяет этот pop, а меняет его судьбу: вместо «молча поглощён» он дойдёт до
+    // handleBack на уже пустом стеке и будет доложен роутеру как обычный back (false) —
+    // безобидно, запись same-URL. Не сбросить было бы хуже: залипший флаг молча съел бы
+    // СЛЕДУЮЩИЙ настоящий back пользователя.
+    suppressNextPop = false;
+    const entries = stack.splice(0, stack.length);
+    if (entries.length === 0) return;
+    notify();
+    // close() флипает open=false → useOverlay-effect позовёт closeOverlay(token),
+    // но токен уже снят → no-op. Deferred-записи выбыли из stack → flush в handleBack
+    // их не создаст. exitMs не ждём: хостовую навигацию не задержать.
+    for (let i = entries.length - 1; i >= 0; i--) entries[i].close();
+  }
+
   /** Один раз на клиенте: подключить back-interceptor. SSR — no-op. */
   function initOverlayStack(): void {
     if (inited || typeof window === 'undefined') return;
@@ -182,7 +217,10 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     adapter.setBackInterceptor(handleBack);
   }
 
-  return { overlayCount, subscribeOverlay, registerOverlay, openOverlay, closeOverlay, dismissForNavigation, initOverlayStack };
+  return {
+    overlayCount, subscribeOverlay, registerOverlay, openOverlay, closeOverlay,
+    dismissForNavigation, dismissForHostNavigation, initOverlayStack,
+  };
 }
 
 // Default instance for kit consumers. Reads the ACTIVE history adapter from the
@@ -208,4 +246,5 @@ export const registerOverlay = defaultStack.registerOverlay;
 export const openOverlay = defaultStack.openOverlay;
 export const closeOverlay = defaultStack.closeOverlay;
 export const dismissForNavigation = defaultStack.dismissForNavigation;
+export const dismissForHostNavigation = defaultStack.dismissForHostNavigation;
 export const initOverlayStack = defaultStack.initOverlayStack;
