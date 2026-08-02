@@ -89,11 +89,14 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
     // (тот же URL, отмена другим слушателем), не должен съесть dismiss у
     // СЛЕДУЮЩЕЙ хостовой навигации.
     selfNav = false;
-    // depth — правда из history, а не ручной счётчик: реальная навигация раньше
-    // его не трогала, и после хостового push поверх синтетической записи
-    // popstate считал closed = 0 (вторая половина бага). Shallow pushState
-    // afterNavigate не дёргает, так что depth от pushOverlay не затирается;
-    // а если бы дёргал — depthFromHistory() всё равно вернул бы верный depth.
+    // Ресинк depth — подстраховка «на всякий случай», а не несущая часть фикса
+    // (dismiss в beforeNavigate уже снял оверлеи логически): ручной счётчик,
+    // разъехавшийся с реальной history, — мина для будущих правок, а не баг
+    // сам по себе. Худший случай протухшего depth — лишний closed = 1 на уже
+    // пустом стеке, где handleBack() просто вернёт false без побочек. Shallow
+    // pushState afterNavigate не дёргает, так что depth от pushOverlay не
+    // затирается; а если бы дёргал — depthFromHistory() всё равно вернул бы
+    // верный depth.
     depth = depthFromHistory();
     notify();
   });

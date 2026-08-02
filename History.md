@@ -2,6 +2,21 @@
 
 ## 2026-08-02
 
+### Версия 0.5.9
+
+### fix(router): кит отпускает history при хостовой навигации
+
+* Хостовая навигация (plain `<a>`, адресная строка, host `goto()`) при открытом
+  оверлее больше не откатывается слепым `history.back()` оверлей-стека: новый
+  `dismissForHostNavigation()` снимает оверлеи логически и не трогает history,
+  SvelteKit-адаптер зовёт его из `beforeNavigate` (кроме навигаций самого кита —
+  флаг `selfNav`, ухода со страницы целиком — `nav.willUnload`, и back'а в саму
+  синтетическую запись оверлея — restore-on-back для `keepOverlays`).
+  Чинит «drawer → пункт меню → остались на той же странице» в демо и в любом
+  SvelteKit-хосте, навигирующем мимо кита (напр. apartx-help). Пути
+  `navigate()` / вариант A / `keepOverlays` не изменены.
+  Дизайн: docs/plans/2026-08-02-kit-overlay-host-navigation (репо apartx).
+
 ### Версия 0.5.8
 
 ### feat(typography): ролевая типографика — <Text>, алиасы text-<role>, фикс cn/twMerge
