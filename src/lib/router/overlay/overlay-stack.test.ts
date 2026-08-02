@@ -224,6 +224,56 @@ describe('createOverlayStack', () => {
     // Non-top non-back close does NOT pop a synthetic entry.
     expect(f.calls.filter((c) => c === 'goBack').length).toBe(goBackBefore);
   });
+
+  it('dismissForHostNavigation: чистит стек, зовёт close() LIFO, history не трогает', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const order: string[] = [];
+    os.openOverlay(() => { order.push('A'); });
+    os.openOverlay(() => { order.push('B'); });
+    const pushes = f.calls.filter((c) => c === 'pushOverlay').length;
+    os.dismissForHostNavigation();
+    expect(os.overlayCount()).toBe(0);
+    expect(order).toEqual(['B', 'A']);
+    expect(f.calls.filter((c) => c === 'goBack').length).toBe(0);
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(pushes);
+  });
+
+  it('dismissForHostNavigation: closeOverlay бывшего жителя после — no-op без goBack', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const token = os.openOverlay(() => {});
+    os.dismissForHostNavigation();
+    os.closeOverlay(token); // флип open=false докатился после dismiss
+    expect(f.calls.filter((c) => c === 'goBack').length).toBe(0);
+  });
+
+  it('dismissForHostNavigation: сбрасывает взведённый suppressNextPop (back не съедается)', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const a = os.openOverlay(() => {});
+    os.closeOverlay(a); // не-back закрытие: suppressNextPop взведён, guarded goBack «в полёте»
+    os.dismissForHostNavigation();
+    // Хостовая навигация отменила план guarded back. Залипший флаг молча съел бы
+    // следующий настоящий back — он обязан дойти до роутера (false = не поглощён).
+    expect(f.fireBack()).toBe(false);
+  });
+
+  it('dismissForHostNavigation при pending-pop: deferred-записи не флашатся', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const a = os.openOverlay(() => {}); // pushOverlay #1
+    os.closeOverlay(a); // suppress взведён, goBack #1
+    os.openOverlay(() => {}); // deferredEntry — записи в history нет
+    os.dismissForHostNavigation();
+    expect(os.overlayCount()).toBe(0);
+    expect(f.fireBack()).toBe(false); // suppression снят, флашить нечего
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(1); // deferred так и не создан
+  });
 });
 
 describe('default overlay-stack binds to history registry', () => {

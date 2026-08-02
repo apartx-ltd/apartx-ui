@@ -39,6 +39,12 @@ export interface OverlayStack {
   /** Закрывает все оверлеи для навигации; возвращает max exit-длительность (ms) — сколько
    *  подождать перед сменой роута, чтобы уходящая анимация успела проиграть (0 = стек пуст). */
   dismissForNavigation(): number;
+  /** Хост навигирует МИМО кита (plain <a>, адресная строка, host goto): снять оверлеи
+   *  логически, history НЕ трогать — наша синтетическая запись уже не вершина, слепой
+   *  back() снёс бы чужую запись (откат навигации хоста). Синтетическая запись бросается:
+   *  её URL совпадает со страницей, первый back корректен, мёртв только следующий.
+   *  Дизайн: docs/plans/2026-08-02-kit-overlay-host-navigation (оркестратор). */
+  dismissForHostNavigation(): void;
   initOverlayStack(): void;
 }
 
@@ -175,6 +181,19 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     return wait;
   }
 
+  function dismissForHostNavigation(): void {
+    // suppressNextPop значит «наш guarded back в полёте» — хостовая навигация этот
+    // план отменила; не сбросить = залипание, молча съедающее следующий настоящий back.
+    suppressNextPop = false;
+    const entries = stack.splice(0, stack.length);
+    if (entries.length === 0) return;
+    notify();
+    // close() флипает open=false → useOverlay-effect позовёт closeOverlay(token),
+    // но токен уже снят → no-op. Deferred-записи выбыли из stack → flush в handleBack
+    // их не создаст. exitMs не ждём: хостовую навигацию не задержать.
+    for (let i = entries.length - 1; i >= 0; i--) entries[i].close();
+  }
+
   /** Один раз на клиенте: подключить back-interceptor. SSR — no-op. */
   function initOverlayStack(): void {
     if (inited || typeof window === 'undefined') return;
@@ -182,7 +201,10 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     adapter.setBackInterceptor(handleBack);
   }
 
-  return { overlayCount, subscribeOverlay, registerOverlay, openOverlay, closeOverlay, dismissForNavigation, initOverlayStack };
+  return {
+    overlayCount, subscribeOverlay, registerOverlay, openOverlay, closeOverlay,
+    dismissForNavigation, dismissForHostNavigation, initOverlayStack,
+  };
 }
 
 // Default instance for kit consumers. Reads the ACTIVE history adapter from the
@@ -208,4 +230,5 @@ export const registerOverlay = defaultStack.registerOverlay;
 export const openOverlay = defaultStack.openOverlay;
 export const closeOverlay = defaultStack.closeOverlay;
 export const dismissForNavigation = defaultStack.dismissForNavigation;
+export const dismissForHostNavigation = defaultStack.dismissForHostNavigation;
 export const initOverlayStack = defaultStack.initOverlayStack;
