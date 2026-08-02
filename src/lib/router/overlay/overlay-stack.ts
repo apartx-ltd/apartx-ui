@@ -36,11 +36,20 @@ export interface OverlayStack {
   registerOverlay(opts: { close: Close; scrim?: boolean; exitMs?: number }): OverlayHandle;
   openOverlay(close: Close): number; // back-compat
   closeOverlay(token: number, opts?: { viaBack?: boolean }): void;
-  /** Навигацию инициирует САМ КИТ (вариант A: navigate()/<Link> — см. core/nav.ts).
+  /** Навигацию инициирует САМ КИТ через navigate() (вариант A — см. core/nav.ts).
    *  Закрывает все оверлеи; возвращает max exit-длительность (ms) — сколько подождать
    *  перед сменой роута, чтобы уходящая анимация успела проиграть (0 = стек пуст).
    *  Верхнюю синтетическую запись съест последующий replace самой навигации — в отличие
-   *  от dismissForHostNavigation (навигация МИМО кита), history здесь трогать не нужно. */
+   *  от dismissForHostNavigation (навигация МИМО кита), history здесь трогать не нужно.
+   *
+   *  Не гарантия для ЛЮБОГО `<Link>` — их два. `router/core/Link.svelte` идёт через
+   *  `use:link` → navigate() всегда, это чистый вариант A. `ui/display/Link.svelte`
+   *  (framework-agnostic) зовёт вместо этого инжектированный Navigator — сюда он
+   *  попадает, только если ХОСТ собрал этот Navigator через `createNavigatorFromRouter()`
+   *  (её push/replace сами идут через navigate() — см. router/navigator.ts). Хосты, что
+   *  подключают `Navigator.push` напрямую к своему адаптеру в обход navigate() (так
+   *  делает `useSvelteKitNavigation()` в sveltekit.ts), этот метод для клика по
+   *  `ui/display/Link.svelte` вообще не вызывают. */
   dismissForNavigation(): number;
   /** Хост навигирует МИМО кита (plain <a>, адресная строка, host goto): снять оверлеи
    *  логически, history НЕ трогать — наша синтетическая запись уже не вершина, слепой

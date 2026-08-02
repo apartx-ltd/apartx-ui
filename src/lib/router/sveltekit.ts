@@ -36,9 +36,12 @@ const depthFromHistory = (): number => {
  * the interceptor once per closed level — driving the exact same `handleBack` the
  * browser adapter uses. `beforeNavigate` computes the forward/back direction for
  * `<PageTransition>` on real navigations, AND is the entry point for variant B
- * (dismissForHostNavigation — see the callback body): a host navigation past the
- * kit (plain `<a>`, address bar, host goto) is a real navigation, so it always
- * fires here.
+ * (dismissForHostNavigation — see the callback body): it fires on every navigation
+ * SvelteKit itself routes (plain `<a>`, address bar, host goto). One known gap: a
+ * hash-only link (same pathname, different `#hash`) never reaches it at all — in
+ * `client.js`'s anchor click handler the `hash_navigating` branch calls
+ * `update_url(url)` and returns WITHOUT `event.preventDefault()`, so the browser
+ * performs a native hash navigation and pushes the history entry itself.
  *
  * Must be constructed during component init (registers before/afterNavigate +
  * popstate), e.g. inside `useSvelteKitNavigation()`.
@@ -164,6 +167,15 @@ export interface SvelteKitNavigation {
  * repointed the lazy push/goBack path at a LATER one — so a browser BACK popped the
  * history entry but never closed the overlay, and each call leaked another popstate
  * listener. Memoizing collapses it to one adapter, one popstate listener, one truth.
+ *
+ * Caveat this trades in: `beforeNavigate`/`afterNavigate` are registered via SvelteKit's
+ * own `onMount` (see `add_navigation_callback` in `client.js`) and are REMOVED when the
+ * component that registered them unmounts, while the adapter closing over them is
+ * memoized at module scope. If the component whose `useSvelteKitNavigation()` call first
+ * created the adapter ever unmounts while some other component keeps using the memoized
+ * instance, both callbacks silently vanish and dismiss-on-navigate stops firing — no
+ * error, just dead functionality. Harmless today because every host calls this from the
+ * root layout, which never unmounts, but the cost of getting it wrong has gone up.
  */
 let skAdapter: HistoryAdapter | null = null;
 export function useSvelteKitNavigation(): SvelteKitNavigation {
