@@ -34,8 +34,11 @@ const depthFromHistory = (): number => {
  * back-interceptor cannot hang off `beforeNavigate`. Instead we listen to the
  * native `popstate` (which always fires) and, when the overlay depth DROPS, invoke
  * the interceptor once per closed level — driving the exact same `handleBack` the
- * browser adapter uses. `beforeNavigate` is kept ONLY to compute the forward/back
- * direction for `<PageTransition>` on real navigations.
+ * browser adapter uses. `beforeNavigate` computes the forward/back direction for
+ * `<PageTransition>` on real navigations, AND is the entry point for variant B
+ * (dismissForHostNavigation — see the callback body): a host navigation past the
+ * kit (plain `<a>`, address bar, host goto) is a real navigation, so it always
+ * fires here.
  *
  * Must be constructed during component init (registers before/afterNavigate +
  * popstate), e.g. inside `useSvelteKitNavigation()`.
@@ -59,14 +62,26 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
     // docs/plans/2026-08-02-kit-overlay-host-navigation в репо apartx).
     // selfNav = навигация пришла из push/replace НИЖЕ (вариант A кита или
     // keepOverlays-путь) — кит сам управляет стеком, не вмешиваемся.
-    // Shallow-pop оверлея сюда не попадает: SvelteKit не зовёт beforeNavigate
-    // для shallow-навигаций (см. комментарий адаптера выше).
+    // Shallow-pop оверлея сюда обычно не попадает: SvelteKit не зовёт beforeNavigate
+    // для shallow-навигаций (см. комментарий адаптера выше) — НО это верно только при
+    // has_navigated === true. Формула в client.js: shallow = navigation_index ===
+    // current_navigation_index && (has_navigated || is_hash_change). После холодной
+    // перезагрузки НА синтетической записи оверлея has_navigated ещё false → самый
+    // первый back идёт полной навигацией, и beforeNavigate таки сработает (см. guard
+    // на depthFromHistory() ниже — итог для пользователя тот же: оверлей закрыт, back
+    // поглощён).
     if (selfNav) { selfNav = false; return; }
     // Уход со страницы целиком (закрытие вкладки, внешняя ссылка, beforeunload):
     // dismiss необратим, а такую навигацию пользователь ещё может отменить в
     // нативном диалоге — снимем оверлеи и останемся с закрытым «без причины».
     // На уходящей странице снимать их всё равно незачем.
     if (nav.willUnload) return;
+    // Back, приземляющийся НА синтетическую запись оверлея, — это возврат к НАШЕЙ
+    // записи, а не хостовая навигация: на popstate history.state уже обновлён, так
+    // что depth читается с приземлившейся записи. Без этого restore-on-back
+    // (keepOverlays: шторка карты переживает уход на детальную страницу и обратно)
+    // убивал бы выживший оверлей на обратном пути.
+    if (nav.type === 'popstate' && depthFromHistory() > 0) return;
     defaultOverlayStack.dismissForHostNavigation();
   });
   afterNavigate(() => {
@@ -109,8 +124,8 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
     },
     get onOverlayEntry() { return overlayDepthOf(page.state) > 0; },
     listen(cb) { listeners.add(cb); return () => { listeners.delete(cb); }; },
-    push(url, opts) { action = opts?.action ?? 'forward'; selfNav = true; void goto(url); },
-    replace(url, opts) { action = opts?.action ?? 'none'; selfNav = true; void goto(url, { replaceState: true }); },
+    push(url, opts) { action = opts?.action ?? 'forward'; selfNav = true; void goto(url).catch(() => { selfNav = false; }); },
+    replace(url, opts) { action = opts?.action ?? 'none'; selfNav = true; void goto(url, { replaceState: true }).catch(() => { selfNav = false; }); },
     pushOverlay() {
       action = 'forward';
       depth = overlayDepthOf(page.state) + 1;
