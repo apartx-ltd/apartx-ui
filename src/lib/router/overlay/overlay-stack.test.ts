@@ -72,6 +72,90 @@ describe('createOverlayStack', () => {
     expect(f.calls).not.toContain('pushOverlay'); // adopted, no push
   });
 
+  it('same-tick handoff: register while a close pop is pending DEFERS its entry until the pop lands', () => {
+    // Dropdown item opens a confirm dialog: closeOverlay(dropdown) armed suppressNextPop and
+    // issued a guarded goBack (a TASK), but the confirm's register effect runs as a MICROTASK
+    // first — history.state still shows __overlay. Adopting that dying entry means the confirm
+    // owns nothing. Pushing immediately does not help either: the browser resolves back()'s
+    // target at CALL time, so the traversal lands BELOW the fresh entry anyway and the
+    // confirm's own close then pops the real route entry (Escape → about:blank). The entry
+    // must be DEFERRED until the pending pop is consumed.
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const dropdown = os.openOverlay(() => {}); // pushOverlay #1 → onOverlayEntry=true
+    os.closeOverlay(dropdown); // non-back close: goBack queued, suppressNextPop armed
+    expect(f.calls.filter((c) => c === 'goBack').length).toBe(1);
+    // Same tick, before the popstate lands: the confirm registers. In the stack at once,
+    // but NO history entry yet (neither adopt nor push).
+    const confirm = os.openOverlay(() => {});
+    expect(os.overlayCount()).toBe(1);
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(1);
+    // The pending popstate lands (browser settled on the route entry): consumed by
+    // suppressNextPop AND the deferred entry is created now — on top of the route entry.
+    expect(f.fireBack()).toBe(true);
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(2);
+    expect(os.overlayCount()).toBe(1);
+    // The confirm's non-back close (Escape) pops EXACTLY its own entry...
+    os.closeOverlay(confirm);
+    expect(f.calls.filter((c) => c === 'goBack').length).toBe(2);
+    expect(os.overlayCount()).toBe(0);
+    // ...and its popstate is consumed — pushes and pops are balanced (2:2), the route
+    // entry underneath was never touched.
+    expect(f.fireBack()).toBe(true);
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(2);
+    expect(f.calls.filter((c) => c === 'goBack').length).toBe(2);
+  });
+
+  it('deferred overlay closed BEFORE the pop lands: no entry ever existed, no back issued', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const a = os.openOverlay(() => {}); // pushOverlay #1
+    os.closeOverlay(a); // goBack #1, suppressNextPop armed
+    const b = os.openOverlay(() => {}); // deferred — no entry yet
+    os.closeOverlay(b); // closed before the pop landed → must NOT goBack
+    expect(f.calls.filter((c) => c === 'goBack').length).toBe(1);
+    expect(os.overlayCount()).toBe(0);
+    // The pending pop lands: consumed; b left the stack, so NO deferred push either.
+    expect(f.fireBack()).toBe(true);
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(1);
+  });
+
+  it('multiple registers while one pop is pending: each gets its own entry on flush, LIFO intact', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const a = os.openOverlay(() => {}); // pushOverlay #1
+    os.closeOverlay(a); // goBack #1, suppress armed
+    const order: string[] = [];
+    os.openOverlay(() => { order.push('B'); }); // deferred
+    os.openOverlay(() => { order.push('C'); }); // deferred
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(1);
+    expect(f.fireBack()).toBe(true); // pop lands → both entries created, bottom-up
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(3);
+    expect(os.overlayCount()).toBe(2);
+    // Backs now close C then B, one entry each.
+    expect(f.fireBack()).toBe(true);
+    expect(f.fireBack()).toBe(true);
+    expect(order).toEqual(['C', 'B']);
+    expect(os.overlayCount()).toBe(0);
+  });
+
+  it('still ADOPTs once the pending pop has been consumed (flag lifecycle intact)', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    const a = os.openOverlay(() => {});
+    os.closeOverlay(a); // arms suppressNextPop
+    expect(f.fireBack()).toBe(true); // pop consumed → flag reset
+    // Back-driven remount case: sitting on a genuinely surviving synthetic entry.
+    f.setOverlayEntry(true);
+    const pushes = f.calls.filter((c) => c === 'pushOverlay').length;
+    os.openOverlay(() => {});
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(pushes); // adopted, no push
+  });
+
   it('suppressNextPop: the popstate from a non-back close is consumed without re-closing', () => {
     const f = fakeAdapter();
     const os = createOverlayStack(f.adapter);

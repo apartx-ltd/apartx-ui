@@ -12,7 +12,7 @@ function fakeAdapter() {
     location: null, action: 'none' as Action, canGoBack: true,
     get onOverlayEntry() { return overlayEntry; },
     listen: () => () => {},
-    push: (url) => { calls.push(`push:${url}`); },
+    push: (url, o) => { calls.push(o?.action ? `push:${url}:${o.action}` : `push:${url}`); },
     replace: (url, o) => { calls.push(`replace:${url}:${o?.action ?? 'none'}`); },
     pushOverlay: () => { calls.push('pushOverlay'); overlayEntry = true; },
     setBackInterceptor: () => {},
@@ -46,6 +46,22 @@ describe('overlay-aware navigate', () => {
     vi.advanceTimersByTime(120);
     expect(f.calls).toContain('replace:/booking/1:forward');
     expect(f.calls).not.toContain('push:/booking/1');
+    setHistoryAdapter(null);
+  });
+
+  it('forwards {action} to history.push when no overlays are open', () => {
+    const f = fakeAdapter();
+    setHistoryAdapter(f.adapter);
+    navigate('/x', { action: 'back' });
+    expect(f.calls).toEqual(['push:/x:back']);
+    setHistoryAdapter(null);
+  });
+
+  it('forwards {action} to history.replace on the replace path', () => {
+    const f = fakeAdapter();
+    setHistoryAdapter(f.adapter);
+    navigate('/x', { replace: true, action: 'forward' });
+    expect(f.calls).toEqual(['replace:/x:forward']);
     setHistoryAdapter(null);
   });
 
