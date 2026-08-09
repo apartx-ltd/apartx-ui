@@ -8,6 +8,11 @@ export * from './register-defaults';
 export * from './media-slots';
 export * from './i18n';
 export * from './helpers';
+export * from './message-links';
+export * from './markdown';
+export {
+  openChatLink, openLinkMenu, closeLinkMenu, confirmExternalOpen,
+} from './link-menu.svelte';
 export * from './replication';
 export { default as MessageRenderer } from './MessageRenderer.svelte';
 export { default as Message } from './Message.svelte';
@@ -15,6 +20,9 @@ export { default as ChatMessageList } from './ChatMessageList.svelte';
 export { default as MessageInput } from './MessageInput.svelte';
 export { default as MessageHeaderDefault } from './slots/MessageHeaderDefault.svelte';
 export { default as MessageBodyDefault } from './slots/MessageBodyDefault.svelte';
+export { default as MessageText } from './MessageText.svelte';
+export { default as MessageLink } from './MessageLink.svelte';
+export { default as MessageLinkMenu } from './MessageLinkMenu.svelte';
 export { default as MessageTimeDefault } from './slots/MessageTimeDefault.svelte';
 export { default as MessengerIcon } from './slots/MessengerIcon.svelte';
 export { default as ImageMedia } from './slots/ImageMedia.svelte';

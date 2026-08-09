@@ -3,6 +3,7 @@
   import MessagesList from '../virtual/MessagesList.svelte';
   import { cn } from '../ui/utils/cn';
   import Icon from '../ui/display/Icon.svelte';
+  import MessageLinkMenu from './MessageLinkMenu.svelte';
   import Loading from '../ui/display/Loading.svelte';
   import Message from './Message.svelte';
   import { chatT } from './i18n';
@@ -169,3 +170,6 @@
     </button>
   {/if}
 </div>
+
+<!-- Singleton link context-menu + external-open confirm for links inside message text. -->
+<MessageLinkMenu />
