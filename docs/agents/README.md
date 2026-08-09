@@ -14,9 +14,7 @@ contracts; the agent writes the code.
 | Playbook | Product | Status |
 |---|---|---|
 | [`build-ota.md`](build-ota.md) | OTA booking site: search → property page → OTP sign-in → booking → payment; whole-market or single-landlord mode | Piloted |
-
-Planned next (same pattern): `build-pms.md` — property-management dashboard for
-a landlord (calendar, bookings, pricing) on the Landlord API surface.
+| [`build-pms.md`](build-pms.md) | Landlord PMS dashboard: properties → month calendar (bookings + prices) → ARI editing → booking management (confirm/cancel, moves, payments, keys, manual bookings) | Draft |
 
 ## How to run a playbook
 
@@ -81,5 +79,11 @@ Operator notes for the template:
 - For the payment step the environment needs at least one property with
   `defaults.withOnlinePayment: true` (and `autoConfirmationEnabled`) — without
   it the e2e can only assert the playbook's graceful "payment unavailable" path.
+- The **PMS playbook signs in as a dedicated demo landlord**
+  (`demo_landlord_e2e` / `+77000000042`, demo OTP `0000`) that owns its own
+  `demo_e2e_*` properties and receives no fixture bookings — its suite mutates
+  prices and bookings freely without disturbing the OTA showcase. That phone is
+  a fixture constant hardcoded in the playbook, not an operator input; there is
+  no landlord-id parameter either (the signed-in user is the landlord).
 - Deployment (incl. how the owner issues a platform token) is part of each
   playbook's §Deployment — the agent handles it; you only supply the token.
