@@ -13,6 +13,8 @@
     end,
     class: className,
     oninput,
+    onfocus,
+    onblur,
     id,
     ...restProps
   } = $props();
@@ -27,6 +29,19 @@
   function handleInput(e) {
     value = e.target.value;
     oninput?.(e);
+  }
+
+  // Consumer onfocus/onblur must not override the internal focused state:
+  // they used to arrive via restProps AFTER the internal handlers and win the
+  // spread — compose both instead.
+  function handleFocus(e) {
+    focused = true;
+    onfocus?.(e);
+  }
+
+  function handleBlur(e) {
+    focused = false;
+    onblur?.(e);
   }
 </script>
 
@@ -61,8 +76,8 @@
       {required}
       class="flex-1 bg-transparent border-none outline-none text-body-lg text-on-surface placeholder:text-on-surface-variant/60 min-w-0"
       oninput={handleInput}
-      onfocus={() => { focused = true; }}
-      onblur={() => { focused = false; }}
+      onfocus={handleFocus}
+      onblur={handleBlur}
       {...restProps}
     />
 

@@ -26,6 +26,7 @@
     controlsPosition = 'bottom-right',
     providerOptions,
     onCameraChange,
+    onMapClick,
     class: className,
     onready,
     ...restProps
@@ -42,6 +43,7 @@
     /** Escape hatch for provider-specific native options, keyed by provider. */
     providerOptions?: MapViewOptions['providerOptions'];
     onCameraChange?: MapViewOptions['onCameraChange'];
+    onMapClick?: MapViewOptions['onMapClick'];
     class?: string;
     onready?: (handle: MapHandle) => void;
     [key: string]: any;
@@ -88,7 +90,7 @@
         if (disposed) return;
         // theme read untracked too — switching it updates in place via the
         // effect below, not by tearing down and recreating the map.
-        const start = untrack(() => ({ center, zoom, theme: cfg.config.theme, controls, providerOptions, onCameraChange }));
+        const start = untrack(() => ({ center, zoom, theme: cfg.config.theme, controls, providerOptions, onCameraChange, onMapClick }));
         const h = await p.createMap(el, start);
         if (disposed) { h.destroy(); return; }
         handle = h;

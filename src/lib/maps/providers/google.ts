@@ -163,6 +163,14 @@ export const googleProvider: MapProvider = {
       });
     }
 
+    if (options.onMapClick) {
+      map.addListener('click', (e: any) => {
+        const ll = e.latLng;
+        if (!ll) return;
+        options.onMapClick!({ lng: ll.lng(), lat: ll.lat() });
+      });
+    }
+
     return {
       native: map,
       setCenter(center: LngLat, zoom?: number) {

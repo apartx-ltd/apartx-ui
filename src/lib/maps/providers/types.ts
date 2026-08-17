@@ -71,6 +71,11 @@ export interface MapViewOptions {
    * it to persist the map position (e.g. to the URL).
    */
   onCameraChange?: (camera: MapCamera) => void;
+  /**
+   * Fired on a click on the map canvas (not on a marker) with the clicked
+   * coordinates. Optional — omit for read-only maps.
+   */
+  onMapClick?: (coords: LngLat) => void;
 }
 
 export interface MapProviderConfig {

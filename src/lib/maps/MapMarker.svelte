@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { getMapHandleAccessor } from './context';
   import type { LngLat, MarkerHandle } from './providers/types';
 
@@ -33,8 +34,10 @@
     if (!map) return;
     if (children && !customEl) return; // wait for the custom element to mount
 
+    // coordinates untracked: их изменение двигает существующий маркер (эффект ниже),
+    // а не пересоздаёт его — иначе пин мерцает/теряет drag-состояние при каждом сдвиге.
     marker = map.addMarker({
-      coordinates,
+      coordinates: untrack(() => coordinates),
       element: customEl ?? undefined,
       draggable,
       onClick,
