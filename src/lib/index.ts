@@ -12,6 +12,9 @@ export * from './ui/display';
 // Navigation (Navigator contract, setNavigator/getNavigator, PageTransition)
 export * from './navigation';
 
+// i18n (host locale context: setLocale/getLocale)
+export * from './i18n';
+
 // Data
 export * from './ui/data';
 

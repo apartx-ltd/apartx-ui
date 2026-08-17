@@ -6,6 +6,7 @@
   import Icon from '../display/Icon.svelte';
   import { getOverlayLayer } from '../overlays/layer-context';
   import { useOverlay } from '../../hooks/useOverlay.svelte';
+  import { getLocale } from '../../i18n/context';
 
   let {
     value = $bindable(''),
@@ -17,6 +18,7 @@
     minValue,
     maxValue,
     respectBack = true,
+    locale,
     class: className,
   }: {
     value?: string;
@@ -28,8 +30,14 @@
     minValue?: string;
     maxValue?: string;
     respectBack?: boolean;
+    locale?: string;
     class?: string;
   } = $props();
+
+  // Segment order / placeholder names follow the host locale (setLocale context);
+  // an explicit `locale` prop overrides per instance.
+  const hostLocale = getLocale();
+  let effectiveLocale = $derived(locale ?? hostLocale?.() ?? 'en');
 
   function safeParse(v: string | undefined): DateValue | undefined {
     if (!v) return undefined;
@@ -69,6 +77,7 @@
     {disabled}
     minValue={minDV}
     maxValue={maxDV}
+    locale={effectiveLocale}
   >
     {#if label}
       <BitsDatePicker.Label class={cn('text-label-md', error ? 'text-error' : 'text-on-surface-variant')}>

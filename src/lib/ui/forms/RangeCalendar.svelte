@@ -4,6 +4,7 @@
   import { cn } from '../utils/cn';
   import Icon from '../display/Icon.svelte';
   import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+  import { getLocale } from '../../i18n/context';
 
   // Always-visible (inline) range calendar — same grid/day styling as
   // DateRangePicker's popover calendar, but without the field/trigger. Use it
@@ -17,17 +18,21 @@
     minValue,
     maxValue,
     numberOfMonths = 1,
-    locale = 'en-US',
+    locale,
     class: className,
   }: {
     value?: RangeStr;
     minValue?: string;
     maxValue?: string;
     numberOfMonths?: number;
-    /** BCP-47 tag for month/weekday names (passed to bits-ui). Default 'en-US'. */
+    /** BCP-47 tag for month/weekday names (passed to bits-ui). Defaults to the
+     *  host locale from the setLocale context, then 'en-US'. */
     locale?: string;
     class?: string;
   } = $props();
+
+  const hostLocale = getLocale();
+  let effectiveLocale = $derived(locale ?? hostLocale?.() ?? 'en-US');
 
   function safeParse(v: string | undefined): DateValue | undefined {
     if (!v) return undefined;
@@ -55,7 +60,7 @@
 <BitsRangeCalendar.Root
   bind:value={range}
   {numberOfMonths}
-  {locale}
+  locale={effectiveLocale}
   minValue={minDV}
   maxValue={maxDV}
   class={cn('w-full', className)}

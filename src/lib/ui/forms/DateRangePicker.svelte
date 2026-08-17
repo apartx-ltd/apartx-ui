@@ -9,6 +9,7 @@
   import { faCalendar, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
   import { getOverlayLayer } from '../overlays/layer-context';
   import { useOverlay } from '../../hooks/useOverlay.svelte';
+  import { getLocale } from '../../i18n/context';
 
   type RangeStr = { start: string; end: string };
   type DateRange = { start: DateValue | undefined; end: DateValue | undefined };
@@ -23,6 +24,7 @@
     maxValue,
     numberOfMonths = 2,
     respectBack = true,
+    locale,
     class: className,
   }: {
     value?: RangeStr;
@@ -34,8 +36,14 @@
     maxValue?: string;
     numberOfMonths?: number;
     respectBack?: boolean;
+    locale?: string;
     class?: string;
   } = $props();
+
+  // Segment order / placeholder names follow the host locale (setLocale context);
+  // an explicit `locale` prop overrides per instance.
+  const hostLocale = getLocale();
+  let effectiveLocale = $derived(locale ?? hostLocale?.() ?? 'en');
 
   function safeParse(v: string | undefined): DateValue | undefined {
     if (!v) return undefined;
@@ -85,6 +93,7 @@
     {numberOfMonths}
     minValue={minDV}
     maxValue={maxDV}
+    locale={effectiveLocale}
   >
     {#if label}
       <BitsRange.Label class={cn('text-label-md', error ? 'text-error' : 'text-on-surface-variant')}>
