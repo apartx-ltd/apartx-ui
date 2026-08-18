@@ -87,6 +87,10 @@
       "svelte": "./src/lib/chat/index.ts",
       "types": "./src/lib/chat/index.ts"
     },
+    "./editor": {
+      "svelte": "./src/lib/editor/index.ts",
+      "types": "./src/lib/editor/index.ts"
+    },
     "./sync": {
       "svelte": "./src/lib/sync/index.ts",
       "types": "./src/lib/sync/index.ts"
@@ -116,6 +120,7 @@
     }
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.8.0",
     "@fortawesome/fontawesome-svg-core": "^7.1.0",
     "@fortawesome/free-brands-svg-icons": "^7.2.0",
     "@fortawesome/free-regular-svg-icons": "^7.2.0",
@@ -127,7 +132,20 @@
     "dayjs": "^1.11.20",
     "dexie": "^4.0.11",
     "linkifyjs": "^4.1.3",
+    "markdown-it": "^14.3.0",
     "marked": "^18.0.4",
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-dropcursor": "^1.8.3",
+    "prosemirror-gapcursor": "^1.4.1",
+    "prosemirror-history": "^1.5.0",
+    "prosemirror-inputrules": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-markdown": "^1.13.6",
+    "prosemirror-model": "^1.25.11",
+    "prosemirror-schema-list": "^1.5.1",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-tables": "^1.8.5",
+    "prosemirror-view": "^1.42.2",
     "svelte-sonner": "^1.1.0",
     "swiper": "^11.2.10",
     "tailwind-merge": "^3.5.0",
@@ -142,6 +160,7 @@
     "@sveltejs/kit": "^2.48.5",
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@tailwindcss/vite": "^4.2.4",
+    "@types/markdown-it": "^14.2.0",
     "@yandex/ymaps3-types": "^1.0.19724900",
     "bits-ui": "^2.18.0",
     "cupertino-pane": "^1.5.0",
