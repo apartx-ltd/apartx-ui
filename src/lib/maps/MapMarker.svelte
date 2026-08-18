@@ -52,7 +52,12 @@
 
   // Move an existing marker when coordinates change.
   $effect(() => {
-    marker?.setCoordinates(coordinates);
+    // coordinates читаем ДО optional-chain: при первом прогоне маркера ещё нет
+    // (карта создаётся асинхронно), и `marker?.setCoordinates(coordinates)`
+    // коротко замыкался, не прочитав coordinates — эффект оставался без
+    // зависимостей и больше никогда не перезапускался (пин «прилипал»).
+    const c = coordinates;
+    marker?.setCoordinates(c);
   });
 </script>
 
