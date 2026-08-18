@@ -116,6 +116,23 @@ function loadClustererLib(): Promise<any> {
   return clustererLibPromise;
 }
 
+function makeDefaultPin(): HTMLElement {
+  // Та же капля, что у yandex-провайдера — одинаковый DOM-контракт
+  // (data-testid="map-pin") независимо от провайдера. AdvancedMarkerElement
+  // якорит bottom-center ЛЭЙАУТ-бокса контента в геоточку; у нулевого
+  // контейнера это сама точка, а смещённая капля ставит туда остриё.
+  const root = document.createElement('div');
+  root.style.cssText = 'position:relative;width:0;height:0';
+  const drop = document.createElement('div');
+  drop.dataset.testid = 'map-pin';
+  drop.style.cssText =
+    'position:absolute;left:-10px;top:-24px;width:20px;height:20px;border-radius:50% 50% 50% 0;' +
+    'background:var(--color-primary,#6750a4);transform:rotate(-45deg);border:2px solid #fff;' +
+    'box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer';
+  root.appendChild(drop);
+  return root;
+}
+
 export const googleProvider: MapProvider = {
   name: 'google',
 
@@ -202,7 +219,7 @@ export const googleProvider: MapProvider = {
         const marker = new AdvancedMarkerElement({
           map,
           position: { lat: opts.coordinates.lat, lng: opts.coordinates.lng },
-          content: opts.element ?? undefined,
+          content: opts.element ?? makeDefaultPin(),
           gmpDraggable: opts.draggable ?? false,
         });
         if (opts.onClick) marker.addListener('click', opts.onClick);
