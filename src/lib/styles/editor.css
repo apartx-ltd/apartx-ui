@@ -21,7 +21,10 @@
 .k-editor .ProseMirror {
   position: relative;
   min-height: 12rem;
-  padding: 1rem 1rem 1rem 2.25rem; /* левый отступ — полоса под ⠿ и + */
+  /* Левый отступ — полоса под ⠿ и +. Она обязана быть ШИРЕ самих ручек (две кнопки по
+     1.25rem + зазор + 2px = ~2.7rem), иначе они торчат за край редактора: туда курсору не
+     дотянуться, не выйдя из него, и по дороге ручки гаснут. */
+  padding: 1rem 1rem 1rem 3.25rem;
   outline: none;
   white-space: pre-wrap;
   word-wrap: break-word;

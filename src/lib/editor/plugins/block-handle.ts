@@ -53,7 +53,8 @@ export function blockHandlePlugin(): Plugin {
       dragButton.draggable = true;
 
       handles.append(addButton, dragButton);
-      editorView.dom.parentElement?.appendChild(handles);
+      const host = editorView.dom.parentElement;
+      host?.appendChild(handles);
 
       /** Блок, к которому сейчас привязаны ручки. */
       let target: number | null = null;
@@ -65,7 +66,6 @@ export function blockHandlePlugin(): Plugin {
 
       const showFor = (pos: number, dom: HTMLElement) => {
         target = pos;
-        const host = editorView.dom.parentElement;
         if (!host) return;
         const hostRect = host.getBoundingClientRect();
         const rect = dom.getBoundingClientRect();
@@ -82,15 +82,14 @@ export function blockHandlePlugin(): Plugin {
         showFor(found.pos, found.dom);
       };
 
-      const onMouseLeave = (event: MouseEvent) => {
-        // Уход курсора на сами ручки не считается уходом с блока.
-        if (handles.contains(event.relatedTarget as Node)) return;
-        hide();
-      };
-
+      // Гасим ручки только на выходе из ВСЕГО редактора, а не из `.ProseMirror`.
+      //
+      // Ручки — соседний узел, а не потомок `.ProseMirror`: наведясь на них, курсор уходит
+      // из неё, и `mouseleave` на ней прятал ручки ровно в тот момент, когда пользователь
+      // до них дотягивался. У хоста они, наоборот, потомок — переход на ⠿ не считается
+      // уходом, и проверять `relatedTarget` не нужно.
       editorView.dom.addEventListener('mousemove', onMouseMove);
-      editorView.dom.addEventListener('mouseleave', onMouseLeave);
-      handles.addEventListener('mouseleave', onMouseLeave);
+      host?.addEventListener('mouseleave', hide);
 
       addButton.addEventListener('click', () => {
         if (target === null) return;
@@ -136,7 +135,7 @@ export function blockHandlePlugin(): Plugin {
         },
         destroy() {
           editorView.dom.removeEventListener('mousemove', onMouseMove);
-          editorView.dom.removeEventListener('mouseleave', onMouseLeave);
+          host?.removeEventListener('mouseleave', hide);
           handles.remove();
         },
       };
