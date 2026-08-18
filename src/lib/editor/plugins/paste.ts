@@ -44,6 +44,15 @@ export function isVsCodeCodePaste(raw: string): boolean {
   }
 }
 
+/** Язык из `vscode-editor-data` — уезжает в инфостроку код-блока (```ts). */
+export function vsCodeLanguage(raw: string): string {
+  try {
+    return String(JSON.parse(raw)?.mode ?? '');
+  } catch {
+    return '';
+  }
+}
+
 const squash = (value: string) => value.replace(/\s+/g, '');
 
 export function htmlText(html: string): string {
@@ -79,16 +88,36 @@ function pasteMarkdown(view: EditorView, text: string): boolean {
   return true;
 }
 
+/**
+ * Копия из редактора кода — код-блоком, а не абзацами.
+ *
+ * Штатная html-ветка развалила бы её на строки: VS Code кладёт в text/html построчные
+ * `<div>` с подсветкой, и каждая строка стала бы отдельным абзацем.
+ */
+function pasteCodeBlock(view: EditorView, text: string, language: string): boolean {
+  const { code_block } = editorSchema.nodes;
+  const node = code_block.create({ params: language }, text ? editorSchema.text(text) : null);
+  view.dispatch(view.state.tr.replaceSelectionWith(node).scrollIntoView());
+  return true;
+}
+
 export function markdownPastePlugin(): Plugin {
   return new Plugin({
     props: {
       handlePaste(view, event) {
         const { clipboardData } = event as ClipboardEvent;
         if (!clipboardData) return false;
-        // Внутри код-блока markdown не разбираем — там текст и должен остаться текстом.
+        // Внутри код-блока ничего не разбираем — там текст и должен остаться текстом.
         if (view.state.selection.$from.node().type.spec.code) return false;
+
+        const text = clipboardData.getData('text/plain');
+        const vscode = clipboardData.getData('vscode-editor-data');
+        if (isVsCodeCodePaste(vscode)) {
+          return text ? pasteCodeBlock(view, text, vsCodeLanguage(vscode)) : false;
+        }
+
         if (!shouldParseAsMarkdown(clipboardData)) return false;
-        return pasteMarkdown(view, clipboardData.getData('text/plain'));
+        return pasteMarkdown(view, text);
       },
     },
   });
