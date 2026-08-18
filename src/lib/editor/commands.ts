@@ -130,12 +130,23 @@ export function insertTable(rows = 3, cols = 3): Command {
 
     if (!dispatch) return true;
     const tr = state.tr.replaceSelectionWith(table).scrollIntoView();
-    // Курсор — в первую ячейку. Позицию ищем через Selection.near от начала таблицы, а не
-    // арифметикой по вложенности: точное смещение (table > row > cell > paragraph) легко
-    // посчитать на единицу мимо, и тогда выделение встаёт НА ячейку вместо текста внутри —
-    // ProseMirror ругается «endpoint not pointing into a node with inline content».
-    const tableStart = tr.selection.from - table.nodeSize;
-    dispatch(tr.setSelection(Selection.near(tr.doc.resolve(tableStart + 1), 1)));
+
+    // Курсор — в первую ячейку. Позицию таблицы берём подъёмом от того места, куда
+    // ProseMirror сам поставил выделение, и уже от неё идём вперёд через Selection.near:
+    // так не приходится считать смещение по вложенности (table > row > cell > paragraph),
+    // а промах на единицу ставит выделение НА ячейку вместо текста внутри — ProseMirror
+    // ругается «endpoint not pointing into a node with inline content».
+    //
+    // Отсчитывать назад от выделения (`from - table.nodeSize`) нельзя: после вставки курсор
+    // стоит ВНУТРИ таблицы — в последней ячейке, — а не за ней, и на пустом документе
+    // разность уходит в минус (RangeError, таблица не появляется вовсе).
+    const $pos = tr.doc.resolve(tr.selection.from);
+    for (let depth = $pos.depth; depth > 0; depth -= 1) {
+      if ($pos.node(depth).type !== nodes.table) continue;
+      tr.setSelection(Selection.near(tr.doc.resolve($pos.before(depth) + 1), 1));
+      break;
+    }
+    dispatch(tr);
     return true;
   };
 }
