@@ -36,6 +36,9 @@
   let {
     view = null,
     position = 'bottom',
+    // Прилипать к верху скролл-контейнера. Имеет смысл только с position="top": длинный
+    // документ прокручивается, а кнопки остаются под рукой.
+    sticky = false,
     labels = {},
     actions = null,
     class: className = '',
@@ -105,7 +108,7 @@
 </script>
 
 <div
-  class={`k-editor-toolbar ${position === 'bottom' ? 'k-editor-toolbar--bottom' : ''} ${className}`}
+  class={`k-editor-toolbar ${position === 'bottom' ? 'k-editor-toolbar--bottom' : ''} ${sticky ? 'k-editor-toolbar--sticky' : ''} ${className}`}
   {...rest}
 >
   <button

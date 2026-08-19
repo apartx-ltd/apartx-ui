@@ -48,6 +48,7 @@
   </header>
 
   <div class="flex flex-col">
+    <EditorToolbar bind:this={toolbar} view={editor?.getView() ?? null} position="top" sticky />
     <Editor
       bind:this={editor}
       value={DEMO}
@@ -56,7 +57,6 @@
       onChange={() => toolbar?.refresh()}
       data-testid="editor-demo"
     />
-    <EditorToolbar bind:this={toolbar} view={editor?.getView() ?? null} position="bottom" />
   </div>
 
   <div class="flex flex-wrap items-center gap-2">
