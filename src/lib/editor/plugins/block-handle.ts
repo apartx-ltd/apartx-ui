@@ -77,18 +77,28 @@ export function blockHandlePlugin(): Plugin {
       const onMouseMove = (event: MouseEvent) => {
         if (!editorView.editable) return hide();
         if (handles.contains(event.target as Node)) return;
+
+        // Гистерезис: в жёлобе (полосе слева от текста) якорь НЕ перепривязывается. Живая
+        // рука по пути к ⠿ дрейфует и по вертикали, и без этого каждое движение цепляло
+        // ручки к блоку под курсором — они убегали к соседу ровно в момент, когда до них
+        // дотягивались. Перепривязка — только когда курсор над самим текстом.
+        const pmRect = editorView.dom.getBoundingClientRect();
+        const contentLeft = pmRect.left + parseFloat(getComputedStyle(editorView.dom).paddingLeft);
+        if (target !== null && event.clientX < contentLeft) return;
+
         const found = topLevelBlockAt(editorView, event.clientX, event.clientY);
-        if (!found) return hide();
+        // Промах мимо блока якорь НЕ гасит — прячут только уход с редактора и смена
+        // документа. Это главное: в жёлобе posAtCoords сплошь и рядом возвращает null
+        // (мутация «null → hide()» гасила ручки уже на dy=-30), и чем шире жёлоб, тем
+        // больше «нулевой» территории по пути к ручке.
+        if (!found) return;
         showFor(found.pos, found.dom);
       };
 
-      // Гасим ручки только на выходе из ВСЕГО редактора, а не из `.ProseMirror`.
-      //
-      // Ручки — соседний узел, а не потомок `.ProseMirror`: наведясь на них, курсор уходит
-      // из неё, и `mouseleave` на ней прятал ручки ровно в тот момент, когда пользователь
-      // до них дотягивался. У хоста они, наоборот, потомок — переход на ⠿ не считается
-      // уходом, и проверять `relatedTarget` не нужно.
-      editorView.dom.addEventListener('mousemove', onMouseMove);
+      // mousemove — на хосте, а не на `.ProseMirror`: жёлоб и сами ручки должны оставаться
+      // «внутри» для трекинга. Гасим только на выходе из ВСЕГО редактора — ручки хосту
+      // потомок, переход на ⠿ уходом не считается, `relatedTarget` проверять не нужно.
+      host?.addEventListener('mousemove', onMouseMove);
       host?.addEventListener('mouseleave', hide);
 
       addButton.addEventListener('click', () => {
@@ -134,7 +144,7 @@ export function blockHandlePlugin(): Plugin {
           hide();
         },
         destroy() {
-          editorView.dom.removeEventListener('mousemove', onMouseMove);
+          host?.removeEventListener('mousemove', onMouseMove);
           host?.removeEventListener('mouseleave', hide);
           handles.remove();
         },

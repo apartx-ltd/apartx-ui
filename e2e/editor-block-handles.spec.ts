@@ -68,3 +68,66 @@ test('ручки целиком внутри редактора — их вид�
   });
   expect(hit, 'по ⠿ нельзя попасть курсором — её что-то перекрывает').toBe(true);
 });
+
+test('ручки не убегают на соседний блок, пока курсор в жёлобе', async ({ page }) => {
+  // Живая рука дрейфует и по вертикали. Если в жёлобе (полосе слева от текста) каждое
+  // движение перепривязывает ручки к блоку под курсором, то дрейф через границу блоков
+  // уводит их к соседу — ручка убегает из-под курсора, и поймать её нельзя в принципе.
+  // Контракт: пока курсор в жёлобе, ручки держатся за блок, на котором их показали.
+  // Вводный абзац: сверху h1, снизу h2 — дрейф по вертикали гарантированно задевает
+  // высоты соседних блоков.
+  const intro = page.getByTestId('editor-demo').locator('.ProseMirror > p').first();
+  const text = await box(intro, 'вводный абзац');
+  await intro.hover();
+  await expect(page.locator(VISIBLE)).toBeVisible();
+
+  const anchored = await box(page.locator(HANDLES), 'ручки');
+  const gutterX = anchored.x + anchored.width / 2;
+
+  // Заходим в жёлоб по горизонтали, затем ездим по вертикали на высоты СОСЕДНИХ блоков.
+  const y0 = text.y + text.height / 2;
+  await page.mouse.move(text.x + 30, y0);
+  await page.mouse.move(gutterX, y0);
+  for (const dy of [-30, -60, 20, 60, 0]) {
+    await page.mouse.move(gutterX, y0 + dy, { steps: 6 });
+    await expect(page.locator(VISIBLE), `ручки погасли на dy=${dy}`).toBeVisible();
+    const now = await box(page.locator(HANDLES), 'ручки');
+    expect(Math.round(now.y), `ручки убежали от блока на dy=${dy}`).toBe(Math.round(anchored.y));
+  }
+
+  // Из жёлоба — на саму ручку: она всё ещё у исходного блока и по ней попадает курсор.
+  const drag = page.getByRole('button', { name: 'Drag block' });
+  await drag.hover();
+  await expect(page.locator(VISIBLE)).toBeVisible();
+  const now = await box(page.locator(HANDLES), 'ручки');
+  expect(Math.round(now.y), 'ручки убежали при наведении на ⠿').toBe(Math.round(anchored.y));
+});
+
+test('ручку можно поймать при диагональном заходе с дрейфом вверх', async ({ page }) => {
+  // Худший реальный путь: ховер по нижней части блока, бросок по диагонали вверх-влево к
+  // ручке. Траектория задевает высоты соседних блоков — ручки не должны ни гаснуть, ни
+  // переанкериваться.
+  const intro = page.getByTestId('editor-demo').locator('.ProseMirror > p').first();
+  const text = await box(intro, 'абзац');
+  await intro.hover();
+  await expect(page.locator(VISIBLE)).toBeVisible();
+
+  const anchored = await box(page.locator(HANDLES), 'ручки');
+  const startX = text.x + 80;
+  const startY = text.y + text.height - 2; // нижняя кромка блока
+  const endX = anchored.x + anchored.width * 0.75;
+  const endY = anchored.y - 8; // промах выше ручки — рука перелетает
+  await page.mouse.move(startX, startY);
+  const steps = 20;
+  for (let i = 1; i <= steps; i += 1) {
+    await page.mouse.move(
+      startX + ((endX - startX) * i) / steps,
+      startY + ((endY - startY) * i) / steps,
+    );
+  }
+  // Возврат на ручку после перелёта.
+  await page.mouse.move(endX, anchored.y + anchored.height / 2, { steps: 4 });
+  await expect(page.locator(VISIBLE), 'ручки погасли на диагонали').toBeVisible();
+  const now = await box(page.locator(HANDLES), 'ручки');
+  expect(Math.round(now.y), 'ручки уехали на другой блок').toBe(Math.round(anchored.y));
+});
