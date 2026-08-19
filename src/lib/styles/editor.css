@@ -44,9 +44,12 @@
   position: relative;
 }
 
-/* Плейсхолдер пустого документа — виджет-декорация, поэтому обычный span. */
-.k-editor-placeholder {
-  position: absolute;
+/* Плейсхолдер пустого документа — node-декорация на первом блоке, текст через ::before.
+   float + height: 0 — чтобы псевдоэлемент не занимал места и каретка стояла поверх него. */
+.k-editor-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
   pointer-events: none;
   color: var(--color-on-surface-variant);
   opacity: 0.6;

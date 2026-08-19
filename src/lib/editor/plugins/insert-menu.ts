@@ -107,15 +107,25 @@ export function openInsertMenu(view: EditorView): void {
 }
 
 /**
- * «/» набран в начале пустого текстблока? Проверяем по результату транзакции: до неё блок
- * был пуст, после — содержит ровно «/». Так не нужно ловить событие ввода и гадать,
- * доехал ли символ до документа.
+ * «/», только что набранный там, где он открывает меню: в начале текстблока или после
+ * пробела — в том числе посреди строки. Внутри слова («и/или», URL) это обычный символ.
+ *
+ * Проверяем по результату транзакции, а не по событию ввода: текст до курсора кончается
+ * на «/», а курсор сдвинулся ровно на один от прежней позиции — значит, символ появился
+ * этим самым шагом, а не приехал с загруженным документом.
  */
 function slashJustTyped(prev: EditorState, next: EditorState): number | null {
   const { $from, empty } = next.selection;
   if (!empty || !$from.parent.isTextblock || $from.parent.type.spec.code) return null;
-  if ($from.parentOffset !== 1 || $from.parent.textContent !== '/') return null;
-  if (prev.selection.$from.parent.content.size !== 0) return null;
+  if ($from.parentOffset === 0) return null;
+
+  // Лист-атомы (чипы переменных) в textBetween станут '\0' — не пробел, меню не откроется.
+  const textBefore = $from.parent.textBetween(0, $from.parentOffset, '\0', '\0');
+  if (!textBefore.endsWith('/')) return null;
+  const beforeSlash = textBefore.slice(0, -1);
+  if (beforeSlash && !/[\s ]$/.test(beforeSlash)) return null;
+
+  if (!prev.selection.empty || prev.selection.from !== $from.pos - 1) return null;
   return $from.pos - 1;
 }
 

@@ -86,6 +86,16 @@ function buildInputRules(schema: Schema): Plugin {
     ),
   );
 
+  // `{{name}}`, набранный руками, — чип переменной прямо в тексте, зеркально правилу
+  // парсера markdown. Без этого рула переменную никак не вставить в середину строки:
+  // меню по «/» и «+» работают от блока, а плоский текст стал бы чипом только после
+  // пересохранения документа.
+  rules.push(
+    new InputRule(/\{\{\s*([\w.]+)\s*\}\}$/, (state, match, start, end) =>
+      state.tr.replaceRangeWith(start, end, schema.nodes.variable.create({ name: match[1] })),
+    ),
+  );
+
   rules.push(markInputRule(/(?:\*\*)([^*]+)(?:\*\*)$/, schema.marks.strong));
   rules.push(markInputRule(/(?:^|[^*])\*([^*]+)\*$/, schema.marks.em));
   rules.push(markInputRule(/(?:~~)([^~]+)(?:~~)$/, schema.marks.strike));
@@ -135,8 +145,12 @@ function buildKeymap(schema: Schema): Record<string, Command> {
 }
 
 /**
- * Плейсхолдер пустого документа — декорацией, а не CSS `:empty`: пустой параграф в
- * ProseMirror содержит `<br>`, и `:empty` на нём не срабатывает.
+ * Плейсхолдер пустого документа — node-декорация + CSS `::before`, НЕ виджет.
+ *
+ * `:empty` не работает (пустой параграф ProseMirror содержит `<br>`), а виджет со спаном
+ * `contenteditable=false` ломал каретку: после «выделить всё → удалить» Chrome не мог
+ * поставить курсор рядом с нередактируемым спаном, DOM-выделение пропадало целиком
+ * (rangeCount 0), и любой ввод уходил в никуда до клика мышью.
  */
 function placeholderPlugin(text: string): Plugin {
   return new Plugin({
@@ -146,10 +160,12 @@ function placeholderPlugin(text: string): Plugin {
         const isEmpty =
           doc.childCount === 1 && doc.firstChild?.isTextblock && doc.firstChild.content.size === 0;
         if (!isEmpty) return null;
-        const node = document.createElement('span');
-        node.className = 'k-editor-placeholder';
-        node.textContent = text;
-        return DecorationSet.create(doc, [Decoration.widget(1, node, { side: 1 })]);
+        return DecorationSet.create(doc, [
+          Decoration.node(0, doc.firstChild!.nodeSize, {
+            class: 'k-editor-empty',
+            'data-placeholder': text,
+          }),
+        ]);
       },
     },
   });
