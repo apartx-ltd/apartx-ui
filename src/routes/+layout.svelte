@@ -44,6 +44,7 @@
     { path: '/lightbox', label: 'Lightbox' },
     { path: '/hooks', label: 'Hooks' },
     { path: '/chat', label: 'Chat' },
+    { path: '/editor', label: 'Editor' },
   ];
 
   // Strip the base prefix so active-state matching works under any base path.
