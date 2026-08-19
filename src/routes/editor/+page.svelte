@@ -36,6 +36,15 @@
   let output = $state('');
 
   const variables = ['appName', 'supportEmail', 'brand.legalName'];
+
+  // Демо-загрузка «в никуда»: data-URL живёт в документе сам по себе, сервера у полигона
+  // нет. Потребители подставляют сюда настоящий аплоад (S3 и т.п.).
+  const onUploadImage = (file: File) =>
+    new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsDataURL(file);
+    });
 </script>
 
 <div class="mx-auto flex max-w-4xl flex-col gap-4 p-4">
@@ -53,6 +62,7 @@
       bind:this={editor}
       value={DEMO}
       {variables}
+      {onUploadImage}
       placeholder="Начните печатать или нажмите «/»"
       onChange={() => toolbar?.refresh()}
       data-testid="editor-demo"

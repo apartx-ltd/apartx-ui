@@ -19,9 +19,9 @@ import {
   toggleBlockquote,
   insertHorizontalRule,
   insertTable,
-  insertImage,
   insertVariable,
 } from '../commands';
+import { openImageEditor } from './image-editor';
 import { icons, headingIcon } from './icons';
 import {
   createPopover,
@@ -75,13 +75,13 @@ function buildEntries(variables: string[]): MenuEntry[] {
     {
       label: 'Image',
       icon: icons.image,
-      keywords: ['picture', 'photo'],
-      // URL спрашиваем через prompt: диалог — забота потребителя, кит не должен тянуть в
-      // себя модалку ради одного пункта. Загрузка файлом идёт другим путём (drop/paste).
-      command: (state, dispatch, view) => {
-        const src = window.prompt('Image URL');
-        if (!src) return false;
-        return insertImage(src)(state, dispatch, view);
+      keywords: ['picture', 'photo', 'upload'],
+      // Попап картинки китовый (URL / файл / дроп) — потребителю остаётся только хук
+      // загрузки onUploadImage.
+      command: (_state, dispatch, view) => {
+        if (!view) return false;
+        if (dispatch) openImageEditor(view);
+        return true;
       },
     },
     ...variables.map((name) => ({

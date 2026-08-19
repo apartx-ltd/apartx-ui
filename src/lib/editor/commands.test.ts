@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { editorSchema } from './schema';
-import { insertTable } from './commands';
+import { insertImage, insertTable } from './commands';
 import { parseMarkdown } from './markdown';
 
 /**
@@ -24,6 +24,31 @@ function apply(state: EditorState, command = insertTable(3, 3)) {
   });
   return { ok, state: next };
 }
+
+describe('insertImage', () => {
+  it('вставляет узел со всеми тремя атрибутами', () => {
+    const { ok, state } = apply(
+      stateFrom(''),
+      insertImage('https://cdn.example.com/plan.png', 'Схема', 'Как добраться'),
+    );
+    expect(ok).toBe(true);
+
+    const image = state.doc.firstChild?.firstChild;
+    expect(image?.type.name).toBe('image');
+    expect(image?.attrs).toMatchObject({
+      src: 'https://cdn.example.com/plan.png',
+      alt: 'Схема',
+      title: 'Как добраться',
+    });
+  });
+
+  it('пустые alt и title не попадают в атрибуты (в md не будет пустых кавычек)', () => {
+    const { state } = apply(stateFrom(''), insertImage('https://x/y.png'));
+    const image = state.doc.firstChild?.firstChild;
+    expect(image?.attrs.alt ?? null).toBeNull();
+    expect(image?.attrs.title ?? null).toBeNull();
+  });
+});
 
 describe('insertTable', () => {
   // Регрессия: позицию таблицы считали как «текущее выделение минус nodeSize», исходя из

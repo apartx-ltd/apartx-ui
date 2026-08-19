@@ -23,6 +23,7 @@
   import { blockHandlePlugin } from './plugins/block-handle';
   import { insertMenuPlugin } from './plugins/insert-menu';
   import { linkEditorPlugin } from './plugins/link-editor';
+  import { imageEditorPlugin } from './plugins/image-editor';
   import { imageDropPlugin } from './plugins/image-drop';
 
   let {
@@ -82,6 +83,7 @@
         selectionToolbarPlugin(),
         blockHandlePlugin(),
         linkEditorPlugin(),
+        imageEditorPlugin({ onUploadImage }),
       ],
     });
 

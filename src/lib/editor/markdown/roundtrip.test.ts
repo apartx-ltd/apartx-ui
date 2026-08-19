@@ -55,6 +55,15 @@ describe('markdown round-trip', () => {
     expect(marks).toContain('highlight');
   });
 
+  it('картинка сохраняет alt и title', () => {
+    const md = '![Схема заезда](https://cdn.example.com/plan.png "Как добраться")';
+    expectStable(md, ['![Схема заезда](https://cdn.example.com/plan.png "Как добраться")']);
+    const doc = parseMarkdown(md);
+    const image = doc.firstChild?.firstChild;
+    expect(image?.type.name).toBe('image');
+    expect(image?.attrs.title).toBe('Как добраться');
+  });
+
   it('нераспознанный инлайновый HTML остаётся текстом, а не исполняется', () => {
     const out = roundtrip('текст с <abbr title="x">аббревиатурой</abbr>');
     expect(out).toContain('аббревиатурой');

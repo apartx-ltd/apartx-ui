@@ -95,10 +95,13 @@ export const insertHorizontalRule: Command = (state, dispatch) => {
   return true;
 };
 
-export function insertImage(src: string, alt = ''): Command {
+export function insertImage(src: string, alt = '', title = ''): Command {
   return (state, dispatch) => {
     if (!src) return false;
-    dispatch?.(state.tr.replaceSelectionWith(nodes.image.create({ src, alt })).scrollIntoView());
+    // Пустые alt/title — null, а не '': сериализатор пишет title по truthy-проверке, и ''
+    // безопасен, но null держит атрибуты в дефолте схемы (документы сравнимы по equals).
+    const attrs = { src, alt: alt || null, title: title || null };
+    dispatch?.(state.tr.replaceSelectionWith(nodes.image.create(attrs)).scrollIntoView());
     return true;
   };
 }
