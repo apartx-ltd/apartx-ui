@@ -56,6 +56,25 @@ test('«/» после пробела открывает меню посреди
   await expect(page.locator(`${pm} > p`)).not.toContainText('/app');
 });
 
+test('чип в конце строки не уводит каретку на следующую', async ({ page }) => {
+  // После инлайн-атома в конце блока ProseMirror ставит разделительный
+  // `img.ProseMirror-separator`. Generic-правила потребителя (Tailwind-префлайт делает
+  // все img блочными) превращают его в перенос: абзац становится двухстрочным, каретка
+  // рисуется строкой ниже — хотя логически стоит сразу за чипом, и набор идёт туда.
+  // Пользовательская проверка: абзац с чипом на конце остаётся ОДНОстрочным.
+  await page.keyboard.type('Текст {{appName}}');
+  await expect(page.locator(CHIP)).toHaveText('{{appName}}');
+
+  const metrics = await page.locator(`${pm} > p`).evaluate((el) => ({
+    height: el.getBoundingClientRect().height,
+    lineHeight: parseFloat(getComputedStyle(el).lineHeight),
+  }));
+  expect(
+    metrics.height,
+    'абзац с чипом на конце стал двухстрочным — каретка рисуется на следующей строке',
+  ).toBeLessThan(metrics.lineHeight * 1.8);
+});
+
 test('«/» внутри слова — обычный символ, меню не лезет', async ({ page }) => {
   await page.keyboard.type('и');
   await page.keyboard.type('/');

@@ -114,6 +114,27 @@
   height: auto;
 }
 
+/* Служебный разделитель ProseMirror после инлайн-атомов (чипы переменных). В vendor-CSS
+   правило подписано «Protect against generic img rules» — и оно не зря: Tailwind-префлайт
+   делает все img блочными, разделитель превращается в перенос, и каретка после чипа в
+   конце строки рисуется строкой ниже. При переписывании vendor-CSS в токены это правило
+   потерялось — не терять снова. */
+.k-editor .ProseMirror img.ProseMirror-separator {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
+  max-width: none;
+  height: 0;
+}
+
+/* Тоже из vendor-базы: на время драга ProseMirror прячет нативное выделение. */
+.k-editor .ProseMirror-hideselection *::selection {
+  background: transparent;
+}
+.k-editor .ProseMirror-hideselection {
+  caret-color: transparent;
+}
+
 .k-editor .ProseMirror mark {
   background: var(--color-tertiary-container);
   color: var(--color-on-tertiary-container);
