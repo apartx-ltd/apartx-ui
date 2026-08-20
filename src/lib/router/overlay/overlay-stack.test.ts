@@ -41,6 +41,27 @@ describe('createOverlayStack', () => {
     expect(os.overlayCount()).toBe(0);
   });
 
+  it('beforeBackClose-вето: back поглощён, оверлей жив, синтетическая запись возвращена', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    let closed = false;
+    let veto = true;
+    os.registerOverlay({ close: () => { closed = true; }, beforeBackClose: () => veto });
+    const pushesBefore = f.calls.filter((c) => c === 'pushOverlay').length;
+
+    expect(f.fireBack()).toBe(true); // back поглощён вето
+    expect(closed).toBe(false);
+    expect(os.overlayCount()).toBe(1);
+    // Popstate съел синтетическую запись — вето обязано вернуть её.
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(pushesBefore + 1);
+
+    veto = false; // стек хелпа опустел
+    expect(f.fireBack()).toBe(true);
+    expect(closed).toBe(true);
+    expect(os.overlayCount()).toBe(0);
+  });
+
   it('registerOverlay lazily self-installs the back-interceptor (no explicit initOverlayStack)', () => {
     const f = fakeAdapter();
     const os = createOverlayStack(f.adapter);

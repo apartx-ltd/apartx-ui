@@ -33,6 +33,7 @@
     bodyClass,
     role = 'dialog',
     respectBack = true,
+    onBackRequest,
     ...restProps
   }: {
     children: any;
@@ -55,6 +56,9 @@
     bodyClass?: string;
     role?: 'dialog' | 'alertdialog';
     respectBack?: boolean;
+    /** Спросить хоста перед back-закрытием: true = back обработан (не закрывать).
+     *  Только для нативного back; Escape/крестик/backdrop закрывают как раньше. */
+    onBackRequest?: () => boolean;
     [key: string]: any;
   } = $props();
 
@@ -75,7 +79,7 @@
   const layer = getOverlayLayer();
   // exitMs = длительность contentTransition (motion.ts: sheet 260 / dialogPop 220) — overlay-aware
   // navigate ждёт столько, чтобы уходящая анимация диалога проиграла до смены роута.
-  const overlay = useOverlay(() => open, () => { open = false; }, { respectBack, exitMs: fullScreen ? 260 : 220 });
+  const overlay = useOverlay(() => open, () => { open = false; }, { respectBack, exitMs: fullScreen ? 260 : 220, onBackRequest });
   const zBand = $derived(layer ? layer.z : overlay.z);
   const scrimZ = $derived(zBand != null ? `z-index:${zBand};` : '');
   const contentZ = $derived(zBand != null ? `z-index:${zBand + 1};` : '');

@@ -2,6 +2,18 @@
 
 ## 2026-08-19
 
+### Версия 0.7.2
+
+### feat(overlay): вето back-закрытия — onBackRequest у Dialog
+
+* `registerOverlay`/`useOverlay` принимают `beforeBackClose`/`onBackRequest`:
+  back-interceptor спрашивает верхний оверлей до закрытия; вето возвращает
+  съеденную popstate'ом синтетическую запись (`pushOverlay`), и следующий back
+  снова перехватывается.
+* Потребитель — ArticleModal кабинета: back раскручивает nav-стек embed-хелпа в
+  iframe, модалка закрывается только на пустом стеке. Escape/крестик/backdrop —
+  без изменений.
+
 ### Версия 0.7.1
 
 ### feat(editor): попап картинки — вставка URL/файлом/дропом и правка атрибутов
