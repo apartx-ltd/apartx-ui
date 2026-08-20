@@ -14,7 +14,7 @@ export interface UseOverlay {
 export function useOverlay(
   getOpen: () => boolean,
   close: () => void,
-  opts?: { respectBack?: boolean; exitMs?: number },
+  opts?: { respectBack?: boolean; exitMs?: number; onBackRequest?: () => boolean },
 ): UseOverlay {
   let handle = $state<OverlayHandle | null>(null);
   let committed = false;
@@ -26,7 +26,7 @@ export function useOverlay(
     if (open && handle === null) {
       // exitMs: сколько overlay-aware navigate ждёт перед сменой роута, чтобы уходящая
       // анимация оверлея успела проиграть (иначе страница уносит его на полукадре).
-      handle = registerOverlay({ close, scrim: true, exitMs: opts?.exitMs });
+      handle = registerOverlay({ close, scrim: true, exitMs: opts?.exitMs, beforeBackClose: opts?.onBackRequest });
       committed = false;
     } else if (!open && handle !== null) {
       closeOverlay(handle.token, committed ? { viaBack: true } : undefined);

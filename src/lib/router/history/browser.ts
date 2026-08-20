@@ -33,6 +33,9 @@ const notify = () => listeners.forEach((l) => l());
 let action: Action = 'none';
 let position = 0;
 let backInterceptor: (() => boolean) | null = null;
+// Ждём forward-возврата на синтетическую запись после вето back'а (см.
+// restoreOverlayEntry): этот popstate — служебный, роутер о нём не узнаёт.
+let pendingOverlayRestore = false;
 
 if (isBrowser) {
   const st = window.history.state as { idx?: number } | null;
@@ -47,6 +50,13 @@ if (isBrowser) {
         : 0;
     action = nextIdx < position ? 'back' : nextIdx > position ? 'forward' : 'none';
     position = nextIdx;
+    if (pendingOverlayRestore) {
+      pendingOverlayRestore = false;
+      // Ожидаемый служебный возврат на запись оверлея: URL/страница не менялись —
+      // молча. Любой другой popstate (гонка с быстрым вторым back) сбрасывает
+      // флаг и обрабатывается штатно.
+      if (action === 'forward' && (e.state as { __overlay?: boolean } | null)?.__overlay) return;
+    }
     // On a backward step, let the overlay layer close the topmost overlay first.
     // If it handled it, the URL/page is unchanged → do NOT notify the router.
     if (action === 'back' && backInterceptor && backInterceptor()) return;
@@ -100,6 +110,15 @@ export const browserHistoryAdapter: HistoryAdapter = {
     position += 1;
     action = 'forward';
     window.history.pushState({ idx: position, __overlay: true }, '');
+  },
+  /** Возврат на пережившую back синтетическую запись (вето beforeBackClose).
+   *  Именно forward-траверс, НЕ pushState: gesture-less pushState пометил бы
+   *  нижнюю запись skip-on-back (Chrome-интервенция) и убил реальную кнопку
+   *  «назад» — back срабатывал бы ровно один раз. */
+  restoreOverlayEntry() {
+    if (!isBrowser) return;
+    pendingOverlayRestore = true;
+    window.history.forward();
   },
   /** Register the overlay layer's back handler (returns true if it consumed the back). */
   setBackInterceptor(fn) {

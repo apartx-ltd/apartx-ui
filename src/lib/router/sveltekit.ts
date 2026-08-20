@@ -138,6 +138,14 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
       pushState('', { ...(page.state as object), __overlayDepth: depth });
     },
     setBackInterceptor(fn) { backInterceptor = fn; },
+    // Вето back'а: вернуться на пережившую traversal запись оверлея. forward, не
+    // pushState — см. adapter.ts. depth здесь не трогаем: собственный popstate-хендлер
+    // выше пересчитает его с приземлившейся записи (closed = -1 → цикл не идёт), а
+    // beforeNavigate-гард по depthFromHistory() не даст dismiss'а.
+    restoreOverlayEntry() {
+      action = 'forward';
+      if (typeof history !== 'undefined') history.forward();
+    },
     goBack() { if (typeof history !== 'undefined') history.back(); },
   };
 }

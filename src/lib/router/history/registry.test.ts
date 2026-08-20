@@ -7,7 +7,7 @@ const fake: HistoryAdapter = {
   location: { pathname: '/x', search: '', hash: '' },
   action: 'none', canGoBack: false, onOverlayEntry: false,
   listen: () => () => {}, push: () => {}, replace: () => {},
-  pushOverlay: () => {}, setBackInterceptor: () => {}, goBack: () => {},
+  pushOverlay: () => {}, restoreOverlayEntry: () => {}, setBackInterceptor: () => {}, goBack: () => {},
 };
 
 describe('history registry', () => {

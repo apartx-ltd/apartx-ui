@@ -22,6 +22,7 @@ function fakeAdapter() {
     push: (url, o) => { calls.push(o?.action ? `push:${url}:${o.action}` : `push:${url}`); },
     replace: (url, o) => { calls.push(`replace:${url}:${o?.action ?? 'none'}`); },
     pushOverlay: () => { calls.push('pushOverlay'); overlayEntry = true; },
+    restoreOverlayEntry: () => { calls.push('restoreOverlayEntry'); overlayEntry = true; },
     setBackInterceptor: () => {},
     goBack: () => { calls.push('goBack'); },
   };

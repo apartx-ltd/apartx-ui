@@ -14,6 +14,9 @@ interface Entry {
    *  осядет на до-оверлейной записи). Пока флаг стоит — записи в history НЕТ, и close
    *  не должен снимать её через back. */
   deferredEntry?: boolean;
+  /** Спросить оверлей ПЕРЕД back-закрытием. true = back поглощён самим оверлеем
+   *  (например, iframe-хелп раскручивает свой внутренний стек) — не закрывать. */
+  beforeBackClose?: () => boolean;
 }
 
 const Z_BASE = 60;
@@ -33,7 +36,7 @@ export interface OverlayHandle {
 export interface OverlayStack {
   overlayCount(): number;
   subscribeOverlay(cb: () => void): () => void;
-  registerOverlay(opts: { close: Close; scrim?: boolean; exitMs?: number }): OverlayHandle;
+  registerOverlay(opts: { close: Close; scrim?: boolean; exitMs?: number; beforeBackClose?: () => boolean }): OverlayHandle;
   openOverlay(close: Close): number; // back-compat
   closeOverlay(token: number, opts?: { viaBack?: boolean }): void;
   /** Навигацию инициирует САМ КИТ через navigate() (вариант A — см. core/nav.ts).
@@ -99,7 +102,17 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
       return true;
     }
     if (stack.length === 0) return false;
-    const top = stack.pop()!;
+    const top = stack[stack.length - 1];
+    // Вето: оверлей поглощает back сам. Back не удаляет запись — она осталась
+    // форвардом, возвращаемся на неё траверсом (restoreOverlayEntry), чтобы
+    // следующий back снова пришёл сюда. НЕ pushState: он здесь gesture-less
+    // (жест ушёл кнопке браузера), Chrome-интервенция пометила бы нижнюю запись
+    // skip-on-back и реальная кнопка «назад» умирала бы после первого вето.
+    if (top.beforeBackClose?.()) {
+      adapter.restoreOverlayEntry();
+      return true;
+    }
+    stack.pop();
     notify();
     // close() ставит isOpen=false; хук useOverlayBack увидит переход и вызовет
     // closeOverlay(token), но токен уже снят → no-op (без второго history.back).
@@ -118,11 +131,11 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     };
   }
 
-  function registerOverlay({ close, exitMs }: { close: Close; scrim?: boolean; exitMs?: number }): OverlayHandle {
+  function registerOverlay({ close, exitMs, beforeBackClose }: { close: Close; scrim?: boolean; exitMs?: number; beforeBackClose?: () => boolean }): OverlayHandle {
     initOverlayStack(); // idempotent, SSR no-op — guarantees the back-interceptor is installed
     const token = ++seq;
     const z = Z_BASE + stack.length * Z_STEP; // depth = длина стека ДО push
-    const entry: Entry = { token, close, exitMs: exitMs ?? DEFAULT_EXIT_MS };
+    const entry: Entry = { token, close, exitMs: exitMs ?? DEFAULT_EXIT_MS, beforeBackClose };
     stack.push(entry);
     // ADOPT vs PUSH. Normally opening an overlay pushes a synthetic history entry so a
     // back closes it. But on a BACK-DRIVEN remount (the map sheet survives a property

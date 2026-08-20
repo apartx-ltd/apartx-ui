@@ -21,6 +21,7 @@ function fakeAdapter() {
     listen: () => () => {},
     push: () => {}, replace: () => {},
     pushOverlay: () => { calls.push('pushOverlay'); overlayEntry = true; },
+    restoreOverlayEntry: () => { calls.push('restoreOverlayEntry'); overlayEntry = true; },
     setBackInterceptor: (fn) => { interceptor = fn; },
     goBack: () => { calls.push('goBack'); },
   };
@@ -37,6 +38,30 @@ describe('createOverlayStack', () => {
     expect(f.calls).toContain('pushOverlay');
     expect(os.overlayCount()).toBe(1);
     expect(f.fireBack()).toBe(true); // consumed
+    expect(closed).toBe(true);
+    expect(os.overlayCount()).toBe(0);
+  });
+
+  it('beforeBackClose-вето: back поглощён, оверлей жив, возврат на запись траверсом', () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    let closed = false;
+    let veto = true;
+    os.registerOverlay({ close: () => { closed = true; }, beforeBackClose: () => veto });
+    const pushesBefore = f.calls.filter((c) => c === 'pushOverlay').length;
+
+    expect(f.fireBack()).toBe(true); // back поглощён вето
+    expect(closed).toBe(false);
+    expect(os.overlayCount()).toBe(1);
+    // Запись пережила back (осталась форвардом) — возвращаемся траверсом, НЕ
+    // pushState: gesture-less pushState включает Chrome-интервенцию skip-on-back
+    // и убивает реальную кнопку «назад» после первого же вето.
+    expect(f.calls.filter((c) => c === 'restoreOverlayEntry').length).toBe(1);
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(pushesBefore);
+
+    veto = false; // стек хелпа опустел
+    expect(f.fireBack()).toBe(true);
     expect(closed).toBe(true);
     expect(os.overlayCount()).toBe(0);
   });
