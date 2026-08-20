@@ -103,12 +103,13 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     }
     if (stack.length === 0) return false;
     const top = stack[stack.length - 1];
-    // Вето: оверлей поглощает back сам. Синтетическую запись popstate уже съел —
-    // вернуть её, чтобы следующий back снова пришёл сюда. pushState здесь привязан
-    // к живому back-жесту, так что history-интервенция Chrome (skip-on-back для
-    // gesture-less pushState) не срабатывает.
+    // Вето: оверлей поглощает back сам. Back не удаляет запись — она осталась
+    // форвардом, возвращаемся на неё траверсом (restoreOverlayEntry), чтобы
+    // следующий back снова пришёл сюда. НЕ pushState: он здесь gesture-less
+    // (жест ушёл кнопке браузера), Chrome-интервенция пометила бы нижнюю запись
+    // skip-on-back и реальная кнопка «назад» умирала бы после первого вето.
     if (top.beforeBackClose?.()) {
-      adapter.pushOverlay();
+      adapter.restoreOverlayEntry();
       return true;
     }
     stack.pop();

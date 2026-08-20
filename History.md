@@ -1,5 +1,19 @@
 # История изменений — apartx-ui
 
+## 2026-08-20
+
+### Версия 0.7.3
+
+### fix(overlay): вето back'а возвращает запись траверсом — реальная кнопка «назад» больше не умирает
+
+* `handleBack` на вето делал `pushOverlay()` (pushState) прямо в popstate: без
+  жеста Chrome помечает нижнюю запись skip-on-back (history manipulation
+  intervention), и реальная кнопка «назад» отключалась после первого же вето
+  (скриптовый `history.back()` при этом работал — e2e не ловили). Теперь
+  `restoreOverlayEntry()`: back не удаляет синтетическую запись — она остаётся
+  форвардом, возвращаемся `history.forward()`; служебный forward-popstate роутер
+  не нотифает. Новый метод в `HistoryAdapter` (browser + sveltekit).
+
 ## 2026-08-19
 
 ### Версия 0.7.2

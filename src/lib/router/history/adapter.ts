@@ -21,6 +21,12 @@ export interface HistoryAdapter {
   replace(url: string, opts?: { action?: Action }): void;
   /** Synthetic same-URL entry for an opened overlay; does NOT notify listeners. */
   pushOverlay(): void;
+  /** Return to the overlay's still-existing synthetic entry after a vetoed back
+   *  (history.forward(), not a new pushState): a gesture-less pushState marks the
+   *  entry below as skip-on-back (Chrome history-manipulation intervention) and
+   *  KILLS the real Back button, while a traversal leaves flags untouched. The
+   *  resulting forward-popstate must not notify the router. */
+  restoreOverlayEntry(): void;
   /** Register the overlay layer's back handler (returns true if it consumed the back). */
   setBackInterceptor(fn: (() => boolean) | null): void;
   goBack(): void;

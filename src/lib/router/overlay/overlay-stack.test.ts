@@ -21,6 +21,7 @@ function fakeAdapter() {
     listen: () => () => {},
     push: () => {}, replace: () => {},
     pushOverlay: () => { calls.push('pushOverlay'); overlayEntry = true; },
+    restoreOverlayEntry: () => { calls.push('restoreOverlayEntry'); overlayEntry = true; },
     setBackInterceptor: (fn) => { interceptor = fn; },
     goBack: () => { calls.push('goBack'); },
   };
@@ -41,7 +42,7 @@ describe('createOverlayStack', () => {
     expect(os.overlayCount()).toBe(0);
   });
 
-  it('beforeBackClose-вето: back поглощён, оверлей жив, синтетическая запись возвращена', () => {
+  it('beforeBackClose-вето: back поглощён, оверлей жив, возврат на запись траверсом', () => {
     const f = fakeAdapter();
     const os = createOverlayStack(f.adapter);
     os.initOverlayStack();
@@ -53,8 +54,11 @@ describe('createOverlayStack', () => {
     expect(f.fireBack()).toBe(true); // back поглощён вето
     expect(closed).toBe(false);
     expect(os.overlayCount()).toBe(1);
-    // Popstate съел синтетическую запись — вето обязано вернуть её.
-    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(pushesBefore + 1);
+    // Запись пережила back (осталась форвардом) — возвращаемся траверсом, НЕ
+    // pushState: gesture-less pushState включает Chrome-интервенцию skip-on-back
+    // и убивает реальную кнопку «назад» после первого же вето.
+    expect(f.calls.filter((c) => c === 'restoreOverlayEntry').length).toBe(1);
+    expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(pushesBefore);
 
     veto = false; // стек хелпа опустел
     expect(f.fireBack()).toBe(true);
