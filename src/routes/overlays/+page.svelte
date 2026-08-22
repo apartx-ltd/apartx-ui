@@ -1,9 +1,14 @@
 <script lang="ts">
   import { Dialog, Drawer, Tooltip, DropdownMenu, ConfirmDialog, AlertDialog, confirm } from '$lib/ui/overlays';
-  import { Button, Popover } from '$lib/ui/display';
+  import { Button, Icon, Popover } from '$lib/ui/display';
   import { Select } from '$lib/ui/forms';
+  import { faCircleQuestion } from '@fortawesome/free-solid-svg-icons';
 
   let dialogOpen = $state(false);
+  // Счётчик кликов по кнопке в шапке: e2e проверяет, что она нажимается и диалог при
+  // этом не закрывается (кнопка живёт в шапке, а не в теле — легко было бы уехать в
+  // outside-click).
+  let actionClicks = $state(0);
   let drawerOpen = $state(false);
   let alertOpen = $state(false);
   let lastConfirm = $state<boolean | null>(null);
@@ -67,7 +72,15 @@
 <p class="text-body-sm text-on-surface-variant mt-4">last confirm result: <code>{lastConfirm}</code></p>
 
 <Dialog bind:open={dialogOpen} title="Example dialog">
+  <!-- actions: кнопки в шапке слева от крестика. Заголовок и крестик остаются кит'овыми,
+       в отличие от сниппета header, который заменяет шапку целиком. -->
+  {#snippet actions()}
+    <Button data-testid="dialog-action" variant="icon" aria-label="Help" onclick={() => (actionClicks += 1)}>
+      <Icon icon={faCircleQuestion} />
+    </Button>
+  {/snippet}
   <p data-testid="dialog-body" class="px-6 py-2 text-body-lg text-on-surface-variant">Dialog body content.</p>
+  <p class="px-6 text-body-sm text-on-surface-variant">action clicks: <code data-testid="dialog-action-clicks">{actionClicks}</code></p>
 </Dialog>
 
 <Dialog bind:open={selectDialogOpen} title="Select in dialog">

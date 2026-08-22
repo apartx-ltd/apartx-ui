@@ -45,6 +45,28 @@ test.describe('Dialog close paths', () => {
     await expect(body).toBeHidden();
   });
 
+  test('a header action button clicks without closing the dialog', async ({ page }) => {
+    const body = await openOverlay(page, 'open-dialog', 'dialog-body');
+    const action = page.getByTestId('dialog-action');
+
+    // Кнопка живёт в шапке рядом с крестиком, а не в теле — порядок в DOM тоже часть
+    // контракта: сначала actions, потом «Закрыть».
+    await expect(action).toBeVisible();
+    const order = await page.evaluate(() => {
+      const a = document.querySelector('[data-testid="dialog-action"]');
+      const close = document.querySelector('[aria-label="Close"]');
+      if (!a || !close) return 'missing';
+      return a.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING
+        ? 'action-first'
+        : 'close-first';
+    });
+    expect(order).toBe('action-first');
+
+    await action.click();
+    await expect(page.getByTestId('dialog-action-clicks')).toHaveText('1');
+    await expect(body).toBeVisible();
+  });
+
   test('closes via browser BACK (and back does not leave the app)', async ({ page }) => {
     const body = await openOverlay(page, 'open-dialog', 'dialog-body');
     // Opening pushed a synthetic history entry; a browser BACK must close the overlay

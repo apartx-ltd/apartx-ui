@@ -12,6 +12,7 @@
   let {
     children,
     header,
+    actions,
     footer,
     open = $bindable(false),
     title = '',
@@ -38,6 +39,9 @@
   }: {
     children: any;
     header?: any;
+    /** Кнопки в шапке слева от крестика (справка, «ещё» и т.п.). В отличие от `header`
+     *  не заменяет шапку целиком — заголовок и крестик остаются кит'овыми. */
+    actions?: any;
     footer?: any;
     open?: boolean;
     title?: string;
@@ -117,19 +121,26 @@
 {#snippet panel()}
   {#if header}
     {@render header()}
-  {:else if title || showCloseButton}
+  {:else if title || showCloseButton || actions}
     <div class="flex items-center justify-between gap-2 px-6 pt-6 pb-2">
       {#if title}
-        <BitsDialog.Title class="text-headline-sm text-on-surface m-0">
+        <BitsDialog.Title class="text-headline-sm text-on-surface m-0 min-w-0">
           {title}
         </BitsDialog.Title>
       {:else}
         <span></span>
       {/if}
-      {#if showCloseButton}
-        <Button variant="icon" onclick={() => (open = false)} aria-label="Close">
-          <Icon icon={faXmark} />
-        </Button>
+      {#if actions || showCloseButton}
+        <!-- shrink-0: длинный заголовок переносится по словам, а не выдавливает кнопки
+             за край шапки. -->
+        <div class="flex shrink-0 items-center gap-1">
+          {@render actions?.()}
+          {#if showCloseButton}
+            <Button variant="icon" onclick={() => (open = false)} aria-label="Close">
+              <Icon icon={faXmark} />
+            </Button>
+          {/if}
+        </div>
       {/if}
     </div>
   {/if}
