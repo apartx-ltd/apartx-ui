@@ -79,6 +79,21 @@ not as a side effect of other work.
 - `bits-ui`, `svelte`, `svelte-fa` are peer deps — never bump independently of
   consumers; a duplicate `bits-ui` breaks overlay context.
 
+### Плотность модалок
+
+`Dialog` объявляет плотность тела пропом `layout`:
+
+- `layout="form"` (дефолт) — тело с отступами, для форм и текста: `px-4 py-3 sm:px-6 sm:py-4`.
+- `layout="list"` — тело без боковых отступов: край держит `Item` (`px-4`), поэтому строки
+  и разделители идут во всю ширину.
+
+Значения адаптивные: на узком экране 16px, с `sm` — 24px. Шапка `Dialog` выровнена с
+`Toolbar` (16px на узком экране), так что заголовок и содержимое стоят по одной линии.
+
+Прикладной код **не пишет `bodyClass="p-0"`** и не задаёт собственных боковых отступов
+телу модалки — вместо этого объявляет подходящий `layout`. `bodyClass` остаётся аварийным
+люком для нестандартных случаев (встроенный редактор, карта во всю площадь).
+
 ## Versioning
 
 Consumers pin to a commit via submodule. Use `main` for active development;
