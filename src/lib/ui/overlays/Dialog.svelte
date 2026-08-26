@@ -4,6 +4,7 @@
   import { cn } from '../utils/cn';
   import { overlayFade, dialogPop, sheet } from '../utils/motion';
   import { getOverlayLayer, provideOverlayZ } from './layer-context';
+  import { dialogBodyClass, type DialogLayout } from './dialog-layout';
   import { useOverlay } from '../../hooks/useOverlay.svelte';
   import { faXmark } from '@fortawesome/free-solid-svg-icons';
   import Button from '../display/Button.svelte';
@@ -18,6 +19,7 @@
     title = '',
     description = '',
     fullScreen = false,
+    layout = 'form',
     showCloseButton = true,
     onOpenChange,
     onclose,
@@ -47,6 +49,9 @@
     title?: string;
     description?: string;
     fullScreen?: boolean;
+    /** Плотность тела: `form` — с отступами (поля, текст), `list` — без боковых отступов,
+     *  край держит Item. Списочная модалка объявляет `layout="list"` вместо `bodyClass="p-0"`. */
+    layout?: DialogLayout;
     showCloseButton?: boolean;
     onOpenChange?: (v: boolean) => void;
     onclose?: () => void;
@@ -122,7 +127,7 @@
   {#if header}
     {@render header()}
   {:else if title || showCloseButton || actions}
-    <div class="flex items-center justify-between gap-2 px-6 pt-6 pb-2">
+    <div class="flex items-center justify-between gap-2 px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
       {#if title}
         <BitsDialog.Title class="text-headline-sm text-on-surface m-0 min-w-0">
           {title}
@@ -146,12 +151,12 @@
   {/if}
 
   {#if description}
-    <BitsDialog.Description class="px-6 pb-2 text-body-md text-on-surface-variant">
+    <BitsDialog.Description class="px-4 pb-2 text-body-md text-on-surface-variant sm:px-6">
       {description}
     </BitsDialog.Description>
   {/if}
 
-  <div class={cn('flex-1 overflow-y-auto px-6 py-4', bodyClass)}>
+  <div class={cn('flex-1 overflow-y-auto', dialogBodyClass(layout), bodyClass)}>
     {@render children()}
   </div>
 
