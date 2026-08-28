@@ -10,6 +10,9 @@
   let resolver = $derived(linkResolver ?? contextResolver);
 </script>
 
-<div class={cn('bg-[#272822] text-[#f8f8f2] font-mono text-label-sm leading-5 p-3 overflow-auto', className)}>
+<!-- text-start обязателен: Popover.Content рендерится по месту (без портала), и внутри
+     ячейки с text-right (типовое место ⓘ-кнопки в таблицах) дерево унаследовало бы
+     выравнивание вправо. -->
+<div class={cn('bg-[#272822] text-[#f8f8f2] text-start font-mono text-label-sm leading-5 p-3 overflow-auto', className)}>
   <JsonNode {value} keyLabel={null} parent={null} depth={0} {expandDepth} linkResolver={resolver} />
 </div>
