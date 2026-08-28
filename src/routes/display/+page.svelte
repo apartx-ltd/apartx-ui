@@ -117,7 +117,22 @@
 
 <section class="mb-8">
   <h2 class="text-title-md mb-3">PopoverJson</h2>
-  <PopoverJson src={{ hello: 'world', nested: { count: 3 } }} />
+  <PopoverJson
+    src={{
+      _id: 'a1B2c3D4e5',
+      userId: 'u123',
+      status: 'active',
+      price: 12500.5,
+      isTest: true,
+      note: null,
+      createdAt: new Date(),
+      pattern: /^apart/i,
+      empty: {},
+      tags: ['a', 'b', 'c'],
+      meta: { nested: { deep: { level: 4 } }, lockId: 'L1' },
+    }}
+    linkResolver={({ key, value }) => (key === 'userId' ? `#demo-user-${value}` : undefined)}
+  />
 </section>
 
 <section class="mb-8">
