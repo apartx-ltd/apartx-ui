@@ -45,7 +45,7 @@
       <span class="inline-block w-3 text-white/40 transition-transform {open ? 'rotate-90' : ''}">
         <Icon icon={faChevronRight} />
       </span>
-      {#if keyLabel !== null}<span class="text-[#f92672]">{keyLabel}</span><span class="text-white/60">: </span>{/if}
+      {#if keyLabel !== null}<span><span class="text-[#f92672]">{keyLabel}</span><span class="text-white/60">:</span></span>{/if}
       {#if open}
         <span class="text-white/60">{info.kind === 'array' ? '[' : '{'}</span>
       {:else}

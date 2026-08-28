@@ -73,7 +73,7 @@
   bind:open={dialogOpen}
   title="JSON"
   bodyClass="p-0"
-  contentClass="w-[min(92vw,64rem)] h-[85vh]"
+  contentClass="max-w-[64rem] w-[92vw] h-[85vh]"
 >
   {#snippet actions()}
     <button
