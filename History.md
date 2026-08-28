@@ -1,5 +1,25 @@
 # История изменений — apartx-ui
 
+## 2026-08-28
+
+### Версия 0.9.0
+
+### feat(display): JsonTree + PopoverJson-viewer — дерево, EJSON-типы, entity-ссылки
+
+* Новый `JsonTree` — рекурсивное сворачиваемое JSON-дерево с подсветкой по типам
+  (monokai-палитра, свёрнутая нода показывает превью `{…} N keys` / `[…] N items`,
+  `expandDepth` управляет стартовой глубиной). Рендерит живые объекты, а не stringify:
+  `Date` — локальная дата с ISO в title, `Decimal`/`Decimal128` — число строкой,
+  `ObjectId` — hex, `RegExp`, различимые `null`/`undefined`. Типы распознаются утиной
+  типизацией (`json-value.ts`) — без импорта bson/meteor.
+* `PopoverJson` теперь рендерит `JsonTree` вместо плоского `<pre>`; API прежний
+  (`src`, `class`), Copy по-прежнему копирует сырой `JSON.stringify`. В шапке — кнопка
+  Expand: тот же viewer в полноразмерном `Dialog`.
+* Entity-ссылки: контракт `setJsonLinkResolver`/`getJsonLinkResolver` (`json-link.ts`,
+  Svelte-контекст по образцу `setNavigator`). Хост маппит имена ключей на роуты
+  (`{key, value, parent} → href`); значения с href рендерятся китовым `<Link>` —
+  SPA-переход, cmd+клик — новая вкладка. Проп `linkResolver` — точечный оверрайд.
+
 ## 2026-08-27
 
 ### Версия 0.8.1
