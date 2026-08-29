@@ -27,6 +27,14 @@
     popoverOpen = false;
     dialogOpen = true;
   }
+
+  // Popover.Content рендерится по месту (без портала) — в DOM он потомок ячейки, а значит
+  // и кликабельной строки таблицы. Без этого любой клик по дереву (выделить текст, свернуть
+  // ветку) всплывал бы в onRowClick и уводил со страницы. Ссылки внутри дерева не страдают:
+  // их собственный обработчик отрабатывает на таргете, до всплытия сюда.
+  function stopRowClick(event) {
+    event.stopPropagation();
+  }
 </script>
 
 <Popover.Root bind:open={popoverOpen}>
@@ -42,6 +50,8 @@
     align="end"
     sideOffset={4}
     trapFocus={false}
+    onclick={stopRowClick}
+    data-no-row-click
     class="z-50 rounded-sm bg-[#272822] shadow-level-3 border border-outline-variant overflow-hidden max-w-lg min-w-64"
   >
     <div class="flex items-center justify-between gap-3 px-3 py-1.5 border-b border-white/10">
