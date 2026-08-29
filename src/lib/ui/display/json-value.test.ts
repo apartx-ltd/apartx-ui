@@ -39,12 +39,35 @@ describe('classifyValue', () => {
     expect(classifyValue(d128)).toEqual({ kind: 'decimal', text: '12.50' });
   });
 
-  it('duck-types decimal.js Decimal via constructor name', () => {
+  it('duck-types decimal.js Decimal by its API, not by the constructor name', () => {
     class Decimal {
       toDecimalPlaces() { return this; }
       toString() { return '99.9'; }
     }
     expect(classifyValue(new Decimal())).toEqual({ kind: 'decimal', text: '99.9' });
+
+    // В прод-бандле имя класса минифицируется в `o`, а decimal.js ещё и кладёт
+    // СВОЙ перечислимый `constructor` в инстанс — по имени такой объект не опознать,
+    // и дерево вываливало тело минифицированной функции вместо числа.
+    class o {
+      constructor() {
+        (this as any).constructor = o;
+        (this as any).s = 1;
+        (this as any).e = 1;
+        (this as any).d = [10];
+      }
+      toDecimalPlaces() { return this; }
+      toString() { return '10'; }
+    }
+    expect(classifyValue(new o())).toEqual({ kind: 'decimal', text: '10' });
+  });
+
+  it('renders a function as a signature, not as its source', () => {
+    expect(classifyValue(function parse(a: number) { return a; })).toEqual({
+      kind: 'function',
+      text: 'ƒ parse()',
+    });
+    expect(classifyValue(() => 1)).toEqual({ kind: 'function', text: 'ƒ ()' });
   });
 
   it('reports containers without text', () => {

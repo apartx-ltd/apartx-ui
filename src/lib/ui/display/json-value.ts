@@ -6,7 +6,7 @@
 
 export type JsonLeafKind =
   | 'string' | 'number' | 'boolean' | 'null' | 'undefined'
-  | 'date' | 'decimal' | 'objectid' | 'regexp';
+  | 'date' | 'decimal' | 'objectid' | 'regexp' | 'function';
 
 export type JsonClass =
   | { kind: JsonLeafKind; text: string; title?: string }
@@ -45,10 +45,19 @@ export function classifyValue(v: unknown): JsonClass {
       return { kind: 'objectid', text };
     }
     if (bsontype === 'Decimal128') return { kind: 'decimal', text: String(v) };
-    if (o.constructor?.name === 'Decimal' && typeof o.toDecimalPlaces === 'function')
+    // Опознаём decimal.js по API, а НЕ по `constructor.name`: в прод-бандле имя класса
+    // минифицируется (`Decimal` → `o`), и по имени инстанс не отличить от обычного объекта.
+    // Инстанс при этом несёт собственный перечислимый `constructor` (decimal.js пишет
+    // `this.constructor = o` в конструкторе), так что промах разворачивался в дереве телом
+    // минифицированной функции вместо числа.
+    if (typeof o.toDecimalPlaces === 'function')
       return { kind: 'decimal', text: String(v) };
     return { kind: 'object' };
   }
-  // functions/symbols — деградация в строку, JSON их всё равно не содержит
+  if (t === 'function') {
+    const name = (v as { name?: string }).name || '';
+    return { kind: 'function', text: `ƒ ${name}()` };
+  }
+  // symbols — деградация в строку, JSON их всё равно не содержит
   return { kind: 'string', text: String(v) };
 }
