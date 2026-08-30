@@ -17,6 +17,7 @@
     decimal: 'text-[#ae81ff]',
     objectid: 'text-[#66d9ef]',
     regexp: 'text-[#fd971f]',
+    function: 'text-white/40 italic',
   };
 
   let info = $derived(classifyValue(value));

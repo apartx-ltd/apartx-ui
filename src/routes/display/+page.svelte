@@ -23,6 +23,22 @@
     { color: 'bg-secondary text-on-secondary', label: 'Slide 2' },
     { color: 'bg-tertiary text-on-tertiary', label: 'Slide 3' },
   ];
+  // Имитация decimal.js-инстанса как он приходит из mongo-decimal: собственный
+  // перечислимый `constructor` (его пишет сам конструктор библиотеки) и минифицированное
+  // имя класса. Дерево обязано показать число, а не тело функции.
+  function fakeDecimal(text: string) {
+    class o {
+      constructor() {
+        (this as any).constructor = o;
+        (this as any).s = 1;
+        (this as any).e = 4;
+        (this as any).d = [12500, 5000000];
+      }
+      toDecimalPlaces() { return this; }
+      toString() { return text; }
+    }
+    return new o();
+  }
 </script>
 
 <h1 class="text-headline-md mb-6">Display</h1>
@@ -122,7 +138,7 @@
       _id: 'a1B2c3D4e5',
       userId: 'u123',
       status: 'active',
-      price: 12500.5,
+      price: fakeDecimal('12500.50'),
       isTest: true,
       note: null,
       createdAt: new Date(),
