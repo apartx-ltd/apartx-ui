@@ -16,7 +16,18 @@
   let radio = $state('email');
   let combo = $state('');
   let phone = $state('');
+  let phoneIntl = $state('');
   let range = $state({ start: '', end: '' });
+
+  // Демо-выборка в формате `countryPhoneData` из пакета `phone` — сам пакет киту
+  // не нужен, страны всегда приходят от потребителя.
+  const demoCountries = [
+    { country_name: 'Kazakhstan', country_code: '7', alpha2: 'KZ', mobile_begin_with: ['70', '74', '77'] },
+    { country_name: 'Russian Federation', country_code: '7', alpha2: 'RU', mobile_begin_with: ['9', '495', '498'] },
+    { country_name: 'Kyrgyzstan', country_code: '996', alpha2: 'KG', mobile_begin_with: ['5', '7'] },
+    { country_name: 'Germany', country_code: '49', alpha2: 'DE', mobile_begin_with: ['15', '16', '17'] },
+    { country_name: 'United States', country_code: '1', alpha2: 'US', mobile_begin_with: ['201', '202', '415'] },
+  ];
 </script>
 
 <h1 class="text-headline-md mb-6">Forms</h1>
@@ -83,7 +94,15 @@
     ]}
   />
 
-  <PhoneInput bind:value={phone} label="PhoneInput" defaultCountryCode="+7" />
+  <PhoneInput bind:value={phone} label="PhoneInput (legacy)" defaultCountryCode="+7" />
+
+  <PhoneInput
+    bind:value={phoneIntl}
+    label="PhoneInput + countries"
+    countries={demoCountries}
+    trunkRule={{ prefix: '8', dialCode: '+7' }}
+    placeholder="+7 701 123 4567"
+  />
 
   <DateRangePicker bind:value={range} label="DateRangePicker" />
 
@@ -91,6 +110,7 @@
     text=<code>{text}</code> · select=<code>{select}</code> ·
     checked=<code>{checked}</code> · on=<code>{on}</code> · date=<code>{date}</code> ·
     radio=<code>{radio}</code> · combo=<code>{combo}</code> · phone=<code>{phone}</code> ·
+    phoneIntl=<code>{phoneIntl}</code> ·
     range=<code>{range.start}→{range.end}</code>
   </p>
 </div>
