@@ -4,6 +4,7 @@
     Label, FormSelect, FormCheckbox, FormDatePicker,
     RadioGroup, Combobox, PhoneInput, DateRangePicker,
   } from '$lib/ui/forms';
+  import { countryPhoneData } from 'phone';
 
   let text = $state('');
   let select = $state('');
@@ -16,7 +17,14 @@
   let radio = $state('email');
   let combo = $state('');
   let phone = $state('');
+  let phoneIntl = $state('');
   let range = $state({ start: '', end: '' });
+
+  // Настоящая таблица стран из пакета `phone` — ровно то, что передаёт кабинет.
+  // `phone` тут dev-зависимость демо-площадки: сам кит остаётся без зависимостей,
+  // страны всегда приходят от потребителя. Урезанная выборка в демо была враньём —
+  // на ней «+81» не показывал Японию просто потому, что её не было в списке.
+  const demoCountries = countryPhoneData;
 </script>
 
 <h1 class="text-headline-md mb-6">Forms</h1>
@@ -83,7 +91,15 @@
     ]}
   />
 
-  <PhoneInput bind:value={phone} label="PhoneInput" defaultCountryCode="+7" />
+  <PhoneInput bind:value={phone} label="PhoneInput (legacy)" defaultCountryCode="+7" />
+
+  <PhoneInput
+    bind:value={phoneIntl}
+    label="PhoneInput + countries"
+    countries={demoCountries}
+    trunkRule={{ prefix: '8', dialCode: '+7' }}
+    placeholder="+7 701 123 4567"
+  />
 
   <DateRangePicker bind:value={range} label="DateRangePicker" />
 
@@ -91,6 +107,7 @@
     text=<code>{text}</code> · select=<code>{select}</code> ·
     checked=<code>{checked}</code> · on=<code>{on}</code> · date=<code>{date}</code> ·
     radio=<code>{radio}</code> · combo=<code>{combo}</code> · phone=<code>{phone}</code> ·
+    phoneIntl=<code>{phoneIntl}</code> ·
     range=<code>{range.start}→{range.end}</code>
   </p>
 </div>
