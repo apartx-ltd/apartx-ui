@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { countryPhoneData } from 'phone';
-import { splitPhone, countryChipLabel, type PhoneCountry } from './phone-country';
+import { splitPhone, countryChipLabel, normalizePastedPhone, type PhoneCountry } from './phone-country';
 
 /**
  * Детект против НАСТОЯЩЕЙ таблицы стран (`countryPhoneData` из пакета `phone`) —
@@ -52,5 +52,22 @@ describe('splitPhone на реальной таблице стран', () => {
     const s = splitPhone('+999', COUNTRIES);
     expect(s.dialCode).toBe('');
     expect(s.candidates).toEqual([]);
+  });
+
+  it('код Китая набирается: +86 — это Китай, а не «восьмёрка» российской конвенции', () => {
+    expect(nameOf('+8613800138000')).toBe('China');
+  });
+});
+
+describe('normalizePastedPhone на реальной таблице стран', () => {
+  const TRUNK = { prefix: '8', dialCode: '+7' };
+
+  it('вставка национального номера РФ/КЗ переводится в международный', () => {
+    expect(normalizePastedPhone('8 701 123 45 67', COUNTRIES, TRUNK)).toBe('+77011234567');
+    expect(nameOf(normalizePastedPhone('89161234567', COUNTRIES, TRUNK))).toBe('Russian Federation');
+  });
+
+  it('вставленный китайский номер без плюса остаётся китайским', () => {
+    expect(nameOf(normalizePastedPhone('8613800138000', COUNTRIES, TRUNK))).toBe('China');
   });
 });

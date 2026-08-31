@@ -5,9 +5,10 @@ import Harness from './phone-input.harness.svelte';
 import type { PhoneCountry, PhoneSplit } from './phone-country';
 
 const COUNTRIES: PhoneCountry[] = [
-  { country_name: 'Kazakhstan', country_code: '7', alpha2: 'KZ', mobile_begin_with: ['70', '74', '77'] },
-  { country_name: 'Russian Federation', country_code: '7', alpha2: 'RU', mobile_begin_with: ['9', '495'] },
-  { country_name: 'Kyrgyzstan', country_code: '996', alpha2: 'KG', mobile_begin_with: ['5', '7'] },
+  { country_name: 'Kazakhstan', country_code: '7', alpha2: 'KZ', mobile_begin_with: ['70', '74', '77'], phone_number_lengths: [10] },
+  { country_name: 'Russian Federation', country_code: '7', alpha2: 'RU', mobile_begin_with: ['9', '495'], phone_number_lengths: [10] },
+  { country_name: 'Kyrgyzstan', country_code: '996', alpha2: 'KG', mobile_begin_with: ['5', '7'], phone_number_lengths: [9] },
+  { country_name: 'China', country_code: '86', alpha2: 'CN', mobile_begin_with: ['13', '15', '18'], phone_number_lengths: [11] },
 ];
 
 let comp: any = null;
@@ -97,6 +98,16 @@ describe('PhoneInput — режим со списком стран', () => {
     expect(last.nationalNumber).toBe('7011234567');
     expect(last.e164).toBe('+77011234567');
     expect(last.country?.alpha2).toBe('KZ');
+  });
+
+  it('стёртый плюс и набор «86» дают Китай, а не +7', () => {
+    // Регрессия: правило `8 → +7` срабатывало на любом вводе без плюса, и код
+    // Китая было физически не набрать — «86» превращалось в «+7 6…».
+    const { input, value } = setup({ countries: COUNTRIES, trunkRule: { prefix: '8', dialCode: '+7' } });
+    type(input, '8');
+    type(input, '86');
+    expect(value()).toBe('+86');
+    expect(chip()?.textContent?.trim()).toBe('China');
   });
 
   it('вставка национального номера с восьмёркой заменяет поле на +7…', () => {

@@ -56,6 +56,16 @@ test.describe('PhoneInput со списком стран', () => {
     await expect(chip(page)).toHaveText('Russian Federation');
   });
 
+  test('стёртый плюс и набор «86» дают Китай, а не +7', async ({ page }) => {
+    // Регрессия: конвенция «8 → +7» применялась к любому вводу без плюса, и код
+    // Китая было не набрать — «86» превращалось в «+7 6…».
+    const input = fieldByLabel(page, 'PhoneInput + countries');
+    await input.fill('');
+    await input.fill('86');
+    await expect(input).toHaveValue('+86');
+    await expect(chip(page)).toHaveText('China');
+  });
+
   test('пустое поле показывает плюс, и его нельзя стереть', async ({ page }) => {
     const input = fieldByLabel(page, 'PhoneInput + countries');
     await input.fill('+7701');

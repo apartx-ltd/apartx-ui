@@ -3,7 +3,15 @@
   import Icon from '../display/Icon.svelte';
   import { faPhone } from '@fortawesome/free-solid-svg-icons';
   import { cn } from '../utils/cn';
-  import { sanitizePhone, splitPhone, countryChipLabel, type PhoneCountry, type TrunkRule, type PhoneSplit } from './phone-country';
+  import {
+    sanitizePhone,
+    normalizePastedPhone,
+    splitPhone,
+    countryChipLabel,
+    type PhoneCountry,
+    type TrunkRule,
+    type PhoneSplit,
+  } from './phone-country';
 
   /**
    * Phone number field built on TextField. Sanitises input to a leading `+`
@@ -61,7 +69,7 @@
 
   // Keep only a single leading "+" and digits.
   function sanitize(raw: string): string {
-    if (withCountries) return sanitizePhone(raw, trunkRule);
+    if (withCountries) return sanitizePhone(raw);
     let cleaned = raw.replace(/[^\d+]/g, '');
     const hasPlus = cleaned.startsWith('+');
     cleaned = cleaned.replace(/\+/g, '');
@@ -119,16 +127,17 @@
   }
 
   /**
-   * A pasted number is a complete statement of the country, so it goes through
-   * the trunk rule on its own (`8 701 …` → `+7 701 …`) and replaces the field
-   * wholesale — otherwise it would land after the field's own `+` and read as a
-   * different country entirely.
+   * A pasted number arrives whole, so this is the only place the trunk rule can
+   * safely run (`8 701 …` → `+7 701 …`): mid-typing every digit is a prefix of
+   * the next, and rewriting `8…` there would make `+86` unreachable. The paste
+   * also replaces the field wholesale — otherwise it would land after the
+   * field's own `+` and read as a different country entirely.
    */
   function handlePaste(e: ClipboardEvent) {
     if (!withCountries) return;
     const pasted = (e.clipboardData ?? (window as any).clipboardData)?.getData('text');
     if (!pasted) return;
-    const next = sanitizePhone(pasted, trunkRule);
+    const next = normalizePastedPhone(pasted, countries, trunkRule);
     if (!next || next === '+') return;
     e.preventDefault();
     commit(next);

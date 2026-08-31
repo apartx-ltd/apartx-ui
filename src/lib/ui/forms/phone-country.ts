@@ -50,20 +50,48 @@ const digitsOf = (s: string): string => s.replace(/\D/g, '');
 /**
  * Normalise arbitrary user input to `+<digits>`.
  *
- * `trunkRule` is applied only when the input carries no `+` at all — i.e. a raw
- * national number was typed or pasted. Anything already `+`-prefixed is taken
- * at face value: the user (or a paste) stated the country explicitly, and
- * second-guessing that is how you turn a valid `+81…` into garbage.
+ * Deliberately does NOT apply the trunk rule: while typing, every digit is a
+ * prefix of the next one, and rewriting `8…` into `+7…` on the way would make
+ * `86` (China) impossible to enter — it would turn into `+7 6…` on the second
+ * keystroke. Trunk substitution belongs to paste, where the whole number
+ * arrives at once — see `normalizePastedPhone`.
  */
-export function sanitizePhone(raw: string, trunkRule?: TrunkRule): string {
+export function sanitizePhone(raw: string): string {
   const cleaned = raw.replace(/[^\d+]/g, '');
   const hadPlus = cleaned.includes('+');
-  let digits = cleaned.replace(/\+/g, '');
+  const digits = cleaned.replace(/\+/g, '');
   if (!digits) return hadPlus ? '+' : '';
-  if (!hadPlus && trunkRule?.prefix && digits.startsWith(trunkRule.prefix)) {
-    digits = digitsOf(trunkRule.dialCode) + digits.slice(trunkRule.prefix.length);
-  }
   return '+' + digits;
+}
+
+/**
+ * Normalise a pasted number, applying the national trunk convention
+ * (`8 701 …` → `+7 701 …`).
+ *
+ * The rule fires only when all three hold: the paste carries no `+` (an
+ * explicit country code is never second-guessed — that is how a valid `+81…`
+ * would become garbage), it starts with the trunk prefix, and what remains
+ * after swapping the prefix for the dialing code is a plausible national number
+ * for that code — its length is one the target countries publish. That last
+ * check is what keeps a pasted Chinese `86 138 0013 8000` from being read as a
+ * Russian number: strip its `8` and 12 digits remain, while `+7` numbers are 10.
+ */
+export function normalizePastedPhone(raw: string, countries: PhoneCountry[] = [], trunkRule?: TrunkRule): string {
+  const sanitized = sanitizePhone(raw);
+  if (!trunkRule?.prefix || raw.includes('+')) return sanitized;
+
+  const digits = sanitized.slice(1);
+  if (!digits.startsWith(trunkRule.prefix)) return sanitized;
+
+  const dialDigits = digitsOf(trunkRule.dialCode);
+  const national = digits.slice(trunkRule.prefix.length);
+  const targets = countries.filter((c) => String(c.country_code) === dialDigits);
+  const lengths = targets.flatMap((c) => c.phone_number_lengths ?? []);
+  // Без данных о длине (страны не переданы или таблица молчит) — доверяем правилу:
+  // потребитель объявил конвенцию осознанно.
+  if (lengths.length && !lengths.includes(national.length)) return sanitized;
+
+  return '+' + dialDigits + national;
 }
 
 /**
