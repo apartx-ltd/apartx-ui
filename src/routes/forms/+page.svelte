@@ -4,6 +4,7 @@
     Label, FormSelect, FormCheckbox, FormDatePicker,
     RadioGroup, Combobox, PhoneInput, DateRangePicker,
   } from '$lib/ui/forms';
+  import { countryPhoneData } from 'phone';
 
   let text = $state('');
   let select = $state('');
@@ -19,15 +20,11 @@
   let phoneIntl = $state('');
   let range = $state({ start: '', end: '' });
 
-  // Демо-выборка в формате `countryPhoneData` из пакета `phone` — сам пакет киту
-  // не нужен, страны всегда приходят от потребителя.
-  const demoCountries = [
-    { country_name: 'Kazakhstan', country_code: '7', alpha2: 'KZ', mobile_begin_with: ['70', '74', '77'] },
-    { country_name: 'Russian Federation', country_code: '7', alpha2: 'RU', mobile_begin_with: ['9', '495', '498'] },
-    { country_name: 'Kyrgyzstan', country_code: '996', alpha2: 'KG', mobile_begin_with: ['5', '7'] },
-    { country_name: 'Germany', country_code: '49', alpha2: 'DE', mobile_begin_with: ['15', '16', '17'] },
-    { country_name: 'United States', country_code: '1', alpha2: 'US', mobile_begin_with: ['201', '202', '415'] },
-  ];
+  // Настоящая таблица стран из пакета `phone` — ровно то, что передаёт кабинет.
+  // `phone` тут dev-зависимость демо-площадки: сам кит остаётся без зависимостей,
+  // страны всегда приходят от потребителя. Урезанная выборка в демо была враньём —
+  // на ней «+81» не показывал Японию просто потому, что её не было в списке.
+  const demoCountries = countryPhoneData;
 </script>
 
 <h1 class="text-headline-md mb-6">Forms</h1>
