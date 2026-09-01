@@ -75,7 +75,9 @@ export function buildErrorDetails(input: {
 }): string {
   const lines: string[] = [];
   lines.push(input.httpCode ? `${input.errorKey} · HTTP ${input.httpCode}` : input.errorKey);
-  lines.push(input.message);
+  // Пустой message — не пустая строка в блоке: саппорт получает текст, а не дырку
+  // (тост без текста бывает, когда вызывающий отдал только error).
+  if (input.message) lines.push(input.message);
   lines.push(`${formatLocal(input.now)} · ${input.path}`);
   const extras = Object.entries(input.extra ?? {})
     .filter(([, v]) => v)

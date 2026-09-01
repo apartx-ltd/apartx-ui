@@ -91,4 +91,10 @@ describe('buildErrorDetails', () => {
     expect(text.split('\n')).toHaveLength(3);
     expect(text).not.toContain('HTTP');
   });
+
+  it('пустой message не превращается в пустую строку', () => {
+    const text = buildErrorDetails({ errorKey: 'errors.x', message: '', path: '/', now: new Date() });
+    expect(text.split('\n')).toHaveLength(2);
+    expect(text).not.toContain('\n\n');
+  });
 });

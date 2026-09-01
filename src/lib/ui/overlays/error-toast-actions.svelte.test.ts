@@ -1,0 +1,191 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
+import { mount, unmount, flushSync } from 'svelte';
+import { toast } from 'svelte-sonner';
+import ToasterMount from './ToasterMount.svelte';
+import { clearErrorHelpCache } from './error-toast';
+import ErrorToastActions from './ErrorToastActions.svelte';
+
+// Самое хрупкое место связки: <ErrorToastActions> рендерит НЕ консьюмер, а svelte-sonner —
+// как `description`-компонент внутри своего дерева. Контекст с хендлерами ставит
+// <ToasterMount> у себя в init, и вся фича держится на том, что тост оказывается его
+// потомком. Если sonner когда-нибудь начнёт монтировать тосты в отдельное дерево/портал,
+// getToasterHandlers() вернёт undefined и кнопки тихо исчезнут — эти тесты про это.
+
+// jsdom не реализует matchMedia, а <Toaster> читает prefers-color-scheme в $effect
+// (как ResizeObserver в virtual/cache-shape.test.ts — тем же способом и глушим).
+beforeAll(() => {
+  if (!window.matchMedia) {
+    (window as any).matchMedia = () => ({
+      matches: false,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+    });
+  }
+});
+
+const target = () => {
+  const el = document.createElement('div');
+  document.body.appendChild(el);
+  return el;
+};
+
+let mounted: any[] = [];
+
+function mountToaster(props: Record<string, unknown>) {
+  const handle = mount(ToasterMount as any, { target: target(), props: props as any });
+  mounted.push(handle);
+  flushSync();
+  return handle;
+}
+
+/** Тост с нашей строкой действий — ровно так его ставит useNotification. */
+function fireErrorToast(message: string, componentProps: Record<string, unknown>) {
+  toast.error(message, { description: ErrorToastActions as any, componentProps } as any);
+  flushSync();
+}
+
+const tick = () => new Promise((r) => setTimeout(r, 0));
+const byTestId = (id: string) =>
+  document.querySelector(`[data-testid="${id}"]`) as HTMLButtonElement | null;
+
+beforeEach(() => {
+  clearErrorHelpCache();
+  document.body.innerHTML = '';
+  mounted = [];
+});
+
+afterEach(() => {
+  for (const h of mounted) {
+    try { unmount(h); } catch { /* уже размонтирован */ }
+  }
+  toast.dismiss();
+  document.body.innerHTML = '';
+});
+
+describe('ErrorToastActions внутри ToasterMount', () => {
+  it('хендлеры из пропов ToasterMount доезжают до тоста контекстом', async () => {
+    const resolveErrorHelp = vi.fn().mockResolvedValue([{ slug: 'why-lock', title: 'Why' }]);
+    const onOpenArticle = vi.fn();
+    mountToaster({ resolveErrorHelp, onOpenArticle, onContactSupport: vi.fn() });
+
+    fireErrorToast('Замок не найден', { errorKey: 'errors.lock_not_found', httpCode: 404 });
+    await tick();
+    flushSync();
+
+    expect(resolveErrorHelp).toHaveBeenCalledWith('errors.lock_not_found', 'en');
+    expect(byTestId('error-toast-why')).toBeTruthy();
+
+    byTestId('error-toast-why')!.click();
+    flushSync();
+    expect(onOpenArticle).toHaveBeenCalledWith({ slug: 'why-lock', title: 'Why' });
+  });
+
+  it('без попадания кнопки «Почему?» нет, копирование остаётся', async () => {
+    mountToaster({
+      resolveErrorHelp: vi.fn().mockResolvedValue([]),
+      onOpenArticle: vi.fn(),
+      onContactSupport: vi.fn(),
+    });
+
+    fireErrorToast('Что-то пошло не так', { errorKey: 'errors.no_article', httpCode: 500 });
+    await tick();
+    flushSync();
+
+    expect(byTestId('error-toast-why')).toBeNull();
+    expect(byTestId('error-toast-copy')).toBeTruthy();
+    expect(byTestId('error-toast-support')).toBeTruthy();
+  });
+
+  it('без resolveErrorHelp транспорт не зовётся, тост живёт', async () => {
+    mountToaster({ onContactSupport: vi.fn() });
+
+    fireErrorToast('Ошибка', { errorKey: 'errors.x', httpCode: 400 });
+    await tick();
+    flushSync();
+
+    expect(byTestId('error-toast-why')).toBeNull();
+    expect(byTestId('error-toast-copy')).toBeTruthy();
+  });
+
+  it('«В саппорт» отдаёт собранный блок деталей', async () => {
+    const onContactSupport = vi.fn();
+    mountToaster({
+      onContactSupport,
+      detailsContext: () => ({ user: 'u1', build: '1.2.3' }),
+      resolveErrorHelp: vi.fn().mockResolvedValue([]),
+    });
+
+    fireErrorToast('Замок не найден', { errorKey: 'errors.lock_not_found', httpCode: 404, message: 'Замок не найден' });
+    await tick();
+    flushSync();
+
+    byTestId('error-toast-support')!.click();
+    flushSync();
+
+    expect(onContactSupport).toHaveBeenCalledTimes(1);
+    const text = onContactSupport.mock.calls[0][0] as string;
+    expect(text.split('\n')[0]).toBe('errors.lock_not_found · HTTP 404');
+    expect(text).toContain('Замок не найден');
+    expect(text).toContain('user u1 · build 1.2.3');
+  });
+
+  it('подписи берутся из labels консьюмера', async () => {
+    mountToaster({
+      resolveErrorHelp: vi.fn().mockResolvedValue([{ slug: 's', title: 't' }]),
+      onOpenArticle: vi.fn(),
+      onContactSupport: vi.fn(),
+      labels: { why: 'Почему?', copy: 'Скопировать', support: 'В саппорт' },
+    });
+
+    fireErrorToast('Ошибка', { errorKey: 'errors.y', httpCode: 400 });
+    await tick();
+    flushSync();
+
+    expect(byTestId('error-toast-why')!.textContent).toBe('Почему?');
+    expect(byTestId('error-toast-copy')!.textContent).toBe('Скопировать');
+    expect(byTestId('error-toast-support')!.textContent).toBe('В саппорт');
+  });
+
+  it('смена языка на лету переписывает подписи висящего тоста', async () => {
+    // Ради этого хендлеры лежат в контексте геттером: <ToasterMount> монтируется в корне
+    // приложения один раз, и снимок labels остался бы на языке момента монтирования.
+    let lang = $state('en');
+    const labelsFor = () => (lang === 'ru'
+      ? { why: 'Почему?', copy: 'Скопировать' }
+      : { why: 'Why?', copy: 'Copy details' });
+
+    const handle = mount(ToasterMount as any, {
+      target: target(),
+      props: {
+        get labels() { return labelsFor(); },
+        resolveErrorHelp: vi.fn().mockResolvedValue([{ slug: 's', title: 't' }]),
+        onOpenArticle: vi.fn(),
+      } as any,
+    });
+    mounted.push(handle);
+    flushSync();
+
+    fireErrorToast('Ошибка', { errorKey: 'errors.z', httpCode: 400 });
+    await tick();
+    flushSync();
+    expect(byTestId('error-toast-why')!.textContent).toBe('Why?');
+
+    lang = 'ru';
+    flushSync();
+    expect(byTestId('error-toast-why')!.textContent).toBe('Почему?');
+    expect(byTestId('error-toast-copy')!.textContent).toBe('Скопировать');
+  });
+
+  it('без errorKey строки действий нет вообще', async () => {
+    mountToaster({ resolveErrorHelp: vi.fn(), onContactSupport: vi.fn() });
+
+    fireErrorToast('Просто ошибка', { errorKey: null });
+    await tick();
+    flushSync();
+
+    expect(byTestId('error-toast-copy')).toBeNull();
+  });
+});
