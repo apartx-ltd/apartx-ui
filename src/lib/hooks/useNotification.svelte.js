@@ -20,22 +20,25 @@ export function useNotification() {
       const { variant = 'default', error } = options;
       const message = text || error?.reason || '';
       const withActions = (variant === 'error' || variant === 'warning') && error?.reason;
-      const data = withActions
-        ? {
-            // Ошибка висит, пока её не закроют. Дефолтные 4с sonner рассчитаны на
-            // «прочитать и забыть»: за них не успеть ни прочитать текст, ни нажать
-            // «Почему?»/«В саппорт», а сообщение об ошибке — единственный след
-            // случившегося. Закрыть можно крестиком (closeButton) или свайпом.
-            duration: Number.POSITIVE_INFINITY,
-            description: ErrorToastActions,
-            componentProps: {
-              errorKey: error.reason,
-              httpCode: typeof error.error === 'number' ? error.error : null,
-              message,
-              details: error.details,
-            },
-          }
-        : {};
+      // Тост висит, пока его не закроют (крестиком или свайпом). Дефолтные 4с sonner
+      // рассчитаны на «прочитать и забыть»: сообщение об ошибке — часто единственный
+      // след случившегося, а по строке действий («Почему?»/«В саппорт») ещё надо успеть
+      // кликнуть. Success/info/default гаснут сами, как и раньше.
+      const persistent = variant === 'error' || withActions;
+      const data = {
+        ...(persistent ? { duration: Number.POSITIVE_INFINITY } : {}),
+        ...(withActions
+          ? {
+              description: ErrorToastActions,
+              componentProps: {
+                errorKey: error.reason,
+                httpCode: typeof error.error === 'number' ? error.error : null,
+                message,
+                details: error.details,
+              },
+            }
+          : {}),
+      };
       switch (variant) {
         case 'error':
           toast.error(message, data);

@@ -125,24 +125,35 @@ describe('showNotification', () => {
     expect(toastText()).toContain('errors.boom');
   });
 
-  it('тост со строкой действий не гаснет сам', async () => {
-    const spy = vi.spyOn(toast, 'error');
+  it('тост ошибки не гаснет сам, success — гаснет', async () => {
+    const errorSpy = vi.spyOn(toast, 'error');
+    const warnSpy = vi.spyOn(toast, 'warning');
     mountToaster({ resolveErrorHelp: vi.fn().mockResolvedValue([]) });
 
     const { showNotification } = useNotification();
+    // Ошибка — часто единственный след случившегося; дефолтные 4с sonner её уносят.
     showNotification('Замок не найден', {
       variant: 'error',
       error: { error: 404, reason: 'errors.lock_not_found' },
     });
+    expect(errorSpy.mock.calls[0][1]).toMatchObject({ duration: Number.POSITIVE_INFINITY });
 
-    // Ошибка — единственный след случившегося, и по ней ещё надо кликнуть; дефолтные
-    // 4с sonner её просто уносят.
-    expect(spy.mock.calls[0][1]).toMatchObject({ duration: Number.POSITIVE_INFINITY });
-
+    // Ещё не мигрированный call site (без error-объекта) — тоже висит: правило про
+    // ошибку, а не про строку действий.
     showNotification('Просто ошибка', { variant: 'error' });
-    // Без error-объекта поведение прежнее — sonner сам решает, сколько держать.
-    expect(spy.mock.calls[1][1]).not.toHaveProperty('duration');
-    spy.mockRestore();
+    expect(errorSpy.mock.calls[1][1]).toMatchObject({ duration: Number.POSITIVE_INFINITY });
+
+    // Варнинг сам по себе гаснет, но со строкой действий по нему надо успеть кликнуть.
+    showNotification('Внимание', { variant: 'warning' });
+    expect(warnSpy.mock.calls[0][1]).not.toHaveProperty('duration');
+    showNotification('Внимание', {
+      variant: 'warning',
+      error: { error: 409, reason: 'errors.already_claimed' },
+    });
+    expect(warnSpy.mock.calls[1][1]).toMatchObject({ duration: Number.POSITIVE_INFINITY });
+
+    errorSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 
   it('хост тостов кликабелен поверх модалки', async () => {

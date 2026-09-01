@@ -18,6 +18,9 @@
   let {
     richColors = true,
     position = 'top-right',
+    // Тост ошибки висит до закрытия (см. useNotification) — крестик обязателен: свайп
+    // на десктопе не найти, а без него ошибку нечем убрать.
+    closeButton = true,
     class: className = undefined,
     resolveErrorHelp = undefined,
     onOpenArticle = undefined,
@@ -37,4 +40,4 @@
      свой pointer-events-auto). Тост живёт вне диалога и это наследовал — был виден, но не
      кликался, а ошибки чаще всего и прилетают из модалки. Список сам по себе нулевой высоты
      (тосты в нём absolute), так что ничего лишнего он не перехватывает. -->
-<Toaster {richColors} {position} class={cn('pointer-events-auto', className)} {...rest} />
+<Toaster {richColors} {position} {closeButton} class={cn('pointer-events-auto', className)} {...rest} />
