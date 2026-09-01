@@ -22,6 +22,11 @@ export function useNotification() {
       const withActions = (variant === 'error' || variant === 'warning') && error?.reason;
       const data = withActions
         ? {
+            // Ошибка висит, пока её не закроют. Дефолтные 4с sonner рассчитаны на
+            // «прочитать и забыть»: за них не успеть ни прочитать текст, ни нажать
+            // «Почему?»/«В саппорт», а сообщение об ошибке — единственный след
+            // случившегося. Закрыть можно крестиком (closeButton) или свайпом.
+            duration: Number.POSITIVE_INFINITY,
             description: ErrorToastActions,
             componentProps: {
               errorKey: error.reason,

@@ -125,6 +125,46 @@ describe('showNotification', () => {
     expect(toastText()).toContain('errors.boom');
   });
 
+  it('тост со строкой действий не гаснет сам', async () => {
+    const spy = vi.spyOn(toast, 'error');
+    mountToaster({ resolveErrorHelp: vi.fn().mockResolvedValue([]) });
+
+    const { showNotification } = useNotification();
+    showNotification('Замок не найден', {
+      variant: 'error',
+      error: { error: 404, reason: 'errors.lock_not_found' },
+    });
+
+    // Ошибка — единственный след случившегося, и по ней ещё надо кликнуть; дефолтные
+    // 4с sonner её просто уносят.
+    expect(spy.mock.calls[0][1]).toMatchObject({ duration: Number.POSITIVE_INFINITY });
+
+    showNotification('Просто ошибка', { variant: 'error' });
+    // Без error-объекта поведение прежнее — sonner сам решает, сколько держать.
+    expect(spy.mock.calls[1][1]).not.toHaveProperty('duration');
+    spy.mockRestore();
+  });
+
+  it('хост тостов кликабелен поверх модалки', async () => {
+    mountToaster({ resolveErrorHelp: vi.fn().mockResolvedValue([]) });
+
+    // <ol data-sonner-toaster> появляется только когда есть что показывать.
+    const { showNotification } = useNotification();
+    showNotification('Замок не найден', {
+      variant: 'error',
+      error: { error: 404, reason: 'errors.lock_not_found' },
+    });
+    flushSync();
+    await tick();
+    flushSync();
+
+    // bits-ui на время модалки держит `pointer-events: none` на <body>, и тост,
+    // живущий вне диалога, это наследует: виден, но не нажимается. Список тостов
+    // возвращает себе события явно.
+    const ol = document.querySelector('[data-sonner-toaster]');
+    expect(ol?.className).toContain('pointer-events-auto');
+  });
+
   it('нечисловой error-код не уезжает в HTTP-строку деталей', async () => {
     const onContactSupport = vi.fn();
     mountToaster({ onContactSupport, resolveErrorHelp: vi.fn().mockResolvedValue([]) });

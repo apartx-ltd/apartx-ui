@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ComponentProps } from 'svelte';
   import { Toaster } from 'svelte-sonner';
+  import { cn } from '../utils/cn';
   import { setToasterHandlers, type ToasterHandlers } from './toaster-context';
 
   // Хост тостов: svelte-sonner сам ничего не монтирует, `toast.*` без него уходит
@@ -17,6 +18,7 @@
   let {
     richColors = true,
     position = 'top-right',
+    class: className = undefined,
     resolveErrorHelp = undefined,
     onOpenArticle = undefined,
     onContactSupport = undefined,
@@ -30,4 +32,9 @@
   }));
 </script>
 
-<Toaster {richColors} {position} {...rest} />
+<!-- pointer-events-auto на самом <ol data-sonner-toaster>: пока открыта модалка, bits-ui
+     держит на <body> `pointer-events: none` (внутрь пускает только контент диалога, у него
+     свой pointer-events-auto). Тост живёт вне диалога и это наследовал — был виден, но не
+     кликался, а ошибки чаще всего и прилетают из модалки. Список сам по себе нулевой высоты
+     (тосты в нём absolute), так что ничего лишнего он не перехватывает. -->
+<Toaster {richColors} {position} class={cn('pointer-events-auto', className)} {...rest} />
