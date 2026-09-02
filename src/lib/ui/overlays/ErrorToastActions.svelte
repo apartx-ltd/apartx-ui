@@ -3,8 +3,9 @@
   // Рисуется как `description`-компонент svelte-sonner (он спредит в неё componentProps).
   // «Почему?» появляется только при попадании — резолв при монтировании, кэш в error-toast.ts.
   // Подтверждение копирования — сменой подписи, а не вложенным тостом.
-  import { getToasterHandlers } from './toaster-context';
+  import { getToasterHandlers } from './toaster-context.svelte';
   import { getLocale } from '../../i18n/context';
+  import { copyText } from '../utils/clipboard';
   import { resolveErrorHelp, buildErrorDetails, type ErrorHelpArticle } from './error-toast';
 
   let {
@@ -26,7 +27,9 @@
   const localeOf = getLocale();
 
   let articles = $state<ErrorHelpArticle[]>([]);
-  let copied = $state(false);
+  // null — обычная подпись, true — «Скопировано», false — «Не скопировалось».
+  // Отказ обязан быть виден: молчащая кнопка неотличима от сломанной.
+  let copyResult = $state<boolean | null>(null);
 
   $effect(() => {
     const resolver = handlers.resolveErrorHelp;
@@ -50,12 +53,17 @@
     });
 
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(detailsText());
-      copied = true;
-      setTimeout(() => { copied = false; }, 2000);
-    } catch { /* clipboard недоступен (не-secure context) — молча */ }
+    copyResult = await copyText(detailsText());
+    setTimeout(() => { copyResult = null; }, 2000);
   }
+
+  const copyLabel = $derived(
+    copyResult === true
+      ? (handlers.labels?.copied ?? 'Copied')
+      : copyResult === false
+        ? (handlers.labels?.copyFailed ?? 'Copy failed')
+        : (handlers.labels?.copy ?? 'Copy details'),
+  );
 </script>
 
 {#if errorKey}
@@ -73,7 +81,7 @@
       class="underline underline-offset-2 opacity-80 hover:opacity-100"
       data-testid="error-toast-copy"
       onclick={copy}
-    >{copied ? (handlers.labels?.copied ?? 'Copied') : (handlers.labels?.copy ?? 'Copy details')}</button>
+    >{copyLabel}</button>
     {#if handlers.onContactSupport}
       <button
         type="button"

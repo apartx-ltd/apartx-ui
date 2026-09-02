@@ -132,6 +132,54 @@ describe('ErrorToastActions внутри ToasterMount', () => {
     expect(text).toContain('user u1 · build 1.2.3');
   });
 
+  it('«Скопировать» работает без navigator.clipboard (не-secure context)', async () => {
+    // Дев-инстансы отдаются по http://<host>:<port>, где navigator.clipboard просто нет —
+    // прямой writeText бросал, и кнопка молча ничего не делала (репорт 2026-09-02).
+    const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    const exec = vi.fn().mockReturnValue(true);
+    (document as any).execCommand = exec;
+
+    try {
+      mountToaster({ resolveErrorHelp: vi.fn().mockResolvedValue([]) });
+      fireErrorToast('Замок не найден', { errorKey: 'errors.lock_not_found', httpCode: 404 });
+      await tick();
+      flushSync();
+
+      byTestId('error-toast-copy')!.click();
+      await tick();
+      flushSync();
+
+      expect(exec).toHaveBeenCalledWith('copy');
+      expect(byTestId('error-toast-copy')!.textContent).toBe('Copied');
+    } finally {
+      if (original) Object.defineProperty(navigator, 'clipboard', original);
+      delete (document as any).execCommand;
+    }
+  });
+
+  it('отказ копирования виден подписью, а не молчанием', async () => {
+    const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    (document as any).execCommand = vi.fn().mockReturnValue(false);
+
+    try {
+      mountToaster({ resolveErrorHelp: vi.fn().mockResolvedValue([]) });
+      fireErrorToast('Замок не найден', { errorKey: 'errors.lock_not_found', httpCode: 404 });
+      await tick();
+      flushSync();
+
+      byTestId('error-toast-copy')!.click();
+      await tick();
+      flushSync();
+
+      expect(byTestId('error-toast-copy')!.textContent).toBe('Copy failed');
+    } finally {
+      if (original) Object.defineProperty(navigator, 'clipboard', original);
+      delete (document as any).execCommand;
+    }
+  });
+
   it('подписи берутся из labels консьюмера', async () => {
     mountToaster({
       resolveErrorHelp: vi.fn().mockResolvedValue([{ slug: 's', title: 't' }]),

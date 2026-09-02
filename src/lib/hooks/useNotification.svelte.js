@@ -1,5 +1,6 @@
 import { toast } from 'svelte-sonner';
 import ErrorToastActions from '../ui/overlays/ErrorToastActions.svelte';
+import { raiseToastLayer } from '../ui/overlays/toaster-context.svelte';
 
 /**
  * Notification helper using svelte-sonner.
@@ -39,6 +40,9 @@ export function useNotification() {
             }
           : {}),
       };
+      // Тост встаёт над текущим стеком модалок, но под теми, что откроют после него
+      // (в т.ч. над статьёй из его же кнопки «Почему?») — см. raiseToastLayer.
+      raiseToastLayer();
       switch (variant) {
         case 'error':
           toast.error(message, data);

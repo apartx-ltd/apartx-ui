@@ -2,7 +2,7 @@
   import type { ComponentProps } from 'svelte';
   import { Toaster } from 'svelte-sonner';
   import { cn } from '../utils/cn';
-  import { setToasterHandlers, type ToasterHandlers } from './toaster-context';
+  import { setToasterHandlers, toastLayer, type ToasterHandlers } from './toaster-context.svelte';
 
   // Хост тостов: svelte-sonner сам ничего не монтирует, `toast.*` без него уходит
   // в никуда. Пропы прокидываются в <Toaster> как есть.
@@ -22,6 +22,7 @@
     // на десктопе не найти, а без него ошибку нечем убрать.
     closeButton = true,
     class: className = undefined,
+    style: styleProp = undefined,
     resolveErrorHelp = undefined,
     onOpenArticle = undefined,
     onContactSupport = undefined,
@@ -33,6 +34,12 @@
   setToasterHandlers(() => ({
     resolveErrorHelp, onOpenArticle, onContactSupport, detailsContext, labels,
   }));
+
+  // z-index — инлайном: у sonner он прописан в его же `:global([data-sonner-toaster])`
+  // как 999999999, и класс консьюмера его не перебьёт (та же специфичность, порядок
+  // бандлов не гарантирован). Инлайн выигрывает всегда. Стиль консьюмера идёт следом,
+  // так что при желании он может переопределить и z.
+  const style = $derived([`z-index:${toastLayer.z}`, styleProp].filter(Boolean).join(';'));
 </script>
 
 <!-- pointer-events-auto на самом <ol data-sonner-toaster>: пока открыта модалка, bits-ui
@@ -40,4 +47,4 @@
      свой pointer-events-auto). Тост живёт вне диалога и это наследовал — был виден, но не
      кликался, а ошибки чаще всего и прилетают из модалки. Список сам по себе нулевой высоты
      (тосты в нём absolute), так что ничего лишнего он не перехватывает. -->
-<Toaster {richColors} {position} {closeButton} class={cn('pointer-events-auto', className)} {...rest} />
+<Toaster {richColors} {position} {closeButton} class={cn('pointer-events-auto', className)} {style} {...rest} />

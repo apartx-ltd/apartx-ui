@@ -11,7 +11,7 @@ export { default as ToasterMount } from './ToasterMount.svelte';
 // Строка действий тоста ошибки (Почему?/Скопировать/В саппорт) — консьюмер её сам не
 // рендерит, её ставит useNotification в `description`; наружу торчат типы и кэш-хелперы.
 export { default as ErrorToastActions } from './ErrorToastActions.svelte';
-export { setToasterHandlers, getToasterHandlers, type ToasterHandlers } from './toaster-context';
+export { setToasterHandlers, getToasterHandlers, type ToasterHandlers } from './toaster-context.svelte';
 export {
   resolveErrorHelp, clearErrorHelpCache, buildErrorDetails, sanitizeDetails,
   type ErrorHelpArticle, type ErrorHelpResolver,
