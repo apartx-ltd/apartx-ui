@@ -27,6 +27,9 @@
   const localeOf = getLocale();
 
   let articles = $state<ErrorHelpArticle[]>([]);
+  // Раскрытый список статей. Нужен только при нескольких попаданиях: одна статья
+  // открывается сразу, лишний клик ни за чем.
+  let listOpen = $state(false);
   // null — обычная подпись, true — «Скопировано», false — «Не скопировалось».
   // Отказ обязан быть виден: молчащая кнопка неотличима от сломанной.
   let copyResult = $state<boolean | null>(null);
@@ -59,12 +62,27 @@
    * который промис не возвращает, просто вернёт тост наверх сразу.
    */
   async function openArticle(article: ErrorHelpArticle) {
+    listOpen = false;
     duckToasterUnderModals();
     try {
       await handlers.onOpenArticle?.(article);
     } finally {
       restoreToaster();
     }
+  }
+
+  /**
+   * По ключу может висеть несколько статей — сервер отдаёт их списком, и молча открывать
+   * первую значит выбирать за пользователя вслепую (и невоспроизводимо: порядок задаёт
+   * база). Поэтому при нескольких попаданиях «Почему?» раскрывает список прямо в тосте.
+   *
+   * Именно список в тосте, а не выпадающее меню: тост живёт на самом верхнем слое
+   * (`z-index` sonner), а портал меню — на своём, то есть уехал бы ПОД тост, из которого
+   * его открыли. Плюс на телефоне стопка ссылок попадаемее меню.
+   */
+  function why() {
+    if (articles.length === 1) return openArticle(articles[0]);
+    listOpen = !listOpen;
   }
 
   async function copy() {
@@ -88,7 +106,8 @@
         type="button"
         class="underline underline-offset-2 opacity-80 hover:opacity-100"
         data-testid="error-toast-why"
-        onclick={() => openArticle(articles[0])}
+        aria-expanded={articles.length > 1 ? listOpen : undefined}
+        onclick={why}
       >{handlers.labels?.why ?? 'Why?'}</button>
     {/if}
     <button
@@ -106,4 +125,18 @@
       >{handlers.labels?.support ?? 'Contact support'}</button>
     {/if}
   </div>
+  {#if listOpen && articles.length > 1}
+    <ul class="mt-1 flex list-none flex-col gap-1 p-0">
+      {#each articles as article (article.slug)}
+        <li>
+          <button
+            type="button"
+            class="text-left underline underline-offset-2 opacity-80 hover:opacity-100"
+            data-testid="error-toast-article"
+            onclick={() => openArticle(article)}
+          >{article.title || article.slug}</button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
 {/if}

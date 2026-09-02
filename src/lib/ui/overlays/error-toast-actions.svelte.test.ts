@@ -83,6 +83,59 @@ describe('ErrorToastActions внутри ToasterMount', () => {
     expect(onOpenArticle).toHaveBeenCalledWith({ slug: 'why-lock', title: 'Why' });
   });
 
+  it('при нескольких статьях «Почему?» раскрывает список, а не выбирает за пользователя', async () => {
+    const onOpenArticle = vi.fn();
+    mountToaster({
+      resolveErrorHelp: vi.fn().mockResolvedValue([
+        { slug: 'first', title: 'Первая' },
+        { slug: 'second', title: 'Вторая' },
+      ]),
+      onOpenArticle,
+    });
+
+    fireErrorToast('Ошибка', { errorKey: 'errors.many', httpCode: 400 });
+    await tick();
+    flushSync();
+
+    // Порядок статей задаёт база — открывать первую молча значит выбирать вслепую.
+    const why = byTestId('error-toast-why')!;
+    expect(document.querySelectorAll('[data-testid="error-toast-article"]')).toHaveLength(0);
+
+    why.click();
+    flushSync();
+    const items = [...document.querySelectorAll('[data-testid="error-toast-article"]')];
+    expect(items.map((el) => el.textContent)).toEqual(['Первая', 'Вторая']);
+    expect(why.getAttribute('aria-expanded')).toBe('true');
+    expect(onOpenArticle).not.toHaveBeenCalled();
+
+    (items[1] as HTMLButtonElement).click();
+    flushSync();
+    expect(onOpenArticle).toHaveBeenCalledWith({ slug: 'second', title: 'Вторая' });
+    // Список схлопнулся: вернувшись из статьи, пользователь видит обычную строку действий.
+    expect(document.querySelectorAll('[data-testid="error-toast-article"]')).toHaveLength(0);
+  });
+
+  it('единственная статья открывается сразу, без списка', async () => {
+    const onOpenArticle = vi.fn();
+    mountToaster({
+      resolveErrorHelp: vi.fn().mockResolvedValue([{ slug: 'only', title: 'Одна' }]),
+      onOpenArticle,
+    });
+
+    fireErrorToast('Ошибка', { errorKey: 'errors.one', httpCode: 400 });
+    await tick();
+    flushSync();
+
+    const why = byTestId('error-toast-why')!;
+    // Лишний клик ни за чем: выбирать не из чего.
+    expect(why.hasAttribute('aria-expanded')).toBe(false);
+    why.click();
+    flushSync();
+
+    expect(onOpenArticle).toHaveBeenCalledWith({ slug: 'only', title: 'Одна' });
+    expect(document.querySelectorAll('[data-testid="error-toast-article"]')).toHaveLength(0);
+  });
+
   it('без попадания кнопки «Почему?» нет, копирование остаётся', async () => {
     mountToaster({
       resolveErrorHelp: vi.fn().mockResolvedValue([]),
