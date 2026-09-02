@@ -1,6 +1,5 @@
 import { toast } from 'svelte-sonner';
 import ErrorToastActions from '../ui/overlays/ErrorToastActions.svelte';
-import { raiseToastLayer } from '../ui/overlays/toaster-context.svelte';
 
 /**
  * Notification helper using svelte-sonner.
@@ -14,10 +13,6 @@ import { raiseToastLayer } from '../ui/overlays/toaster-context.svelte';
  * `text` у мигрированных вызовов остаётся: часть мест переводит не reason, а пишет свою
  * формулировку. Переводить reason сам хук не может — кит не владеет i18n (весь его текст
  * приходит пропами), так что пустой text при переданном error покажет сырой ключ.
- *
- * Файл `.ts`, а не `.js`: он импортирует рунный модуль `toaster-context.svelte`, а rspack
- * кабинета считает `.js` строгим ESM и требует расширение в относительном импорте
- * («fully specified»); для `.ts` расширение доопределяется.
  */
 export type NotificationVariant = 'default' | 'error' | 'success' | 'warning' | 'info';
 
@@ -58,9 +53,6 @@ export function useNotification() {
             }
           : {}),
       };
-      // Тост встаёт над текущим стеком модалок, но под теми, что откроют после него
-      // (в т.ч. над статьёй из его же кнопки «Почему?») — см. raiseToastLayer.
-      raiseToastLayer();
       switch (variant) {
         case 'error':
           toast.error(message, data);

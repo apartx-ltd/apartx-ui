@@ -3,7 +3,7 @@
   // Рисуется как `description`-компонент svelte-sonner (он спредит в неё componentProps).
   // «Почему?» появляется только при попадании — резолв при монтировании, кэш в error-toast.ts.
   // Подтверждение копирования — сменой подписи, а не вложенным тостом.
-  import { getToasterHandlers } from './toaster-context.svelte';
+  import { getToasterHandlers, duckToasterUnderModals, restoreToaster } from './toaster-context.svelte';
   import { getLocale } from '../../i18n/context';
   import { copyText } from '../utils/clipboard';
   import { resolveErrorHelp, buildErrorDetails, type ErrorHelpArticle } from './error-toast';
@@ -52,6 +52,21 @@
       extra: handlers.detailsContext?.() ?? {},
     });
 
+  /**
+   * Статью надо читать, а не разглядывать из-под тоста, поэтому на время её показа хост
+   * тостов уходит под слой модалок. Возврат — когда хендлер консьюмера отрезолвится:
+   * `Modal.open(...)` отдаёт промис, который резолвится закрытием модалки. Хендлер,
+   * который промис не возвращает, просто вернёт тост наверх сразу.
+   */
+  async function openArticle(article: ErrorHelpArticle) {
+    duckToasterUnderModals();
+    try {
+      await handlers.onOpenArticle?.(article);
+    } finally {
+      restoreToaster();
+    }
+  }
+
   async function copy() {
     copyResult = await copyText(detailsText());
     setTimeout(() => { copyResult = null; }, 2000);
@@ -73,7 +88,7 @@
         type="button"
         class="underline underline-offset-2 opacity-80 hover:opacity-100"
         data-testid="error-toast-why"
-        onclick={() => handlers.onOpenArticle?.(articles[0])}
+        onclick={() => openArticle(articles[0])}
       >{handlers.labels?.why ?? 'Why?'}</button>
     {/if}
     <button

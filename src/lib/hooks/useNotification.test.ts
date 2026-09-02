@@ -4,7 +4,6 @@ import { mount, unmount, flushSync } from 'svelte';
 import { toast } from 'svelte-sonner';
 import ToasterMount from '../ui/overlays/ToasterMount.svelte';
 import { clearErrorHelpCache } from '../ui/overlays/error-toast';
-import { stack, zForDepth } from '../modals/registry.svelte';
 import { useNotification } from './useNotification.svelte';
 
 // Контракт call site: showNotification(text, {variant:'error', error}) — один
@@ -175,39 +174,6 @@ describe('showNotification', () => {
     // возвращает себе события явно.
     const ol = document.querySelector('[data-sonner-toaster]');
     expect(ol?.className).toContain('pointer-events-auto');
-  });
-
-  it('тост встаёт над стеком модалок, каким тот был в момент показа', async () => {
-    // Смысл правила: ошибка ИЗ модалки видна поверх неё, но статья, открытая по
-    // «Почему?» этого же тоста, ложится ПОВЕРХ тоста — она уходит на следующую
-    // ступень стека. Дефолт sonner (999999999) не дал бы ни того, ни другого.
-    mountToaster({ resolveErrorHelp: vi.fn().mockResolvedValue([]) });
-    const { showNotification } = useNotification();
-    const olZ = () =>
-      (document.querySelector('[data-sonner-toaster]') as HTMLElement)?.style.zIndex;
-
-    // Стек пуст: выше дефолтного контента Dialog (z-50), ниже базы реестра (60).
-    showNotification('Первая', { variant: 'error', error: { reason: 'errors.a' } });
-    flushSync();
-    await tick();
-    flushSync();
-    expect(olZ()).toBe('55');
-
-    // Модалка открыта (depth 0 → scrim 60 / контент 61) — тост поверх неё.
-    stack.push({ key: 1, id: 'x', props: {}, resolve: () => {} } as any);
-    showNotification('Вторая', { variant: 'error', error: { reason: 'errors.b' } });
-    flushSync();
-    await tick();
-    flushSync();
-    expect(olZ()).toBe(String(zForDepth(0) + 2));
-
-    // Открытая ПОСЛЕ тоста модалка (depth 1 → 70/71) перекрывает его: z хоста
-    // снят в момент тоста и за стеком не бежит.
-    stack.push({ key: 2, id: 'y', props: {}, resolve: () => {} } as any);
-    flushSync();
-    expect(Number(olZ())).toBeLessThan(zForDepth(1));
-
-    stack.length = 0;
   });
 
   it('нечисловой error-код не уезжает в HTTP-строку деталей', async () => {

@@ -45,6 +45,15 @@ describe('resolveErrorHelp cache', () => {
     expect(await resolveErrorHelp('errors.e', 'ru', h)).toEqual([]);
     expect(h).toHaveBeenCalledTimes(2);
   });
+
+  it('не-ключ (человеческая фраза в reason) до транспорта не доходит', async () => {
+    // Легаси-места отдают `reason: 'Not a valid code'`; сервер такой «ключ» отвергает
+    // Match-исключением, так что спрашивать по нему нечего.
+    const h = vi.fn();
+    expect(await resolveErrorHelp('Not a valid code', 'ru', h)).toEqual([]);
+    expect(await resolveErrorHelp('', 'ru', h)).toEqual([]);
+    expect(h).not.toHaveBeenCalled();
+  });
 });
 
 describe('sanitizeDetails', () => {

@@ -35,11 +35,13 @@
     resolveErrorHelp, onOpenArticle, onContactSupport, detailsContext, labels,
   }));
 
-  // z-index — инлайном: у sonner он прописан в его же `:global([data-sonner-toaster])`
-  // как 999999999, и класс консьюмера его не перебьёт (та же специфичность, порядок
-  // бандлов не гарантирован). Инлайн выигрывает всегда. Стиль консьюмера идёт следом,
-  // так что при желании он может переопределить и z.
-  const style = $derived([`z-index:${toastLayer.z}`, styleProp].filter(Boolean).join(';'));
+  // z-index — инлайном и только когда хост «нырнул» под модалки (см. toaster-context):
+  // у sonner он прописан в его же `:global([data-sonner-toaster])` как 999999999, и класс
+  // консьюмера его не перебьёт (та же специфичность, порядок бандлов не гарантирован) —
+  // инлайн выигрывает всегда. Стиль консьюмера идёт следом и при желании перебьёт и z.
+  const style = $derived(
+    [toastLayer.z != null ? `z-index:${toastLayer.z}` : '', styleProp].filter(Boolean).join(';'),
+  );
 </script>
 
 <!-- pointer-events-auto на самом <ol data-sonner-toaster>: пока открыта модалка, bits-ui

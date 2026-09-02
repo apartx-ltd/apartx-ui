@@ -10,11 +10,26 @@ export type ErrorHelpResolver = (key: string, locale: string) => Promise<ErrorHe
 // пустой ответ — тоже кэш (negative), отклонённый промис из кэша удаляется.
 const cache = new Map<string, Promise<ErrorHelpArticle[]>>();
 
+/**
+ * Форма ключа ошибки — та же, что проверяет сервер (`isErrorKey` в apartx-server).
+ *
+ * `reason` у Meteor.Error далеко не всегда ключ: легаси-места отдают человеческую фразу
+ * («Not a valid code»), и такой «ключ» сервер отвергает Match-исключением. Спрашивать по
+ * нему статью бессмысленно, поэтому даже не ходим — иначе каждый такой тост дарит серверу
+ * исключение в логи.
+ */
+const ERROR_KEY_RE = /^[a-z][a-zA-Z0-9_.]{2,80}$/;
+
+export function isErrorKey(key: unknown): key is string {
+  return typeof key === 'string' && ERROR_KEY_RE.test(key);
+}
+
 export function resolveErrorHelp(
   key: string,
   locale: string,
   handler: ErrorHelpResolver,
 ): Promise<ErrorHelpArticle[]> {
+  if (!isErrorKey(key)) return Promise.resolve([]);
   const cacheKey = `${locale}:${key}`;
   const hit = cache.get(cacheKey);
   if (hit) return hit;

@@ -132,6 +132,33 @@ describe('ErrorToastActions внутри ToasterMount', () => {
     expect(text).toContain('user u1 · build 1.2.3');
   });
 
+  it('на время статьи хост тостов ныряет под модалки и возвращается', async () => {
+    // Дефолт sonner — z поверх всего, и это правильно: ошибка чаще всего прилетает из
+    // открытой модалки. Но статью из «Почему?» надо читать, а не разглядывать из-под
+    // тоста, поэтому на время её показа хост уходит вниз — и только на это время.
+    let close!: () => void;
+    const onOpenArticle = vi.fn(() => new Promise<void>((r) => { close = r; }));
+    mountToaster({ resolveErrorHelp: vi.fn().mockResolvedValue([{ slug: 's', title: 't' }]), onOpenArticle });
+
+    fireErrorToast('Ошибка', { errorKey: 'errors.z', httpCode: 400 });
+    await tick();
+    flushSync();
+
+    const olZ = () => (document.querySelector('[data-sonner-toaster]') as HTMLElement).style.zIndex;
+    expect(olZ()).toBe('');
+
+    byTestId('error-toast-why')!.click();
+    await tick();
+    flushSync();
+    // Ниже базы реестра модалок (60) — статья ляжет сверху.
+    expect(Number(olZ())).toBeLessThan(60);
+
+    close();
+    await tick();
+    flushSync();
+    expect(olZ()).toBe('');
+  });
+
   it('«Скопировать» работает без navigator.clipboard (не-secure context)', async () => {
     // Дев-инстансы отдаются по http://<host>:<port>, где navigator.clipboard просто нет —
     // прямой writeText бросал, и кнопка молча ничего не делала (репорт 2026-09-02).
