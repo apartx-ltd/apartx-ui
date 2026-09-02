@@ -8,6 +8,7 @@
   import Popover from '../ui/display/Popover.svelte';
   import Dialog from '../ui/overlays/Dialog.svelte';
   import { faExternalLinkAlt, faCopy, faCheck } from '@fortawesome/free-solid-svg-icons';
+  import { copyText } from '../ui/utils/clipboard';
   import { chatT } from './i18n';
   import { getSlotContext } from './registry.svelte';
   import {
@@ -42,7 +43,9 @@
   async function onCopy() {
     const ctx = getSlotContext();
     const url = (await ctx.resolveShareUrl?.(link)) ?? link?.href ?? '';
-    await navigator.clipboard.writeText(url);
+    // Голый navigator.clipboard бросает вне secure context, и меню оставалось
+    // открытым без «Скопировано» — см. ui/utils/clipboard.
+    if (!(await copyText(url))) return;
     copied = true;
     ctx.onLinkCopied?.(url);
     setTimeout(() => closeLinkMenu(), 600);

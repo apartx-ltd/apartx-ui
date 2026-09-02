@@ -8,6 +8,14 @@ export { default as BottomSheet } from './BottomSheet.svelte';
 export { default as Tooltip } from './Tooltip.svelte';
 export { default as DropdownMenu } from './DropdownMenu.svelte';
 export { default as ToasterMount } from './ToasterMount.svelte';
+// Строка действий тоста ошибки (Почему?/Скопировать/В саппорт) — консьюмер её сам не
+// рендерит, её ставит useNotification в `description`; наружу торчат типы и кэш-хелперы.
+export { default as ErrorToastActions } from './ErrorToastActions.svelte';
+export { setToasterHandlers, getToasterHandlers, type ToasterHandlers } from './toaster-context.svelte';
+export {
+  resolveErrorHelp, clearErrorHelpCache, buildErrorDetails, sanitizeDetails,
+  type ErrorHelpArticle, type ErrorHelpResolver,
+} from './error-toast';
 
 // Global confirm service (mount <ConfirmDialog/> once at app root, then call confirm.open()).
 export { ConfirmDialog as confirm } from './confirm.svelte';
