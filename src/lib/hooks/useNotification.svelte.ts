@@ -14,10 +14,28 @@ import { raiseToastLayer } from '../ui/overlays/toaster-context.svelte';
  * `text` у мигрированных вызовов остаётся: часть мест переводит не reason, а пишет свою
  * формулировку. Переводить reason сам хук не может — кит не владеет i18n (весь его текст
  * приходит пропами), так что пустой text при переданном error покажет сырой ключ.
+ *
+ * Файл `.ts`, а не `.js`: он импортирует рунный модуль `toaster-context.svelte`, а rspack
+ * кабинета считает `.js` строгим ESM и требует расширение в относительном импорте
+ * («fully specified»); для `.ts` расширение доопределяется.
  */
+export type NotificationVariant = 'default' | 'error' | 'success' | 'warning' | 'info';
+
+/** Meteor.Error как есть — хук сам достаёт из него reason, код и details. */
+export type NotificationError = {
+  error?: unknown;
+  reason?: string;
+  details?: unknown;
+};
+
+export type NotificationOptions = {
+  variant?: NotificationVariant;
+  error?: NotificationError | null;
+};
+
 export function useNotification() {
   return {
-    showNotification(text, options = {}) {
+    showNotification(text: string, options: NotificationOptions = {}) {
       const { variant = 'default', error } = options;
       const message = text || error?.reason || '';
       const withActions = (variant === 'error' || variant === 'warning') && error?.reason;
