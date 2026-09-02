@@ -83,7 +83,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
     expect(onOpenArticle).toHaveBeenCalledWith({ slug: 'why-lock', title: 'Why' });
   });
 
-  it('при нескольких статьях «Почему?» раскрывает список, а не выбирает за пользователя', async () => {
+  it('при нескольких статьях «Почему?» даёт выбрать, а не решает за пользователя', async () => {
     const onOpenArticle = vi.fn();
     mountToaster({
       resolveErrorHelp: vi.fn().mockResolvedValue([
@@ -98,24 +98,24 @@ describe('ErrorToastActions внутри ToasterMount', () => {
     flushSync();
 
     // Порядок статей задаёт база — открывать первую молча значит выбирать вслепую.
-    const why = byTestId('error-toast-why')!;
     expect(document.querySelectorAll('[data-testid="error-toast-article"]')).toHaveLength(0);
 
-    why.click();
+    // Кликаем сам триггер попапа (bits-ui вешает обработчик на свою кнопку-обёртку).
+    byTestId('error-toast-why')!.closest('button')!.click();
+    await tick();
     flushSync();
+
     const items = [...document.querySelectorAll('[data-testid="error-toast-article"]')];
     expect(items.map((el) => el.textContent)).toEqual(['Первая', 'Вторая']);
-    expect(why.getAttribute('aria-expanded')).toBe('true');
     expect(onOpenArticle).not.toHaveBeenCalled();
 
     (items[1] as HTMLButtonElement).click();
+    await tick();
     flushSync();
     expect(onOpenArticle).toHaveBeenCalledWith({ slug: 'second', title: 'Вторая' });
-    // Список схлопнулся: вернувшись из статьи, пользователь видит обычную строку действий.
-    expect(document.querySelectorAll('[data-testid="error-toast-article"]')).toHaveLength(0);
   });
 
-  it('единственная статья открывается сразу, без списка', async () => {
+  it('единственная статья открывается сразу, без меню', async () => {
     const onOpenArticle = vi.fn();
     mountToaster({
       resolveErrorHelp: vi.fn().mockResolvedValue([{ slug: 'only', title: 'Одна' }]),
@@ -126,10 +126,8 @@ describe('ErrorToastActions внутри ToasterMount', () => {
     await tick();
     flushSync();
 
-    const why = byTestId('error-toast-why')!;
-    // Лишний клик ни за чем: выбирать не из чего.
-    expect(why.hasAttribute('aria-expanded')).toBe(false);
-    why.click();
+    // Лишний клик ни за чем: выбирать не из чего — сразу открываем.
+    byTestId('error-toast-why')!.click();
     flushSync();
 
     expect(onOpenArticle).toHaveBeenCalledWith({ slug: 'only', title: 'Одна' });

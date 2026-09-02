@@ -18,7 +18,19 @@ import type { ErrorHelpArticle, ErrorHelpResolver } from './error-toast';
  */
 const DUCKED_Z = 55;
 
+/** Дефолт svelte-sonner: `[data-sonner-toaster] { z-index: 999999999 }`. */
+const SONNER_Z = 999999999;
+
 export const toastLayer = $state<{ z: number | null }>({ z: null });
+
+/**
+ * Текущий z хоста тостов. Нужен всему, что обязано лечь ПОВЕРХ тоста — например меню
+ * статей у кнопки «Почему?»: его контент портируется в `<body>`, а значит без явной
+ * полосы уехал бы под тост, из которого его и открыли.
+ */
+export function toasterZ(): number {
+  return toastLayer.z ?? SONNER_Z;
+}
 
 /** Увести хост тостов под слой модалок (на время статьи из «Почему?»). */
 export function duckToasterUnderModals(): void {
