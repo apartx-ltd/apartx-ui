@@ -41,17 +41,9 @@ export function useNotification() {
       const persistent = variant === 'error' || withActions;
       const data = {
         ...(persistent ? { duration: Number.POSITIVE_INFINITY } : {}),
-        ...(withActions
-          ? {
-              description: ErrorToastActions,
-              componentProps: {
-                errorKey: error.reason,
-                httpCode: typeof error.error === 'number' ? error.error : null,
-                message,
-                details: error.details,
-              },
-            }
-          : {}),
+        // Объект ошибки уезжает как есть: разбор (reason → ключ, числовой error → HTTP-код,
+        // message, details) живёт в errorHelpProps — один на тост и на <InlineError>.
+        ...(withActions ? { description: ErrorToastActions, componentProps: { error } } : {}),
       };
       switch (variant) {
         case 'error':

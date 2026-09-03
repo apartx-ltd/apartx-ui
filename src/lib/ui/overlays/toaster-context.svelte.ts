@@ -1,4 +1,4 @@
-import { getContext, setContext } from 'svelte';
+import { getContext, onDestroy, setContext } from 'svelte';
 import type { ErrorHelpArticle, ErrorHelpResolver } from './error-toast';
 
 /**
@@ -68,10 +68,37 @@ export type ToasterHandlersGetter = () => ToasterHandlers;
 
 const KEY = Symbol('apartx-ui:toaster-handlers');
 
+/**
+ * Тот же набор хендлеров модулем, а не только контекстом. `setContext` из <ToasterMount>
+ * видят лишь ЕГО потомки — то есть тосты sonner; <InlineError> живёт где угодно в дереве
+ * (форма входа, страница, диалог) и контекста от него не получит: строка действий
+ * вырождалась в одну «Скопировать» без «Почему?» и саппорта. <ToasterMount> — синглтон
+ * в корне приложения, второго набора хендлеров в живом клиенте не бывает.
+ *
+ * Только в браузере: на сервере модуль общий для всех запросов, и хендлеры одного
+ * рендера утекли бы в чужой. Инлайновой ошибке с ключом в SSR всё равно взяться неоткуда
+ * (ошибки приходят на клиентские действия), а DDP-резолва там нет.
+ */
+let moduleHandlers = $state<ToasterHandlersGetter | undefined>(undefined);
+
 export function setToasterHandlers(get: ToasterHandlersGetter): void {
   setContext(KEY, get);
+  if (typeof window === 'undefined') return;
+  moduleHandlers = get;
+  // Снимаем свой набор при размонтировании: иначе в тестах (и у консьюмера, который
+  // пересоздаёт корень) остался бы висеть геттер мёртвого компонента.
+  onDestroy(() => {
+    if (moduleHandlers === get) moduleHandlers = undefined;
+  });
 }
 
+/**
+ * Контекст приоритетнее модуля — им можно перебить набор локально (тест, встроенный
+ * виджет со своим транспортом). Читаем лениво, а не снимком: <ToasterMount> в корне
+ * может смонтироваться позже потребителя, и снимок навсегда остался бы пустым.
+ */
 export function getToasterHandlers(): ToasterHandlersGetter | undefined {
-  return getContext<ToasterHandlersGetter | undefined>(KEY);
+  const fromContext = getContext<ToasterHandlersGetter | undefined>(KEY);
+  if (fromContext) return fromContext;
+  return () => moduleHandlers?.() ?? {};
 }
