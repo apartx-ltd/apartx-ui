@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   resolveErrorHelp, clearErrorHelpCache,
-  buildErrorDetails, sanitizeDetails,
+  buildErrorDetails, sanitizeDetails, errorHelpProps,
 } from './error-toast';
 
 describe('resolveErrorHelp cache', () => {
@@ -105,5 +105,26 @@ describe('buildErrorDetails', () => {
     const text = buildErrorDetails({ errorKey: 'errors.x', message: '', path: '/', now: new Date() });
     expect(text.split('\n')).toHaveLength(2);
     expect(text).not.toContain('\n\n');
+  });
+});
+
+describe('errorHelpProps', () => {
+  it('Meteor.Error-подобный объект: reason → ключ, числовой error → HTTP-код', () => {
+    expect(errorHelpProps({ error: 429, reason: 'accounts.errors.max_retry_blocked', message: 'blocked [429]', details: { nextRetry: 1 } }))
+      .toEqual({ errorKey: 'accounts.errors.max_retry_blocked', httpCode: 429, message: 'blocked [429]', details: { nextRetry: 1 } });
+  });
+
+  it('строковый error (легаси-код) — не HTTP-код; reason не по форме ключа всё равно остаётся ключом строки действий', () => {
+    // Форму ключа здесь не проверяем: не-ключи отсекает resolveErrorHelp, а копирование
+    // и саппорт полезны и для «Not a valid code».
+    expect(errorHelpProps({ error: 'not-found', reason: 'Not a valid code' }))
+      .toEqual({ errorKey: 'Not a valid code', httpCode: null, message: '', details: undefined });
+  });
+
+  it('голый Error, строка, null — без ключа', () => {
+    expect(errorHelpProps(new Error('boom')).errorKey).toBeNull();
+    expect(errorHelpProps(new Error('boom')).message).toBe('boom');
+    expect(errorHelpProps('boom')).toEqual({ errorKey: null, httpCode: null, message: 'boom', details: undefined });
+    expect(errorHelpProps(null)).toEqual({ errorKey: null, httpCode: null, message: '', details: undefined });
   });
 });

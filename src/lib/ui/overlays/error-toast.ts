@@ -24,6 +24,32 @@ export function isErrorKey(key: unknown): key is string {
   return typeof key === 'string' && ERROR_KEY_RE.test(key);
 }
 
+export type ErrorHelpProps = {
+  errorKey: string | null;
+  httpCode: number | null;
+  message: string;
+  details: unknown;
+};
+
+/**
+ * Разбор объекта ошибки для строки действий — один на тост (useNotification) и на
+ * <InlineError>: reason как ключ, числовой `error` как HTTP-код, message и details как есть.
+ * Форму ключа не проверяем: не-ключи отсекает resolveErrorHelp перед запросом статей, а
+ * «Скопировать»/«В саппорт» нужны и по «Not a valid code». Принимает что угодно — голый
+ * Error, строку, null — и не бросает: место показа ошибки не должно падать само.
+ */
+export function errorHelpProps(error: unknown): ErrorHelpProps {
+  if (error == null) return { errorKey: null, httpCode: null, message: '', details: undefined };
+  if (typeof error === 'string') return { errorKey: null, httpCode: null, message: error, details: undefined };
+  const e = error as { error?: unknown; reason?: unknown; message?: unknown; details?: unknown };
+  return {
+    errorKey: typeof e.reason === 'string' && e.reason ? e.reason : null,
+    httpCode: typeof e.error === 'number' ? e.error : null,
+    message: typeof e.message === 'string' ? e.message : '',
+    details: e.details,
+  };
+}
+
 export function resolveErrorHelp(
   key: string,
   locale: string,

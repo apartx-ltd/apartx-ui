@@ -13,8 +13,8 @@ export { default as ToasterMount } from './ToasterMount.svelte';
 export { default as ErrorToastActions } from './ErrorToastActions.svelte';
 export { setToasterHandlers, getToasterHandlers, type ToasterHandlers } from './toaster-context.svelte';
 export {
-  resolveErrorHelp, clearErrorHelpCache, buildErrorDetails, sanitizeDetails,
-  type ErrorHelpArticle, type ErrorHelpResolver,
+  resolveErrorHelp, clearErrorHelpCache, buildErrorDetails, sanitizeDetails, errorHelpProps,
+  type ErrorHelpArticle, type ErrorHelpResolver, type ErrorHelpProps,
 } from './error-toast';
 
 // Global confirm service (mount <ConfirmDialog/> once at app root, then call confirm.open()).
