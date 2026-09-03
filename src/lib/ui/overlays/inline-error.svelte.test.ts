@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount, unmount, flushSync } from 'svelte';
 import Host from './__fixtures__/InlineErrorHost.svelte';
+import ToasterMount from './ToasterMount.svelte';
 import { clearErrorHelpCache } from './error-toast';
 import { toastLayer } from './toaster-context.svelte';
 
@@ -25,6 +26,20 @@ function mountHost(props: Record<string, unknown>) {
 }
 
 beforeEach(() => {
+  // jsdom не умеет matchMedia, а <Toaster> из svelte-sonner читает его в $effect —
+  // без заглушки <ToasterMount> не смонтировать.
+  if (!window.matchMedia) {
+    window.matchMedia = ((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent: () => false,
+    })) as any;
+  }
   clearErrorHelpCache();
   document.body.innerHTML = '';
   mounted = [];
@@ -53,6 +68,33 @@ describe('InlineError', () => {
     expect(onOpenArticle).toHaveBeenCalledWith({ slug: 'blocked', title: 'Blocked' });
     // Инлайн живёт не в тосте — хосту тостов нырять не от чего.
     expect(toastLayer.z).toBeNull();
+  });
+
+  it('<ToasterMount> смонтирован рядом, а не выше по дереву: хендлеры всё равно доезжают', async () => {
+    // Именно так и стоит приложение: <ToasterMount> — сосед страницы в корне, и его
+    // setContext видят только тосты sonner. Инлайновая ошибка живёт в форме, поэтому
+    // хендлеры берутся модулем; без него оставалась одна «Скопировать».
+    const onOpenArticle = vi.fn();
+    const mount1 = mount(ToasterMount as any, {
+      target: target(),
+      props: {
+        resolveErrorHelp: vi.fn().mockResolvedValue([{ slug: 'blocked', title: 'Blocked' }]),
+        onOpenArticle,
+        onContactSupport: vi.fn(),
+      } as any,
+    });
+    mounted.push(mount1);
+    flushSync();
+
+    mountHost({ error: { reason: 'accounts.errors.max_retry_blocked' }, text: 'Заблокировано' });
+    await tick();
+    flushSync();
+
+    expect(byTestId('error-toast-why')).not.toBeNull();
+    expect(byTestId('error-toast-support')).not.toBeNull();
+    byTestId('error-toast-why')!.click();
+    await tick();
+    expect(onOpenArticle).toHaveBeenCalledWith({ slug: 'blocked', title: 'Blocked' });
   });
 
   it('без хендлеров (нет ToasterMount): только текст, кнопок нет, консоль чистая', () => {

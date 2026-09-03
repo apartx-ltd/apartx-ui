@@ -18,6 +18,12 @@
 (`reason` → ключ, числовой `error` → HTTP-код, `message`, `details`) — в `errorHelpProps`,
 `useNotification` передаёт в `componentProps` только `{ error }`.
 
+Хендлеры (`resolveErrorHelp`, `onOpenArticle`, `onContactSupport`, подписи) теперь ещё и
+модульные, а не только контекстные: `setContext` из `<ToasterMount>` видят лишь его
+потомки — тосты sonner, — а `<InlineError>` стоит в форме, соседом. Контекст остаётся
+приоритетным (им можно перебить набор локально), модуль пишется только в браузере: на
+сервере он общий для всех запросов.
+
 ## 2026-09-02
 
 ### Версия 0.9.8
