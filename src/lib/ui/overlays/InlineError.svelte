@@ -12,9 +12,11 @@
   import ErrorHelpActions from './ErrorHelpActions.svelte';
   import { errorHelpProps } from './error-toast';
 
-  // `data-testid` и прочие атрибуты — rest-спредом на обёртку, а не именованным пропом:
-  // testid-сканер кабинета (e2e/registry/testid-scan.mjs) ищет в исходниках литерал
-  // `data-testid="…"`, и именованный `testid="…"` для него выглядел бы как пропавший айди.
+  // Атрибуты (в том числе testid) — rest-спредом на обёртку, а не именованным пропом:
+  // сканер кабинета (e2e/registry/testid-scan.mjs) ищет в исходниках literal-атрибут
+  // testid, и именованный проп выглядел бы для него как пропавший айди.
+  // NB: сам этот атрибут в комментариях не писать в literal-форме — сканер прочитает
+  // его как настоящий айди и уронит гейт именования.
   let {
     error = null,
     class: className = undefined,
