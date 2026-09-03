@@ -41,7 +41,7 @@ function mountToaster(props: Record<string, unknown>) {
   return handle;
 }
 
-/** Тост с нашей строкой действий — ровно так его ставит useNotification. */
+/** Тост с нашей строкой действий — ровно так его ставит useNotification: один `error`. */
 function fireErrorToast(message: string, componentProps: Record<string, unknown>) {
   toast.error(message, { description: ErrorToastActions as any, componentProps } as any);
   flushSync();
@@ -71,7 +71,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
     const onOpenArticle = vi.fn();
     mountToaster({ resolveErrorHelp, onOpenArticle, onContactSupport: vi.fn() });
 
-    fireErrorToast('Замок не найден', { errorKey: 'errors.lock_not_found', httpCode: 404 });
+    fireErrorToast('Замок не найден', { error: { reason: 'errors.lock_not_found', error: 404 } });
     await tick();
     flushSync();
 
@@ -93,7 +93,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
       onOpenArticle,
     });
 
-    fireErrorToast('Ошибка', { errorKey: 'errors.many', httpCode: 400 });
+    fireErrorToast('Ошибка', { error: { reason: 'errors.many', error: 400 } });
     await tick();
     flushSync();
 
@@ -122,7 +122,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
       onOpenArticle,
     });
 
-    fireErrorToast('Ошибка', { errorKey: 'errors.one', httpCode: 400 });
+    fireErrorToast('Ошибка', { error: { reason: 'errors.one', error: 400 } });
     await tick();
     flushSync();
 
@@ -141,7 +141,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
       onContactSupport: vi.fn(),
     });
 
-    fireErrorToast('Что-то пошло не так', { errorKey: 'errors.no_article', httpCode: 500 });
+    fireErrorToast('Что-то пошло не так', { error: { reason: 'errors.no_article', error: 500 } });
     await tick();
     flushSync();
 
@@ -153,7 +153,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
   it('без resolveErrorHelp транспорт не зовётся, тост живёт', async () => {
     mountToaster({ onContactSupport: vi.fn() });
 
-    fireErrorToast('Ошибка', { errorKey: 'errors.x', httpCode: 400 });
+    fireErrorToast('Ошибка', { error: { reason: 'errors.x', error: 400 } });
     await tick();
     flushSync();
 
@@ -169,7 +169,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
       resolveErrorHelp: vi.fn().mockResolvedValue([]),
     });
 
-    fireErrorToast('Замок не найден', { errorKey: 'errors.lock_not_found', httpCode: 404, message: 'Замок не найден' });
+    fireErrorToast('Замок не найден', { error: { reason: 'errors.lock_not_found', error: 404, message: 'Замок не найден' } });
     await tick();
     flushSync();
 
@@ -191,7 +191,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
     const onOpenArticle = vi.fn(() => new Promise<void>((r) => { close = r; }));
     mountToaster({ resolveErrorHelp: vi.fn().mockResolvedValue([{ slug: 's', title: 't' }]), onOpenArticle });
 
-    fireErrorToast('Ошибка', { errorKey: 'errors.z', httpCode: 400 });
+    fireErrorToast('Ошибка', { error: { reason: 'errors.z', error: 400 } });
     await tick();
     flushSync();
 
@@ -220,7 +220,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
 
     try {
       mountToaster({ resolveErrorHelp: vi.fn().mockResolvedValue([]) });
-      fireErrorToast('Замок не найден', { errorKey: 'errors.lock_not_found', httpCode: 404 });
+      fireErrorToast('Замок не найден', { error: { reason: 'errors.lock_not_found', error: 404 } });
       await tick();
       flushSync();
 
@@ -243,7 +243,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
 
     try {
       mountToaster({ resolveErrorHelp: vi.fn().mockResolvedValue([]) });
-      fireErrorToast('Замок не найден', { errorKey: 'errors.lock_not_found', httpCode: 404 });
+      fireErrorToast('Замок не найден', { error: { reason: 'errors.lock_not_found', error: 404 } });
       await tick();
       flushSync();
 
@@ -266,7 +266,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
       labels: { why: 'Почему?', copy: 'Скопировать', support: 'В саппорт' },
     });
 
-    fireErrorToast('Ошибка', { errorKey: 'errors.y', httpCode: 400 });
+    fireErrorToast('Ошибка', { error: { reason: 'errors.y', error: 400 } });
     await tick();
     flushSync();
 
@@ -294,7 +294,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
     mounted.push(handle);
     flushSync();
 
-    fireErrorToast('Ошибка', { errorKey: 'errors.z', httpCode: 400 });
+    fireErrorToast('Ошибка', { error: { reason: 'errors.z', error: 400 } });
     await tick();
     flushSync();
     expect(byTestId('error-toast-why')!.textContent).toBe('Why?');
@@ -308,7 +308,7 @@ describe('ErrorToastActions внутри ToasterMount', () => {
   it('без errorKey строки действий нет вообще', async () => {
     mountToaster({ resolveErrorHelp: vi.fn(), onContactSupport: vi.fn() });
 
-    fireErrorToast('Просто ошибка', { errorKey: null });
+    fireErrorToast('Просто ошибка', { error: null });
     await tick();
     flushSync();
 
