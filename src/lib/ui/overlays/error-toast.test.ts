@@ -133,6 +133,72 @@ describe('buildErrorDetails', () => {
   });
 });
 
+describe('buildErrorDetails: контекст', () => {
+  it('context уезжает отдельной строкой k v · k v, остаток details — своей', () => {
+    const text = buildErrorDetails({
+      errorKey: 'errors.locks.connection_timeout',
+      message: 'Не удалось подключиться к замку',
+      path: '/accounts/settings/locks/aBc123',
+      now: new Date('2026-09-04T09:41:00+05:00'),
+      extra: { user: '7fH2k9' },
+      details: { context: { lock: 'aBc123', via: 'ble' }, source: 'connect' },
+    });
+    const lines = text.split('\n');
+    expect(lines[3]).toBe('user 7fH2k9');
+    expect(lines[4]).toBe('lock aBc123 · via ble');
+    expect(lines[5]).toBe('{"source":"connect"}');
+  });
+
+  it('контекст не расходует бюджет пяти полей остатка', () => {
+    const text = buildErrorDetails({
+      errorKey: 'e.k',
+      message: 'm',
+      path: '/',
+      now: new Date(),
+      details: {
+        context: { a: 1, b: 2, c: 3, d: 4, e: 5, f: 6 },
+        k0: 0, k1: 1, k2: 2, k3: 3, k4: 4,
+      },
+    });
+    const lines = text.split('\n');
+    expect(lines[3]).toBe('a 1 · b 2 · c 3 · d 4 · e 5 · f 6');
+    expect(lines[4]).toBe('{"k0":0,"k1":1,"k2":2,"k3":3,"k4":4}');
+  });
+
+  it('details из одного только контекста не даёт второй строки', () => {
+    const text = buildErrorDetails({
+      errorKey: 'e.k', message: 'm', path: '/', now: new Date(),
+      details: { context: { lock: 'x' } },
+    });
+    expect(text.split('\n')).toHaveLength(4);
+    expect(text.endsWith('lock x')).toBe(true);
+  });
+
+  it('пустые значения контекста не печатаются', () => {
+    const text = buildErrorDetails({
+      errorKey: 'e.k', message: 'm', path: '/', now: new Date(),
+      details: { context: { lock: 'x', name: '', ble: null } },
+    });
+    expect(text.split('\n')[3]).toBe('lock x');
+  });
+
+  it('стоп-ключ в контексте не печатается', () => {
+    const text = buildErrorDetails({
+      errorKey: 'e.k', message: 'm', path: '/', now: new Date(),
+      details: { context: { lock: 'x', phone: '+7700' } },
+    });
+    expect(text.split('\n')[3]).toBe('lock x');
+  });
+
+  it('контекст длиннее двенадцати полей режется', () => {
+    const context = Object.fromEntries(Array.from({ length: 14 }, (_, i) => [`k${i}`, i]));
+    const text = buildErrorDetails({
+      errorKey: 'e.k', message: 'm', path: '/', now: new Date(), details: { context },
+    });
+    expect(text.split('\n')[3].split(' · ')).toHaveLength(12);
+  });
+});
+
 describe('errorHelpProps', () => {
   it('Meteor.Error-подобный объект: reason → ключ, числовой error → HTTP-код', () => {
     expect(errorHelpProps({ error: 429, reason: 'accounts.errors.max_retry_blocked', message: 'blocked [429]', details: { nextRetry: 1 } }))

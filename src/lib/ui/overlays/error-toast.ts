@@ -157,6 +157,24 @@ export function sanitizeDetails(details: unknown): string | null {
   return `${json} … +${counter.n}`;
 }
 
+// Зарезервированный ключ `details.context` — предмет действия (какой замок, каким путём).
+// В отличие от остального details это наш выверенный блок, а не чужой payload: печатается
+// человекочитаемо и в бюджет пяти полей не входит. Свои ограничения всё равно есть —
+// стоп-слова по ключам, потолок полей и та же резка длинных значений.
+const CONTEXT_MAX_FIELDS = 12;
+
+function formatContext(context: unknown): string | null {
+  if (context == null || typeof context !== 'object' || Array.isArray(context)) return null;
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(context as Record<string, unknown>)) {
+    if (parts.length >= CONTEXT_MAX_FIELDS) break;
+    if (v == null || v === '') continue;
+    if (isStopKey(k)) continue;
+    parts.push(`${k} ${truncate(String(v))}`);
+  }
+  return parts.length ? parts.join(' · ') : null;
+}
+
 function formatLocal(now: Date): string {
   const p = (n: number) => String(n).padStart(2, '0');
   const off = -now.getTimezoneOffset();
@@ -185,7 +203,16 @@ export function buildErrorDetails(input: {
     .filter(([, v]) => v)
     .map(([k, v]) => `${k} ${v}`);
   if (extras.length) lines.push(extras.join(' · '));
-  const det = sanitizeDetails(input.details);
+  let rest = input.details;
+  let context: unknown;
+  if (rest && typeof rest === 'object' && !Array.isArray(rest) && 'context' in rest) {
+    const { context: ctx, ...other } = rest as Record<string, unknown>;
+    context = ctx;
+    rest = Object.keys(other).length ? other : undefined;
+  }
+  const ctxLine = formatContext(context);
+  if (ctxLine) lines.push(ctxLine);
+  const det = sanitizeDetails(rest);
   if (det) lines.push(det);
   return lines.join('\n');
 }
