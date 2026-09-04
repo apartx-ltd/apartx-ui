@@ -67,15 +67,40 @@ describe('sanitizeDetails', () => {
   it('короткий объект без стоп-ключей проходит', () =>
     expect(sanitizeDetails({ lockId: '1' })).toBe('{"lockId":"1"}'));
 
-  it('стоп-ключ режет весь объект', () => {
+  it('стоп-ключ выбрасывает своё поле, остальное остаётся', () => {
     for (const k of ['phone', 'userEmail', 'iin', 'passportNo', 'accessToken', 'password'])
-      expect(sanitizeDetails({ [k]: 'x' })).toBeNull();
+      expect(sanitizeDetails({ lockId: '1', [k]: 'x' })).toBe('{"lockId":"1"} … +1');
   });
 
-  it('длинный объект режется', () => {
+  it('стоп-ключ на втором уровне вложенности выбрасывается тоже', () =>
+    expect(sanitizeDetails({ user: { id: '7', phone: '+7700' } }))
+      .toBe('{"user":{"id":"7"}} … +1'));
+
+  it('шестое поле отбрасывается, первые пять остаются', () => {
     const o = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`k${i}`, i]));
-    expect(sanitizeDetails(o)).toBeNull();
+    expect(sanitizeDetails(o)).toBe('{"k0":0,"k1":1,"k2":2,"k3":3,"k4":4} … +1');
   });
+
+  it('длинное значение режется до 200 символов, но потерей не считается', () => {
+    const out = sanitizeDetails({ dump: 'x'.repeat(500) })!;
+    expect(out).toContain(`${'x'.repeat(200)}…`);
+    expect(out).not.toContain('x'.repeat(201));
+    expect(out).not.toContain('+');
+  });
+
+  it('значение глубже четвёртого уровня отбрасывается и считается', () =>
+    expect(sanitizeDetails({ a: { b: { c: { d: { e: 1 } } } } }))
+      .toBe('{"a":{"b":{"c":{}}}} … +1'));
+
+  it('массив чистится теми же правилами', () =>
+    expect(sanitizeDetails({ list: [{ id: 1, phone: '+7700' }] }))
+      .toBe('{"list":[{"id":1}]} … +1'));
+
+  it('после чистки не осталось ничего — одна пометка', () =>
+    expect(sanitizeDetails({ phone: '+7700', email: 'a@b.c' })).toBe('… +2'));
+
+  it('пустой объект без потерь остаётся собой', () =>
+    expect(sanitizeDetails({})).toBe('{}'));
 });
 
 describe('buildErrorDetails', () => {

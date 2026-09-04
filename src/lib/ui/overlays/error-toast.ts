@@ -77,23 +77,84 @@ export function clearErrorHelpCache(): void {
   cache.clear();
 }
 
-// Аргументы метода в детали не попадают никогда; details — только скаляр или короткий
-// объект без чувствительных ключей (история саппорт-чата хранится вечно).
+// Аргументы метода в детали не попадают никогда; details — чужой payload, поэтому
+// чистится пофайлово и вглубь (история саппорт-чата хранится вечно). Раньше любое
+// подозрительное поле убивало весь объект, и саппорт не получал ничего — а заодно
+// стоп-лист смотрел лишь верхний уровень ключей, так что {user: {phone: …}} проходил.
 const DETAILS_STOPLIST = ['phone', 'email', 'iin', 'passport', 'token', 'password'];
+const DETAILS_MAX_FIELDS = 5;
+const DETAILS_MAX_VALUE = 200;
+const DETAILS_MAX_DEPTH = 4;
+
+function isStopKey(key: string): boolean {
+  const k = key.toLowerCase();
+  return DETAILS_STOPLIST.some((s) => k.includes(s));
+}
+
+function truncate(value: string): string {
+  return value.length > DETAILS_MAX_VALUE ? `${value.slice(0, DETAILS_MAX_VALUE)}…` : value;
+}
+
+/**
+ * Чистит значение вглубь, всё выброшенное считает в `counter.n`. Резка длинной строки
+ * потерей не считается: она видна на месте по многоточию, а счётчик — про то, чего в
+ * блоке нет вовсе.
+ */
+function cleanValue(value: unknown, depth: number, counter: { n: number }): unknown {
+  if (typeof value === 'string') return truncate(value);
+  if (value == null || typeof value !== 'object') return value;
+  if (depth >= DETAILS_MAX_DEPTH) {
+    counter.n += 1;
+    return undefined;
+  }
+  if (Array.isArray(value)) {
+    const kept: unknown[] = [];
+    for (const item of value) {
+      if (kept.length >= DETAILS_MAX_FIELDS) {
+        counter.n += 1;
+        continue;
+      }
+      const clean = cleanValue(item, depth + 1, counter);
+      if (clean === undefined) continue;
+      kept.push(clean);
+    }
+    return kept;
+  }
+  const out: Record<string, unknown> = {};
+  let kept = 0;
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (isStopKey(k)) {
+      counter.n += 1;
+      continue;
+    }
+    if (kept >= DETAILS_MAX_FIELDS) {
+      counter.n += 1;
+      continue;
+    }
+    const clean = cleanValue(v, depth + 1, counter);
+    if (clean === undefined) continue;
+    out[k] = clean;
+    kept += 1;
+  }
+  return out;
+}
 
 export function sanitizeDetails(details: unknown): string | null {
   if (details == null) return null;
   if (typeof details !== 'object') return String(details);
-  const entries = Object.entries(details as Record<string, unknown>);
-  if (entries.length > 5) return null;
-  const dirty = entries.some(([k]) =>
-    DETAILS_STOPLIST.some((s) => k.toLowerCase().includes(s)));
-  if (dirty) return null;
+  const counter = { n: 0 };
+  const cleaned = cleanValue(details, 0, counter);
+  let json: string;
   try {
-    return JSON.stringify(details);
+    json = JSON.stringify(cleaned) ?? '';
   } catch {
     return null;
   }
+  // Пометка символьная, а не словесная: кит не владеет i18n, весь его текст приходит
+  // пропсами, а проп ради счётчика скрытых полей — лишняя поверхность.
+  if (!counter.n) return json;
+  if (json === '{}' || json === '[]') return `… +${counter.n}`;
+  return `${json} … +${counter.n}`;
 }
 
 function formatLocal(now: Date): string {
