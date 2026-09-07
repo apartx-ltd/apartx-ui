@@ -106,6 +106,12 @@
   <div class="flex flex-col gap-4 max-w-sm">
     <Progress value={40} />
     <Loading />
+    <!-- Строчный размер показываем в строке текста: он и нужен для списков, кнопок
+         и панелей, где блочный лоадер распирал бы высоту. -->
+    <div class="flex items-center gap-2 text-body-md">
+      <Loading size="sm" />
+      <span>size="sm" — строчный</span>
+    </div>
     <Skeleton class="h-6 w-48" />
   </div>
 </section>
