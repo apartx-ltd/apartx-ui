@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MapConfig, MapView, MapMarker, MapSearch } from '$lib/maps';
+  import { MapConfig, MapView, MapMarker, MapSearch, StaticMap } from '$lib/maps';
   import type { LngLat, SearchResult, MapProviderName } from '$lib/maps';
   import { TextField } from '$lib/ui/forms';
   import { Segment } from '$lib/ui/structure';
@@ -12,6 +12,8 @@
   let yandexKey = $state('');
   let googleKey = $state('');
   let googleMapId = $state('');
+  // Yandex serves static maps off a key of its own — it rejects the JS-API key above.
+  let yandexStaticKey = $state('');
 
   let apiKey = $derived(provider === 'yandex' ? yandexKey : googleKey);
 
@@ -48,13 +50,38 @@
 <div class="mb-4 flex max-w-md flex-col gap-3">
   {#if provider === 'yandex'}
     <TextField bind:value={yandexKey} label="Yandex API key" placeholder="JavaScript API & HTTP Geocoder key" />
+    <TextField bind:value={yandexStaticKey} label="Yandex Static Maps key" placeholder="Static API key (separate from the one above)" />
   {:else}
     <TextField bind:value={googleKey} label="Google Maps API key" placeholder="Maps JavaScript API key" />
     <TextField bind:value={googleMapId} label="Google Map ID (optional)" placeholder="Defaults to DEMO_MAP_ID" />
   {/if}
 </div>
 
-<MapConfig {provider} {apiKey} lang="en_US" mapId={googleMapId}>
+<MapConfig {provider} {apiKey} staticApiKey={yandexStaticKey} lang="en_US" mapId={googleMapId}>
+  <section class="mb-6 max-w-md">
+    <h2 class="text-title-md mb-3">StaticMap (image, no SDK)</h2>
+    <p class="text-body-sm text-on-surface-variant mb-3">
+      No SDK, no DOM — just a URL and an <code>&lt;img&gt;</code>. Provider, key, language and
+      theme come from this same <code>MapConfig</code>. <code>size</code> is the CSS box;
+      <code>scale</code> decides the pixels requested (Yandex has no scale parameter, so it asks
+      for a bigger image, capped at 650×450).
+    </p>
+    <StaticMap
+      {center}
+      markers={[{ coordinates: marker }]}
+      zoom={14}
+      size={{ width: 320, height: 200 }}
+      alt="Static map"
+      class="rounded-lg"
+    >
+      {#snippet fallback()}
+        <div class="bg-surface-container text-on-surface-variant text-body-sm rounded-lg p-4">
+          No key for this provider — paste one above.
+        </div>
+      {/snippet}
+    </StaticMap>
+  </section>
+
   <section class="mb-6 max-w-md">
     <h2 class="text-title-md mb-3">MapSearch (geocoder)</h2>
     <MapSearch {onSelect} placeholder="Search an address…" />
