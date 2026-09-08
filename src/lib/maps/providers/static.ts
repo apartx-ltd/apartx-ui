@@ -71,6 +71,26 @@ function yandexStaticUrl(o: StaticMapOptions, apiKey: string): string {
   return `https://static-maps.yandex.ru/v1?${params}`;
 }
 
+function googleStaticUrl(o: StaticMapOptions, apiKey: string, mapId?: string): string {
+  const params = new URLSearchParams({
+    center: `${o.center.lat},${o.center.lng}`,
+    zoom: String(o.zoom),
+    size: `${o.size.width}x${o.size.height}`,
+    key: apiKey,
+  });
+  // Google takes a bare language code ('ru'), not a locale tag ('ru_RU').
+  if (o.lang) params.set('language', o.lang.split('_')[0]);
+  // Unlike Yandex, Google's `scale` works, so the requested size stays the CSS size.
+  if (o.scale && o.scale > 1) params.set('scale', String(o.scale));
+  // Colour scheme comes from a cloud-styled Map ID; the Static API has no `theme`. With no
+  // mapId configured, `theme` is a no-op here — mirroring how Yandex ignores `mapId`.
+  if (mapId) params.set('map_id', mapId);
+  for (const m of o.markers ?? []) {
+    params.append('markers', `color:${m.color ?? 'red'}|${m.coordinates.lat},${m.coordinates.lng}`);
+  }
+  return `https://maps.googleapis.com/maps/api/staticmap?${params}`;
+}
+
 /**
  * Build a static map image URL, or `null` when it cannot be built — no API key, or no usable
  * coordinates. `null` is a normal outcome (a property may carry no geotag), not an error.
@@ -88,5 +108,7 @@ export function staticMapUrl(
   if (!apiKey) return null;
   const { center } = options;
   if (!center || !Number.isFinite(center.lat) || !Number.isFinite(center.lng)) return null;
-  return yandexStaticUrl(options, apiKey);
+  return provider === 'google'
+    ? googleStaticUrl(options, apiKey, config.mapId)
+    : yandexStaticUrl(options, apiKey);
 }

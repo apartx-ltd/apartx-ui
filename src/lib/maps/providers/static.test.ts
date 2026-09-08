@@ -81,3 +81,63 @@ describe('staticMapUrl — yandex', () => {
     expect(staticMapUrl('yandex', { center: { lng: NaN, lat: 43.2 }, zoom: 16, size: SIZE }, config)).toBeNull();
   });
 });
+
+describe('staticMapUrl — google', () => {
+  const config = { apiKey: 'g-key' };
+
+  it('builds a staticmap URL with lat,lng order and x-separated size', () => {
+    const url = staticMapUrl('google', { center: ALMATY, zoom: 16, size: SIZE }, config)!;
+    expect(new URL(url).origin + new URL(url).pathname)
+      .toBe('https://maps.googleapis.com/maps/api/staticmap');
+    expect(params(url).get('center')).toBe('43.238949,76.889709');
+    expect(params(url).get('zoom')).toBe('16');
+    expect(params(url).get('size')).toBe('300x200');
+    expect(params(url).get('key')).toBe('g-key');
+  });
+
+  it('emits one repeated markers parameter per pin', () => {
+    const url = staticMapUrl('google', {
+      center: ALMATY, zoom: 16, size: SIZE,
+      markers: [{ coordinates: ALMATY }, { coordinates: { lng: 76.9, lat: 43.3 }, color: 'blue' }],
+    }, config)!;
+    expect(params(url).getAll('markers')).toEqual([
+      'color:red|43.238949,76.889709',
+      'color:blue|43.3,76.9',
+    ]);
+  });
+
+  it('cuts the locale tag down to the language part', () => {
+    const url = staticMapUrl('google', { center: ALMATY, zoom: 16, size: SIZE, lang: 'ru_RU' }, config)!;
+    expect(params(url).get('language')).toBe('ru');
+  });
+
+  // Google HAS a native scale parameter, so the requested size stays the CSS size.
+  it('passes retina scale natively and keeps the base size', () => {
+    const url = staticMapUrl('google', { center: ALMATY, zoom: 16, size: SIZE, scale: 2 },
+      { apiKey: 'g-key', mapId: 'my-map-id' })!;
+    expect(params(url).get('scale')).toBe('2');
+    expect(params(url).get('size')).toBe('300x200');
+    expect(params(url).get('map_id')).toBe('my-map-id');
+  });
+
+  it('omits scale at 1x', () => {
+    const url = staticMapUrl('google', { center: ALMATY, zoom: 16, size: SIZE, scale: 1 }, config)!;
+    expect(params(url).has('scale')).toBe(false);
+  });
+
+  it('never sends a theme parameter — Google styles through map_id only', () => {
+    const url = staticMapUrl('google', { center: ALMATY, zoom: 16, size: SIZE, theme: 'dark' }, config)!;
+    expect(params(url).has('theme')).toBe(false);
+  });
+
+  it('honours staticApiKey over apiKey — a Google call site must not set it', () => {
+    const url = staticMapUrl('google', { center: ALMATY, zoom: 16, size: SIZE },
+      { apiKey: 'g-key', staticApiKey: 'yandex-static' })!;
+    // Pinned so the surprise surfaces here rather than as a 403 in production.
+    expect(params(url).get('key')).toBe('yandex-static');
+  });
+
+  it('returns null without a key', () => {
+    expect(staticMapUrl('google', { center: ALMATY, zoom: 16, size: SIZE }, {})).toBeNull();
+  });
+});
