@@ -17,6 +17,7 @@
     children,
     provider = 'yandex',
     apiKey = '',
+    staticApiKey = '',
     lang = 'en_US',
     mapId = '',
     theme = 'light',
@@ -24,6 +25,8 @@
     children: any;
     provider?: MapProviderName;
     apiKey?: string;
+    /** Key for static map images when the provider serves them off a separate key (Yandex). */
+    staticApiKey?: string;
     lang?: string;
     /** Google Map ID for Advanced Markers (ignored by other providers). */
     mapId?: string;
@@ -36,10 +39,14 @@
   // invalidates readers of `config.theme` — MapView recentres/retints in place
   // instead of tearing down and recreating the whole map (which would re-run the
   // clusterer import and drop markers on every theme toggle).
-  const ctx = $state({ provider, config: { apiKey, lang, mapId: mapId || undefined, theme } });
+  const ctx = $state({
+    provider,
+    config: { apiKey, staticApiKey, lang, mapId: mapId || undefined, theme },
+  });
   $effect(() => {
     ctx.provider = provider;
     ctx.config.apiKey = apiKey;
+    ctx.config.staticApiKey = staticApiKey;
     ctx.config.lang = lang;
     ctx.config.mapId = mapId || undefined;
     ctx.config.theme = theme;

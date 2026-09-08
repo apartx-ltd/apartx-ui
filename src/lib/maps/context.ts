@@ -20,6 +20,15 @@ export function getMapConfig(): MapConfigContext {
   return ctx;
 }
 
+/**
+ * Same context, but `null` instead of a throw when there is no `<MapConfig>` above. For
+ * components that are useful standalone — `<StaticMap>` renders a plain <img> and is dropped
+ * into chat bubbles that have no map wrapper anywhere near them.
+ */
+export function getMapConfigOptional(): MapConfigContext | null {
+  return getContext<MapConfigContext>(CONFIG_KEY) ?? null;
+}
+
 export function getProvider() {
   const { provider } = getMapConfig();
   return resolveProvider(provider);
