@@ -1,8 +1,11 @@
 import {
+  Hct,
   argbFromHex,
-  themeFromSourceColor,
   hexFromArgb,
-  type Theme,
+  DynamicScheme,
+  MaterialDynamicColors,
+  TonalPalette,
+  Variant,
 } from '@material/material-color-utilities';
 
 export interface ThemeTokens {
@@ -32,6 +35,78 @@ const SURFACE_TONES_DARK: Record<string, number> = {
   '--theme-surface-container-highest': 22,
 };
 
+// M3 roles → DynamicColor names. Second element is a plain `string`, not a keyof:
+// MaterialDynamicColors also carries non-DynamicColor statics, so an exact keyof
+// would let those through.
+const ROLE_TOKENS: Array<[string, string]> = [
+  ['--theme-primary', 'primary'],
+  ['--theme-on-primary', 'onPrimary'],
+  ['--theme-primary-container', 'primaryContainer'],
+  ['--theme-on-primary-container', 'onPrimaryContainer'],
+  ['--theme-secondary', 'secondary'],
+  ['--theme-on-secondary', 'onSecondary'],
+  ['--theme-secondary-container', 'secondaryContainer'],
+  ['--theme-on-secondary-container', 'onSecondaryContainer'],
+  ['--theme-tertiary', 'tertiary'],
+  ['--theme-on-tertiary', 'onTertiary'],
+  ['--theme-tertiary-container', 'tertiaryContainer'],
+  ['--theme-on-tertiary-container', 'onTertiaryContainer'],
+  ['--theme-error', 'error'],
+  ['--theme-on-error', 'onError'],
+  ['--theme-error-container', 'errorContainer'],
+  ['--theme-on-error-container', 'onErrorContainer'],
+  ['--theme-background', 'background'],
+  ['--theme-on-background', 'onBackground'],
+  ['--theme-surface', 'surface'],
+  ['--theme-on-surface', 'onSurface'],
+  ['--theme-surface-variant', 'surfaceVariant'],
+  ['--theme-on-surface-variant', 'onSurfaceVariant'],
+  ['--theme-outline', 'outline'],
+  ['--theme-outline-variant', 'outlineVariant'],
+  ['--theme-shadow', 'shadow'],
+  ['--theme-scrim', 'scrim'],
+  ['--theme-inverse-surface', 'inverseSurface'],
+  ['--theme-inverse-on-surface', 'inverseOnSurface'],
+  ['--theme-inverse-primary', 'inversePrimary'],
+];
+
+function extractScheme(scheme: DynamicScheme): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [token, role] of ROLE_TOKENS) {
+    out[token] = hexFromArgb((MaterialDynamicColors as any)[role].getArgb(scheme));
+  }
+  return {
+    ...out,
+    // Custom semantic colors (outside the M3 role set)
+    '--theme-success': '#2e7d32',
+    '--theme-on-success': '#ffffff',
+    '--theme-warning': '#ed6c02',
+    '--theme-on-warning': '#ffffff',
+    '--theme-info': '#0288d1',
+    '--theme-on-info': '#ffffff',
+  };
+}
+
+// The scheme is assembled by hand rather than taken ready-made from
+// `themeFromSourceColor` (which is TonalSpot): that one caps the seed's chroma at 36 and
+// reads the accent off tone 40, dragging the brand blue #1976d2 towards #005faf, while its
+// neutrals (chroma 6/8) tint every grey. Values below match TonalSpot except the two
+// deliberate departures marked ★. Kept in step with apartx-brands/theme/gen-theme.mjs,
+// which generates the same palette as static CSS for the apps.
+function schemeFor(src: Hct, isDark: boolean): DynamicScheme {
+  return new DynamicScheme({
+    sourceColorHct: src,
+    variant: Variant.TONAL_SPOT,
+    contrastLevel: 0,
+    isDark,
+    primaryPalette: TonalPalette.fromHueAndChroma(src.hue, src.chroma), // ★ seed chroma, uncapped
+    secondaryPalette: TonalPalette.fromHueAndChroma(src.hue, 16),
+    tertiaryPalette: TonalPalette.fromHueAndChroma(src.hue + 60, 24),
+    neutralPalette: TonalPalette.fromHueAndChroma(src.hue, 0), // ★ greys with no tint
+    neutralVariantPalette: TonalPalette.fromHueAndChroma(src.hue, 0), // ★
+  });
+}
+
 /**
  * Generate color tokens from a seed color.
  * Returns `--theme-*` CSS variable values for light and dark schemes.
@@ -40,59 +115,26 @@ const SURFACE_TONES_DARK: Record<string, number> = {
  * @returns ThemeTokens with light and dark color maps
  */
 export function generateTokens(seedHex: string): ThemeTokens {
-  const theme = themeFromSourceColor(argbFromHex(seedHex));
-  const neutral = theme.palettes.neutral;
+  const src = Hct.fromInt(argbFromHex(seedHex));
 
-  function surfaceContainers(isDark: boolean): Record<string, string> {
+  const build = (isDark: boolean): Record<string, string> => {
+    const scheme = schemeFor(src, isDark);
+    const tokens = extractScheme(scheme);
+
+    // Light: M3 reads the accent off tone 40, but the seed #1976d2 lives on tone 49 — the
+    // gap reads as a dulled brand. Dark keeps the M3 rule: the accent lightens to tone 80,
+    // otherwise it doesn't separate from the dark surface.
+    if (!isDark) {
+      tokens['--theme-primary'] = hexFromArgb(scheme.primaryPalette.tone(src.tone));
+    }
+
     const tones = isDark ? SURFACE_TONES_DARK : SURFACE_TONES_LIGHT;
-    const out: Record<string, string> = {};
-    for (const key in tones) out[key] = hexFromArgb(neutral.tone(tones[key]));
-    return out;
-  }
+    for (const key in tones) {
+      tokens[key] = hexFromArgb(scheme.neutralPalette.tone(tones[key]));
+    }
 
-  function extractScheme(scheme: any): Record<string, string> {
-    return {
-      '--theme-primary': hexFromArgb(scheme.primary),
-      '--theme-on-primary': hexFromArgb(scheme.onPrimary),
-      '--theme-primary-container': hexFromArgb(scheme.primaryContainer),
-      '--theme-on-primary-container': hexFromArgb(scheme.onPrimaryContainer),
-      '--theme-secondary': hexFromArgb(scheme.secondary),
-      '--theme-on-secondary': hexFromArgb(scheme.onSecondary),
-      '--theme-secondary-container': hexFromArgb(scheme.secondaryContainer),
-      '--theme-on-secondary-container': hexFromArgb(scheme.onSecondaryContainer),
-      '--theme-tertiary': hexFromArgb(scheme.tertiary),
-      '--theme-on-tertiary': hexFromArgb(scheme.onTertiary),
-      '--theme-tertiary-container': hexFromArgb(scheme.tertiaryContainer),
-      '--theme-on-tertiary-container': hexFromArgb(scheme.onTertiaryContainer),
-      '--theme-error': hexFromArgb(scheme.error),
-      '--theme-on-error': hexFromArgb(scheme.onError),
-      '--theme-error-container': hexFromArgb(scheme.errorContainer),
-      '--theme-on-error-container': hexFromArgb(scheme.onErrorContainer),
-      '--theme-background': hexFromArgb(scheme.background),
-      '--theme-on-background': hexFromArgb(scheme.onBackground),
-      '--theme-surface': hexFromArgb(scheme.surface),
-      '--theme-on-surface': hexFromArgb(scheme.onSurface),
-      '--theme-surface-variant': hexFromArgb(scheme.surfaceVariant),
-      '--theme-on-surface-variant': hexFromArgb(scheme.onSurfaceVariant),
-      '--theme-outline': hexFromArgb(scheme.outline),
-      '--theme-outline-variant': hexFromArgb(scheme.outlineVariant),
-      '--theme-shadow': hexFromArgb(scheme.shadow),
-      '--theme-scrim': hexFromArgb(scheme.scrim),
-      '--theme-inverse-surface': hexFromArgb(scheme.inverseSurface),
-      '--theme-inverse-on-surface': hexFromArgb(scheme.inverseOnSurface),
-      '--theme-inverse-primary': hexFromArgb(scheme.inversePrimary),
-      // Custom semantic colors (derived from palette)
-      '--theme-success': '#2e7d32',
-      '--theme-on-success': '#ffffff',
-      '--theme-warning': '#ed6c02',
-      '--theme-on-warning': '#ffffff',
-      '--theme-info': '#0288d1',
-      '--theme-on-info': '#ffffff',
-    };
-  }
-
-  return {
-    light: { ...extractScheme(theme.schemes.light), ...surfaceContainers(false) },
-    dark: { ...extractScheme(theme.schemes.dark), ...surfaceContainers(true) },
+    return tokens;
   };
+
+  return { light: build(false), dark: build(true) };
 }

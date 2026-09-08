@@ -28,5 +28,14 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    server: {
+      deps: {
+        // @material/material-color-utilities импортирует свои модули без расширений
+        // ('../dynamiccolor/dynamic_scheme'). Строгий ESM-резолвер ноды такое отклоняет,
+        // Vite — нет. inline заставляет Vite трансформировать пакет вместо того, чтобы
+        // отдавать его ноде: иначе tokens.test.ts падает на резолве ещё до первого теста.
+        inline: ['@material/material-color-utilities'],
+      },
+    },
   },
 });
