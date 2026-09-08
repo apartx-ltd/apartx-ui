@@ -81,6 +81,12 @@ export interface MapViewOptions {
 export interface MapProviderConfig {
   /** Provider API key (Yandex apikey, Google key, …). */
   apiKey?: string;
+  /**
+   * Key for STATIC map images, when the provider serves them off a separate key (Yandex does —
+   * it rejects the JS-API key outright; Google reuses `apiKey`). `staticMapUrl` prefers it and
+   * falls back to `apiKey`.
+   */
+  staticApiKey?: string;
   /** UI/results language, e.g. "en_US", "ru_RU". */
   lang?: string;
   /** Google Map ID — required for Advanced Markers. Ignored by other providers. */

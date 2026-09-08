@@ -8,6 +8,10 @@ export { default as MapView } from './MapView.svelte';
 export { default as MapMarker } from './MapMarker.svelte';
 export { default as MapClusterer } from './MapClusterer.svelte';
 export { default as MapSearch } from './MapSearch.svelte';
+// Static map image — no SDK, no DOM, SSR-safe; usable outside <MapConfig>.
+export { default as StaticMap } from './StaticMap.svelte';
+export { staticMapUrl } from './providers/static';
+export type { StaticMapOptions, StaticMapMarker, StaticMarkerColor } from './providers/static';
 
 export { resolveProvider, yandexProvider, googleProvider } from './providers';
 export type { MapProviderName } from './providers';
