@@ -130,11 +130,18 @@ describe('staticMapUrl — google', () => {
     expect(params(url).has('theme')).toBe(false);
   });
 
-  it('honours staticApiKey over apiKey — a Google call site must not set it', () => {
+  // One <MapConfig> can legitimately carry BOTH keys (a subtree that switches providers). Google
+  // must not pick up the Yandex static key there — that URL is well-formed and earns a 403.
+  it('ignores staticApiKey when its own key is present', () => {
     const url = staticMapUrl('google', { center: ALMATY, zoom: 16, size: SIZE },
       { apiKey: 'g-key', staticApiKey: 'yandex-static' })!;
-    // Pinned so the surprise surfaces here rather than as a 403 in production.
-    expect(params(url).get('key')).toBe('yandex-static');
+    expect(params(url).get('key')).toBe('g-key');
+  });
+
+  it('falls back to staticApiKey only when apiKey is missing', () => {
+    const url = staticMapUrl('google', { center: ALMATY, zoom: 16, size: SIZE },
+      { staticApiKey: 'lone-key' })!;
+    expect(params(url).get('key')).toBe('lone-key');
   });
 
   it('returns null without a key', () => {

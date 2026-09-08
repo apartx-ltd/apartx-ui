@@ -67,8 +67,13 @@
         theme: theme ?? ctx?.config.theme,
         scale,
       },
+      // Both keys go through as-is: which one a provider takes is a provider difference and
+      // lives in staticMapUrl. Collapsing them here would hand Google the Yandex static key
+      // whenever one <MapConfig> carries both. An explicit `apiKey` prop is the caller being
+      // deliberate, so it fills both slots and wins for either provider.
       {
-        apiKey: apiKey ?? ctx?.config.staticApiKey ?? ctx?.config.apiKey,
+        apiKey: apiKey ?? ctx?.config.apiKey,
+        staticApiKey: apiKey ?? ctx?.config.staticApiKey,
         mapId: ctx?.config.mapId,
       },
     ),

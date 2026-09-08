@@ -95,16 +95,22 @@ function googleStaticUrl(o: StaticMapOptions, apiKey: string, mapId?: string): s
  * Build a static map image URL, or `null` when it cannot be built — no API key, or no usable
  * coordinates. `null` is a normal outcome (a property may carry no geotag), not an error.
  *
- * Key resolution: `config.staticApiKey` wins over `config.apiKey`. Yandex serves static maps off
- * a key separate from the JS-API one (the JS-API key is rejected outright); Google uses the same
- * key, so it arrives via `apiKey`.
+ * Key resolution is per provider, because "which key" IS a provider difference: Yandex serves
+ * static maps off a key separate from the JS-API one (and rejects the JS-API key outright), while
+ * Google reuses the interactive key. So Yandex prefers `staticApiKey` and Google prefers `apiKey`,
+ * each falling back to the other only when its own is missing.
+ *
+ * This matters for a subtree wrapped in one `<MapConfig>` carrying both keys: a shared
+ * "staticApiKey wins" rule would hand Google the Yandex key and earn a 403.
  */
 export function staticMapUrl(
   provider: MapProviderName,
   options: StaticMapOptions,
   config: MapProviderConfig,
 ): string | null {
-  const apiKey = config.staticApiKey || config.apiKey;
+  const apiKey = provider === 'google'
+    ? config.apiKey || config.staticApiKey
+    : config.staticApiKey || config.apiKey;
   if (!apiKey) return null;
   const { center } = options;
   if (!center || !Number.isFinite(center.lat) || !Number.isFinite(center.lng)) return null;
