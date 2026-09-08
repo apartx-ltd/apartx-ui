@@ -50,7 +50,9 @@
     description?: string;
     fullScreen?: boolean;
     /** Плотность тела: `form` — с отступами (поля, текст), `list` — без боковых отступов,
-     *  край держит Item. Списочная модалка объявляет `layout="list"` вместо `bodyClass="p-0"`. */
+     *  край держит Item, `flush` — без отступов вовсе, содержимое во всю площадь (iframe,
+     *  карта, канвас). Модалка объявляет `layout`, а не зануляет отступы через `bodyClass`:
+     *  `p-0` не гасит китовый `sm:px-6` (см. AGENTS.md → «Плотность модалок»). */
     layout?: DialogLayout;
     showCloseButton?: boolean;
     onOpenChange?: (v: boolean) => void;
