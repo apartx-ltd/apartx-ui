@@ -21,6 +21,10 @@ export type { JsonLinkResolver, JsonLinkContext } from './json-link';
 export { default as Popover } from './Popover.svelte';
 export { default as BottomNav } from './BottomNav.svelte';
 export { default as ScrollArea } from './ScrollArea.svelte';
+// Хост чужого документа (iframe + рукопожатие postMessage): хелп, виджет верификации.
+export { default as EmbedFrame } from './EmbedFrame.svelte';
+export { originOf } from './embed-frame';
+export type { EmbedFrameStatus, EmbedFramePost } from './embed-frame';
 export { default as Text } from './Text.svelte';
 export { ROLES as TEXT_ROLES, TONES as TEXT_TONES } from '../utils/typography';
 export type { TextRole, TextTone } from '../utils/typography';
