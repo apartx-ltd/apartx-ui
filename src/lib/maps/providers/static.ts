@@ -41,22 +41,36 @@ const YANDEX_COLOR: Record<StaticMarkerColor, string> = {
 // image and letting CSS shrink it; a request that would not fit stays at 1x rather than being
 // squashed into a different aspect ratio.
 const YANDEX_MAX = { width: 650, height: 450 };
+/** v1 tops out here; a doubled request must not push `z` past it. */
+const YANDEX_MAX_ZOOM = 21;
 
-function yandexSize(size: { width: number; height: number }, scale: 1 | 2 | undefined) {
-  const wanted = scale === 2 ? { width: size.width * 2, height: size.height * 2 } : size;
-  const fits = wanted.width <= YANDEX_MAX.width && wanted.height <= YANDEX_MAX.height;
-  if (fits) return wanted;
+/**
+ * Retina on Yandex = twice the pixels over the SAME ground, which takes both a doubled canvas
+ * AND one more zoom level: each level halves the area covered, so doubling width and height
+ * alone would frame twice as much map and read as zoomed out once CSS shrinks it back.
+ * Google needs none of this — its `scale` multiplies pixels and leaves the framing alone.
+ */
+function yandexFrame(o: StaticMapOptions) {
+  const doubled = { width: o.size.width * 2, height: o.size.height * 2 };
+  const fits = o.scale === 2
+    && doubled.width <= YANDEX_MAX.width
+    && doubled.height <= YANDEX_MAX.height
+    && o.zoom < YANDEX_MAX_ZOOM;
+  if (fits) return { size: doubled, zoom: o.zoom + 1 };
   return {
-    width: Math.min(size.width, YANDEX_MAX.width),
-    height: Math.min(size.height, YANDEX_MAX.height),
+    size: {
+      width: Math.min(o.size.width, YANDEX_MAX.width),
+      height: Math.min(o.size.height, YANDEX_MAX.height),
+    },
+    zoom: o.zoom,
   };
 }
 
 function yandexStaticUrl(o: StaticMapOptions, apiKey: string): string {
-  const size = yandexSize(o.size, o.scale);
+  const { size, zoom } = yandexFrame(o);
   const params = new URLSearchParams({
     ll: `${o.center.lng},${o.center.lat}`,
-    z: String(o.zoom),
+    z: String(zoom),
     size: `${size.width},${size.height}`,
     apikey: apiKey,
   });

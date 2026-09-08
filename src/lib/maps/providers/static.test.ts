@@ -55,17 +55,34 @@ describe('staticMapUrl — yandex', () => {
 
   // Probed 2026-09-08: v1 accepts `scale` and ignores it (scale=2 still returned 300×200).
   // Retina therefore means asking for a bigger image; 650×450 is the hard ceiling (700×460 → 400).
-  it('renders retina by asking for a bigger image, never by a scale parameter', () => {
+  // Doubling the canvas alone would frame twice as much ground and read as zoomed OUT once CSS
+  // shrinks it back — so the zoom goes up one level with it, keeping the framing identical to
+  // Google's native scale=2 at the same requested zoom.
+  it('renders retina by asking for a bigger image one zoom level in, never by a scale parameter', () => {
     const url = staticMapUrl('yandex', { center: ALMATY, zoom: 16, size: SIZE, scale: 2 }, config)!;
     expect(params(url).get('size')).toBe('600,400');
+    expect(params(url).get('z')).toBe('17');
     expect(params(url).has('scale')).toBe(false);
   });
 
-  it('drops back to 1x when the doubled size would exceed the 650×450 ceiling', () => {
+  it('keeps the requested zoom at 1x', () => {
+    const url = staticMapUrl('yandex', { center: ALMATY, zoom: 16, size: SIZE, scale: 1 }, config)!;
+    expect(params(url).get('z')).toBe('16');
+    expect(params(url).get('size')).toBe('300,200');
+  });
+
+  it('drops back to 1x — size AND zoom — when the doubled size would exceed the ceiling', () => {
     const url = staticMapUrl('yandex', {
       center: ALMATY, zoom: 16, size: { width: 400, height: 200 }, scale: 2,
     }, config)!;
     expect(params(url).get('size')).toBe('400,200');
+    expect(params(url).get('z')).toBe('16');
+  });
+
+  it('never pushes zoom past the provider maximum', () => {
+    const url = staticMapUrl('yandex', { center: ALMATY, zoom: 21, size: SIZE, scale: 2 }, config)!;
+    expect(params(url).get('z')).toBe('21');
+    expect(params(url).get('size')).toBe('300,200');
   });
 
   it('clamps an oversized base request to the ceiling', () => {
