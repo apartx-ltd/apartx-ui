@@ -10,7 +10,9 @@ export { default as MapClusterer } from './MapClusterer.svelte';
 export { default as MapSearch } from './MapSearch.svelte';
 // Static map image — no SDK, no DOM, SSR-safe; usable outside <MapConfig>.
 export { default as StaticMap } from './StaticMap.svelte';
-export { staticMapUrl } from './providers/static';
+// Static map that opens the live map in a dialog on tap; MapView is imported on first open.
+export { default as MapPreview } from './MapPreview.svelte';
+export { staticMapUrl, externalMapUrl } from './providers/static';
 export type { StaticMapOptions, StaticMapMarker, StaticMarkerColor } from './providers/static';
 
 export { resolveProvider, yandexProvider, googleProvider } from './providers';
