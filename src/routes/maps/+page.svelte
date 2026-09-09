@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { MapConfig, MapView, MapMarker, MapSearch, StaticMap } from '$lib/maps';
+  import { MapConfig, MapView, MapMarker, MapSearch, StaticMap, MapPreview, externalMapUrl } from '$lib/maps';
+  import { Button } from '$lib/ui/display';
   import type { LngLat, SearchResult, MapProviderName } from '$lib/maps';
   import { TextField } from '$lib/ui/forms';
   import { Segment } from '$lib/ui/structure';
@@ -80,6 +81,33 @@
         </div>
       {/snippet}
     </StaticMap>
+  </section>
+
+  <section class="mb-6 max-w-md">
+    <h2 class="text-title-md mb-3">MapPreview (tap → live map)</h2>
+    <p class="text-body-sm text-on-surface-variant mb-3">
+      The static image above, made tappable: the tap opens a <code>Dialog</code> with
+      <code>MapView</code>. Full-screen sheet under 600px, centred window above (override with
+      <code>fullScreen</code>). MapView is imported on the first open only.
+    </p>
+    <MapPreview
+      {center}
+      markers={[{ coordinates: marker }]}
+      zoom={14}
+      size={{ width: 320, height: 200 }}
+      alt="Map preview"
+      title="Almaty"
+      openLabel="Show on map"
+      class="rounded-lg"
+    >
+      {#snippet footer()}
+        <div class="p-4">
+          <Button onclick={() => window.open(externalMapUrl(provider, center, 14)!, '_blank', 'noopener')}>
+            Open in Maps
+          </Button>
+        </div>
+      {/snippet}
+    </MapPreview>
   </section>
 
   <section class="mb-6 max-w-md">
