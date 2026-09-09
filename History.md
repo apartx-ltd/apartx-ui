@@ -1,5 +1,23 @@
 # История изменений — apartx-ui
 
+## 2026-09-09
+
+### Версия 0.9.15
+
+### Добавлено
+
+* **`MapPreview`** (`apartx-ui/maps`) — статическая карта, по тапу открывающая живую в
+  `Dialog`. Превью — `<StaticMap>` в `<button aria-label={openLabel}>`, модалка — `<MapView>`
+  с контролами; `MapView`/`MapMarker` подтягиваются `import()` при первом открытии, так что
+  страница с одним превью карту в бандл не тащит, а SDK не трогает сеть до тапа. Форма —
+  `fullScreen`: не задан → `useMobile()` (600px). Ключи в терминах `MapConfig`: `apiKey`
+  (JS-API) и `staticApiKey` — у Яндекса они разные, и живой карте нужен первый; незаданные
+  пропсы берутся из внешнего `<MapConfig>`. Статика без ключа → плейсхолдер, кнопка живёт.
+  `title`/`openLabel` — текст от хоста, `actions`/`footer` — сниппеты в `Dialog` под кнопки
+  приложения. `...rest` уходит на кнопку — `data-testid` теперь на ней, а не на `<img>`.
+* **`externalMapUrl(provider, center, zoom)`** — ссылка «открыть в Картах»: Яндекс
+  `yandex.ru/maps/?pt=lng,lat&z=…`, Google `google.com/maps/search/?api=1&query=lat,lng`.
+
 ## 2026-09-08
 
 ### Версия 0.9.14

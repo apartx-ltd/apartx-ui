@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { staticMapUrl } from './static';
+import { staticMapUrl, externalMapUrl } from './static';
 
 const ALMATY = { lng: 76.889709, lat: 43.238949 };
 const SIZE = { width: 300, height: 200 };
@@ -163,5 +163,32 @@ describe('staticMapUrl — google', () => {
 
   it('returns null without a key', () => {
     expect(staticMapUrl('google', { center: ALMATY, zoom: 16, size: SIZE }, {})).toBeNull();
+  });
+});
+
+describe('externalMapUrl', () => {
+  it('yandex: точка pt=lng,lat, зум и слой map', () => {
+    const url = externalMapUrl('yandex', ALMATY, 17)!;
+    expect(new URL(url).origin + new URL(url).pathname).toBe('https://yandex.ru/maps/');
+    expect(params(url).get('pt')).toBe('76.889709,43.238949');
+    expect(params(url).get('z')).toBe('17');
+    expect(params(url).get('l')).toBe('map');
+  });
+
+  it('google: search-URL с query=lat,lng (зум этот формат не принимает)', () => {
+    const url = externalMapUrl('google', ALMATY, 17)!;
+    expect(new URL(url).origin + new URL(url).pathname).toBe('https://www.google.com/maps/search/');
+    expect(params(url).get('api')).toBe('1');
+    expect(params(url).get('query')).toBe('43.238949,76.889709');
+    expect(params(url).has('z')).toBe(false);
+  });
+
+  it('зум по умолчанию 16', () => {
+    expect(params(externalMapUrl('yandex', ALMATY)!).get('z')).toBe('16');
+  });
+
+  it('невалидный центр → null', () => {
+    expect(externalMapUrl('yandex', { lat: NaN, lng: 76.9 })).toBeNull();
+    expect(externalMapUrl('google', null as any)).toBeNull();
   });
 });

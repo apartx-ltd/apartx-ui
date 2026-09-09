@@ -132,3 +132,18 @@ export function staticMapUrl(
     ? googleStaticUrl(options, apiKey, config.mapId)
     : yandexStaticUrl(options, apiKey);
 }
+
+/**
+ * Link to the provider's own web/app maps at a point — the "open in Maps" button. Same
+ * coordinate-order trap as the static URL: Yandex takes `lng,lat`, Google `lat,lng`. Google's
+ * universal search URL has no zoom parameter, so `zoom` only reaches Yandex.
+ */
+export function externalMapUrl(provider: MapProviderName, center: LngLat, zoom = 16): string | null {
+  if (!center || !Number.isFinite(center.lat) || !Number.isFinite(center.lng)) return null;
+  if (provider === 'google') {
+    const q = new URLSearchParams({ api: '1', query: `${center.lat},${center.lng}` });
+    return `https://www.google.com/maps/search/?${q}`;
+  }
+  const q = new URLSearchParams({ pt: `${center.lng},${center.lat}`, z: String(zoom), l: 'map' });
+  return `https://yandex.ru/maps/?${q}`;
+}
