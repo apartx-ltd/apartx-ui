@@ -129,6 +129,7 @@
     "@material/material-color-utilities": "^0.4.0",
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
+    "core-js": "^3.50.0",
     "dayjs": "^1.11.20",
     "dexie": "^4.0.11",
     "linkifyjs": "^4.1.3",
