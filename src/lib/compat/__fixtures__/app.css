@@ -1,0 +1,3 @@
+/* Фикстура vite-plugin.test.ts: Tailwind без сканирования файлов, кандидаты заданы строкой. */
+@import 'tailwindcss' source(none);
+@source inline("flex h-dvh");
