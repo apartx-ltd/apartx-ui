@@ -2,6 +2,26 @@
 
 ## 2026-09-10
 
+### Версия 0.9.18
+
+### fix(compat): `apartxCompat()` больше не роняет CSS в `vite dev`
+
+* Dev-путь плагина (`src/lib/compat/vite-plugin.js`) стоял с `enforce: 'post'`, то есть после
+  `vite:css-post`, который к этому моменту уже завернул каждый CSS-модуль в JS
+  (`__vite__updateStyle(…)`, `export default "…"` для `?inline`). postcss падал на нём с
+  `Unknown word export` / `Unknown word updateStyle`, и apartx-help в dev рендерился вовсе без
+  стилей. Сборку не задевало — там работает `generateBundle` по css-ассетам.
+* `apartxCompat()` теперь возвращает два плагина: `apartx-compat:serve` (`apply: 'serve'`, без
+  `enforce`) — `transform` встаёт между `vite:css` и `vite:css-post`, после Tailwind
+  (`generate:serve` — `enforce: 'pre'`), и получает настоящий CSS; `apartx-compat:build`
+  (`apply: 'build'`, `enforce: 'post'`) — прежний `generateBundle`. Взаимоисключение стадий
+  держит `apply` вместо `configResolved`, так что двойного прохода по-прежнему нет.
+* Dev-`transform` пропускает `?raw`/`?url`/`?worker`/commonjs-прокси — там в модуле JS, как и у
+  самого `vite:css`.
+* Тест: к проверкам хуков добавлен настоящий dev-сервер Vite с `@tailwindcss/vite` на фикстуре
+  `src/lib/compat/__fixtures__/app.css` — клиентский css-модуль и `?inline` в SSR. На старом
+  плагине он падает с тем же `Unknown word export`.
+
 ### Версия 0.9.17
 
 ### feat(theme): тёмная Night в `generateTokens`
