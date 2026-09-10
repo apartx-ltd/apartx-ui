@@ -195,3 +195,43 @@ describe('showNotification', () => {
     expect(onContactSupport.mock.calls[0][0]).not.toContain('HTTP');
   });
 });
+
+describe('showNotification — action', () => {
+  const findButton = (label: string) =>
+    Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.trim() === label);
+
+  it('success + action → кнопка в тосте, клик зовёт onClick', async () => {
+    mountToaster();
+    const onClick = vi.fn();
+    const { showNotification } = useNotification();
+    showNotification('Price updated', { variant: 'success', action: { label: 'Undo', onClick } });
+
+    await vi.waitFor(() => expect(findButton('Undo')).toBeTruthy());
+    findButton('Undo')!.click();
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('без action — кнопки действия нет (обратная совместимость)', async () => {
+    mountToaster();
+    const { showNotification } = useNotification();
+    showNotification('Price updated', { variant: 'success' });
+
+    await vi.waitFor(() => expect(toastText()).toContain('Price updated'));
+    expect(findButton('Undo')).toBeUndefined();
+  });
+
+  it('duration уходит в sonner; у error-тоста бесконечность побеждает', () => {
+    const successSpy = vi.spyOn(toast, 'success');
+    const errorSpy = vi.spyOn(toast, 'error');
+    const { showNotification } = useNotification();
+
+    showNotification('Price updated', { variant: 'success', duration: 10000 });
+    expect(successSpy.mock.calls[0][1]).toMatchObject({ duration: 10000 });
+
+    showNotification('Boom', { variant: 'error', duration: 10000 });
+    expect(errorSpy.mock.calls[0][1]).toMatchObject({ duration: Number.POSITIVE_INFINITY });
+
+    successSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+});
