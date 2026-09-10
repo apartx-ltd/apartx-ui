@@ -45,7 +45,11 @@
   }
 </script>
 
-<div class={cn('flex flex-col gap-1', className)}>
+<!-- min-w-0: без него flex-элемент не ужимается ниже min-content своего содержимого, а его задаёт
+     <input> дефолтной шириной в ~20 символов. На старых WebView эта ширина заметно больше (218px
+     против 167px на Chrome 92 против современного), и строка с двумя полями вылезает за экран.
+     min-w-0 на самом <input> ниже уже стоит и не помогает: ужиматься должна колонка. -->
+<div class={cn('flex flex-col gap-1 min-w-0', className)}>
   {#if label}
     <label for={inputId} class={cn('text-label-md', error ? 'text-error' : 'text-on-surface-variant')}>
       {label}{required ? ' *' : ''}
