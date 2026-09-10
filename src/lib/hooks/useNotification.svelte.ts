@@ -23,15 +23,21 @@ export type NotificationError = {
   details?: unknown;
 };
 
+/** Кнопка в тосте («Отменить»). Обработчик замыкается прямо здесь — контекст тостера не нужен. */
+export type NotificationAction = { label: string; onClick: () => void };
+
 export type NotificationOptions = {
   variant?: NotificationVariant;
   error?: NotificationError | null;
+  action?: NotificationAction | null;
+  /** Время жизни тоста, мс. Не задано — дефолт sonner; у error-тостов по-прежнему бесконечно. */
+  duration?: number;
 };
 
 export function useNotification() {
   return {
     showNotification(text: string, options: NotificationOptions = {}) {
-      const { variant = 'default', error } = options;
+      const { variant = 'default', error, action, duration } = options;
       const message = text || error?.reason || '';
       const withActions = (variant === 'error' || variant === 'warning') && error?.reason;
       // Тост висит, пока его не закроют (крестиком или свайпом). Дефолтные 4с sonner
@@ -39,7 +45,12 @@ export function useNotification() {
       // след случившегося, а по строке действий («Почему?»/«В саппорт») ещё надо успеть
       // кликнуть. Success/info/default гаснут сами, как и раньше.
       const persistent = variant === 'error' || withActions;
+      const extra = {
+        ...(duration != null ? { duration } : {}),
+        ...(action ? { action: { label: action.label, onClick: () => action.onClick() } } : {}),
+      };
       const data = {
+        ...extra,
         ...(persistent ? { duration: Number.POSITIVE_INFINITY } : {}),
         // Объект ошибки уезжает как есть: разбор (reason → ключ, числовой error → HTTP-код,
         // message, details) живёт в errorHelpProps — один на тост и на <InlineError>.
@@ -50,16 +61,16 @@ export function useNotification() {
           toast.error(message, data);
           break;
         case 'success':
-          toast.success(message);
+          toast.success(message, extra);
           break;
         case 'warning':
           toast.warning(message, data);
           break;
         case 'info':
-          toast.info(message);
+          toast.info(message, extra);
           break;
         default:
-          toast(message);
+          toast(message, extra);
       }
     },
   };
