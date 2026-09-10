@@ -17,6 +17,13 @@ describe('polyfills', () => {
     expect((host.hasOwn as (o: object, k: string) => boolean)({ a: 1 }, 'b')).toBe(false);
   });
 
+  it('оставляет строковый маркер для compat:check', () => {
+    // Именно строковый литерал в рантайме: комментарий не переживает минификацию продовой сборки.
+    const globalHost: Record<string, unknown> = {};
+    installPolyfills({} as ObjectConstructor, globalHost as typeof globalThis);
+    expect(globalHost['apartx-compat-polyfills']).toBe(true);
+  });
+
   it('at считает с конца и возвращает undefined за границей', () => {
     expect(at.call([1, 2, 3], -1)).toBe(3);
     expect(at.call([1, 2, 3], 0)).toBe(1);

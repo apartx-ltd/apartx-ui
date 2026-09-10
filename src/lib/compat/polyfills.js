@@ -1,5 +1,3 @@
-// apartx-compat-polyfills — маркер для compat:check, не переименовывать.
-//
 // Порог — Chrome 80 (docs/plans/2026-09-10-legacy-webview-compat/design.md). Meteor тут не помощник:
 // его «современный» порог около Chrome 49, то есть Chrome 80..98 получает немодифицированный
 // modern-бандл, а legacy-арки для Cordova нет вовсе.
@@ -132,6 +130,13 @@ export function installPolyfills(objectHost = Object, globalHost = globalThis) {
   });
 
   define(globalHost, 'structuredClone', structuredCloneShim);
+
+  // Маркер для compat:check — обязательно строковый литерал в рантайме, а не комментарий:
+  // продовая сборка минифицируется, и комментарии из бандла вырезаются (проверено на
+  // `meteor build` кабинета — комментарного маркера в бандле не оказалось, хотя код шимов
+  // на месте). Заодно это ручная проба на устройстве: в DevTools видно
+  // window['apartx-compat-polyfills'].
+  globalHost['apartx-compat-polyfills'] = true;
 }
 
 installPolyfills();

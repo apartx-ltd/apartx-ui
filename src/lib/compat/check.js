@@ -23,6 +23,12 @@ const BANNED_JS = [
 
 const POLYFILL_MARKER = 'apartx-compat-polyfills';
 
+// Meteor кладёт весь `public/` в `programs/web.*/app/`, копией байт в байт: там лежат чужие
+// скины (tinymce, highlight.js) со своими `:has()` и прочим — через postcss они не проходят и
+// компат-слою не подчиняются. Сгенерированное rspack'ом лежит там же, в `app/build-chunks`, —
+// вот его и проверяем. У Vite-консюмеров (apartx-help) каталога `app/` нет, правило молчит.
+const VERBATIM_ASSETS = /[/\\]app[/\\](?!build-chunks[/\\])/;
+
 const insideSupports = (node) => {
   for (let parent = node.parent; parent; parent = parent.parent) {
     if (parent.type === 'atrule' && parent.name === 'supports') return true;
@@ -77,6 +83,7 @@ export function checkBuild(dirs) {
   for (const dir of dirs) {
     if (!existsSync(dir)) continue;
     for (const file of walkFiles(dir)) {
+      if (VERBATIM_ASSETS.test(file)) continue;
       if (file.endsWith('.css')) {
         problems.push(...collectCssProblems(file, readFileSync(file, 'utf8')));
         continue;
