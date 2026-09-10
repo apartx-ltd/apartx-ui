@@ -21,6 +21,11 @@ describe('collectCssProblems', () => {
     expect(collectCssProblems('a.css', '.x { height: 100vh; height: 100dvh }')).toHaveLength(0);
   });
 
+  it('видит фолбэк, отделённый чужим объявлением', () => {
+    // Ровно то, что делает lightningcss с #app: между двумя height вклинивается flex-direction.
+    expect(collectCssProblems('a.css', '.x { height: 100vh; flex-direction: column; height: 100dvh }')).toHaveLength(0);
+  });
+
   it('ловит :has()', () => {
     expect(collectCssProblems('a.css', '.x:has(.y) { color: red }')).toHaveLength(1);
   });

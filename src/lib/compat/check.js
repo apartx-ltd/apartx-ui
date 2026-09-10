@@ -47,9 +47,12 @@ export function collectCssProblems(file, css) {
       problems.push(`${file}: ${decl.prop} — современная цветовая функция вне @supports`);
     }
     if (!DYNAMIC_UNIT.test(decl.value)) return;
-    const previous = decl.prev();
-    const hasFallback =
-      previous && previous.type === 'decl' && previous.prop === decl.prop && !DYNAMIC_UNIT.test(previous.value);
+    // Фолбэк ищем среди ВСЕХ предшествующих объявлений того же свойства, а не только в
+    // непосредственном соседе: lightningcss тасует объявления внутри правила, и у #app
+    // между `height: 100vh` и `height: 100dvh` оказывается flex-direction.
+    const hasFallback = decl.parent.nodes
+      .slice(0, decl.parent.index(decl))
+      .some((node) => node.type === 'decl' && node.prop === decl.prop && !DYNAMIC_UNIT.test(node.value));
     if (!hasFallback) problems.push(`${file}: ${decl.prop}: ${decl.value} — без vh-фолбэка`);
   });
 
