@@ -25,14 +25,17 @@ const SURFACE_TONES_LIGHT: Record<string, number> = {
   '--theme-surface-container-high': 92,
   '--theme-surface-container-highest': 90,
 };
+// Dark is Night: page background at T7, surface at T12 (M3 puts both on T6), containers
+// above the surface. The stock M3 ladder (4/6/10/12/17/22) is shifted up as a whole so the
+// order background < surface < containers holds.
 const SURFACE_TONES_DARK: Record<string, number> = {
-  '--theme-surface-dim': 6,
+  '--theme-surface-dim': 7,
   '--theme-surface-bright': 24,
-  '--theme-surface-container-lowest': 4,
-  '--theme-surface-container-low': 10,
-  '--theme-surface-container': 12,
-  '--theme-surface-container-high': 17,
-  '--theme-surface-container-highest': 22,
+  '--theme-surface-container-lowest': 7,
+  '--theme-surface-container-low': 12,
+  '--theme-surface-container': 15,
+  '--theme-surface-container-high': 18,
+  '--theme-surface-container-highest': 23,
 };
 
 // M3 roles → DynamicColor names. Second element is a plain `string`, not a keyof:
@@ -90,10 +93,14 @@ function extractScheme(scheme: DynamicScheme): Record<string, string> {
 // The scheme is assembled by hand rather than taken ready-made from
 // `themeFromSourceColor` (which is TonalSpot): that one caps the seed's chroma at 36 and
 // reads the accent off tone 40, dragging the brand blue #1976d2 towards #005faf, while its
-// neutrals (chroma 6/8) tint every grey. Values below match TonalSpot except the two
+// neutrals (chroma 6/8) tint every grey. Values below match TonalSpot except the
 // deliberate departures marked ★. Kept in step with apartx-brands/theme/gen-theme.mjs,
 // which generates the same palette as static CSS for the apps.
 function schemeFor(src: Hct, isDark: boolean): DynamicScheme {
+  // ★ Light: greys with no tint. Dark is Night: the seed's hue at chroma 12. An achromatic
+  // seed (astanahub, #000) has no defined hue and a tint would come out random, so below
+  // chroma 5 the neutrals stay grey in dark as well.
+  const neutralChroma = isDark && src.chroma >= 5 ? 12 : 0;
   return new DynamicScheme({
     sourceColorHct: src,
     variant: Variant.TONAL_SPOT,
@@ -102,8 +109,8 @@ function schemeFor(src: Hct, isDark: boolean): DynamicScheme {
     primaryPalette: TonalPalette.fromHueAndChroma(src.hue, src.chroma), // ★ seed chroma, uncapped
     secondaryPalette: TonalPalette.fromHueAndChroma(src.hue, 16),
     tertiaryPalette: TonalPalette.fromHueAndChroma(src.hue + 60, 24),
-    neutralPalette: TonalPalette.fromHueAndChroma(src.hue, 0), // ★ greys with no tint
-    neutralVariantPalette: TonalPalette.fromHueAndChroma(src.hue, 0), // ★
+    neutralPalette: TonalPalette.fromHueAndChroma(src.hue, neutralChroma), // ★
+    neutralVariantPalette: TonalPalette.fromHueAndChroma(src.hue, neutralChroma), // ★
   });
 }
 
@@ -121,11 +128,19 @@ export function generateTokens(seedHex: string): ThemeTokens {
     const scheme = schemeFor(src, isDark);
     const tokens = extractScheme(scheme);
 
-    // Light: M3 reads the accent off tone 40, but the seed #1976d2 lives on tone 49 — the
-    // gap reads as a dulled brand. Dark keeps the M3 rule: the accent lightens to tone 80,
-    // otherwise it doesn't separate from the dark surface.
-    if (!isDark) {
-      tokens['--theme-primary'] = hexFromArgb(scheme.primaryPalette.tone(src.tone));
+    // Accent. Light: the seed's tone, but no lighter than 42 — lighter, the accent as text
+    // loses AA on light containers (#1976d2 at tone 49 gave 3.6:1 on #e2e2e2, tone 42
+    // gives 4.6:1). A dark seed (astanahub, tone 0) stays as is. Dark: tone 72 rather than
+    // the stock 80 — richer, and the text on it (on-primary, tone 20) still holds 6.1:1.
+    tokens['--theme-primary'] = hexFromArgb(
+      scheme.primaryPalette.tone(isDark ? 72 : Math.min(src.tone, 42)),
+    );
+
+    // Dark is Night: the page background (painted by <Page> via bg-background) sits below
+    // the surface used by bars and panels. M3 puts both roles on T6.
+    if (isDark) {
+      tokens['--theme-background'] = hexFromArgb(scheme.neutralPalette.tone(7));
+      tokens['--theme-surface'] = hexFromArgb(scheme.neutralPalette.tone(12));
     }
 
     const tones = isDark ? SURFACE_TONES_DARK : SURFACE_TONES_LIGHT;
