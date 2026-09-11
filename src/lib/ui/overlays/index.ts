@@ -19,6 +19,15 @@ export {
   type ErrorHelpArticle, type ErrorHelpResolver, type ErrorHelpProps,
 } from './error-toast';
 
+// Тост «Разрешите уведомления» (кабинет, spaces): политика показа, гифка-инструкция под
+// платформу и контроллер с опросом разрешения. Push/Meteor консьюмер передаёт функциями.
+export { default as PushPermissionDescription } from './PushPermissionDescription.svelte';
+export {
+  createPushPermissionPrompt, decidePushPrompt, isPushPromptSnoozed, pushGuide, PUSH_PROMPT_SNOOZE_MS,
+  type PushPermissionPrompt, type PushPermissionPromptOptions, type PushPromptLabels,
+  type PushPromptState, type PushPromptInput, type PushPromptDecision, type PushGuide,
+} from './push-permission';
+
 // Global confirm service (mount <ConfirmDialog/> once at app root, then call confirm.open()).
 export { ConfirmDialog as confirm } from './confirm.svelte';
 
