@@ -14,3 +14,7 @@ export { setModalRegistry, getModalRegistry, loadModal, open, closeInstance, clo
 export { default as ModalOutlet } from './ModalOutlet.svelte';
 export { default as ModalLayer } from './ModalLayer.svelte';
 export type { ModalEntry, ModalRegistry, OpenInstance } from './types';
+
+// Модалка статьи базы знаний (iframe на embed-роут apartx-help) — регистрируется хостом
+// под id 'article'; консьюмер отдаёт helpUrl, язык и подписи.
+export { default as ArticleModal } from './ArticleModal.svelte';

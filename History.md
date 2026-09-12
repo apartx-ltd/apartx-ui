@@ -2,6 +2,26 @@
 
 ## 2026-09-11
 
+### Версия 0.9.20
+
+### feat(modals, overlays): `ArticleModal` в ките; инструкция к пушам — статья базы знаний
+
+* `apartx-ui/modals` → `ArticleModal` — модалка статьи базы знаний (iframe на embed-роут
+  apartx-help с рукопожатием через `EmbedFrame`), перенесена из кабинета, чтобы её мог
+  регистрировать и spaces. Пропсы `articleId`, `helpUrl`, `lang`, `insetTop?`, `labels?`
+  (`title`/`loadFailed`/`retry`/`close`) и `close` из реестра модалок. Класс `article-iframe`
+  и testid `article-modal-*` сохранены — на них стоят e2e консьюмеров.
+* `createPushPermissionPrompt`: вместо гифки внутри тоста — статья базы знаний. Опция
+  `guide` заменена на `guideKey` (ключ из `Articles.errorKeys`), `pushGuide()` → `pushGuideKey()`
+  (`push.blocked.android_app | android_web | desktop | ios`). `PushPermissionDescription`
+  резолвит статью через хендлеры `<ToasterMount>` (`resolveErrorHelp`) и открывает её через
+  `onOpenArticle`, на время статьи уводя хост тостов под слой модалок — тем же путём, что
+  «Почему?» у тоста ошибки. Без хендлеров или статьи — только текст.
+* Почему: svelte-sonner меряет высоту тоста один раз при показе, раскрытая гифка вылезала
+  за рамку и накрывала переключатель. Гифки `/images/guides/*` у консьюмеров больше не нужны.
+
+## 2026-09-11
+
 ### Версия 0.9.19
 
 ### feat(overlays): тост «Разрешите уведомления» — `createPushPermissionPrompt`
