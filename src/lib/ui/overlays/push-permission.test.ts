@@ -10,7 +10,7 @@ import {
   createPushPermissionPrompt,
   decidePushPrompt,
   isPushPromptSnoozed,
-  pushGuide,
+  pushGuideKey,
 } from './push-permission';
 
 const toastMock = toast as unknown as ReturnType<typeof vi.fn> & { dismiss: ReturnType<typeof vi.fn> };
@@ -39,15 +39,15 @@ describe('decidePushPrompt', () => {
   });
 });
 
-describe('pushGuide', () => {
-  it('гифка под платформу, для iOS — нет', () => {
-    const src = (cordova: boolean, os: 'ios' | 'android' | 'other') => pushGuide({ cordova, os })?.src;
-    expect(src(true, 'android')).toBe('/images/guides/android_enable_native_notifications.gif');
-    expect(src(false, 'android')).toBe('/images/guides/android_enable_web_notifications.gif');
-    expect(src(false, 'other')).toBe('/images/guides/desktop_enable_web_notifications.gif');
-    expect(src(true, 'ios')).toBeUndefined();
-    expect(src(false, 'ios')).toBeUndefined();
-    expect(pushGuide({ os: 'other', baseUrl: '/g/' })?.src).toBe('/g/desktop_enable_web_notifications.gif');
+describe('pushGuideKey', () => {
+  it('ключ статьи под платформу, iOS — одна на приложение и Safari', () => {
+    const key = (cordova: boolean, os: 'ios' | 'android' | 'other') => pushGuideKey({ cordova, os });
+    expect(key(true, 'android')).toBe('push.blocked.android_app');
+    expect(key(false, 'android')).toBe('push.blocked.android_web');
+    expect(key(false, 'other')).toBe('push.blocked.desktop');
+    expect(key(true, 'ios')).toBe('push.blocked.ios');
+    expect(key(false, 'ios')).toBe('push.blocked.ios');
+    expect(key(true, 'other')).toBe('push.blocked.ios');
   });
 });
 
@@ -89,11 +89,10 @@ describe('createPushPermissionPrompt', () => {
     expect(subscribe).toHaveBeenCalledTimes(1);
   });
 
-  it('denied: инструкция в description, кнопка настроек — только если есть куда вести', async () => {
+  it('denied: ключ инструкции в description, кнопка настроек — только если есть куда вести', async () => {
     permission = 'denied';
-    const guide = { src: '/g.gif', ratio: 1 };
-    await make({ guide }).evaluate();
-    expect(lastOptions().componentProps.guide).toEqual(guide);
+    await make({ guideKey: 'push.blocked.desktop' }).evaluate();
+    expect(lastOptions().componentProps.guideKey).toBe('push.blocked.desktop');
     expect(lastOptions().action).toBeUndefined();
 
     toastMock.mockClear();

@@ -8,8 +8,8 @@ import PushPermissionDescription from './PushPermissionDescription.svelte';
  *
  * `default` → «Разрешить»: окно разрешения браузера открывается только из клика — Safari и
  * Firefox без жеста его не покажут, Chrome свернёт в значок. `denied` (и выключенные
- * уведомления в Cordova) → текст, гифка-инструкция под платформу и, если консьюмеру есть куда
- * вести, кнопка его страницы настроек: из JS блокировку уже не снять. Пока тост на экране,
+ * уведомления в Cordova) → текст, статья-инструкция под платформу (guideKey) и, если
+ * консьюмеру есть куда вести, кнопка его страницы настроек: из JS блокировку уже не снять. Пока тост на экране,
  * разрешение опрашивается: включили в настройках — подписываемся и убираем тост. Закрытие
  * крестиком/свайпом — снуз на неделю.
  *
@@ -47,31 +47,19 @@ export function decidePushPrompt(i: PushPromptInput): PushPromptDecision {
   return { show: true, state: i.permission === 'default' ? 'ask' : 'denied' };
 }
 
-export interface PushGuide {
-  src: string;
-  // Ширина / высота гифки — Image резервирует место под неё до загрузки.
-  ratio: number;
-}
-
-const GUIDES = {
-  androidNative: { file: 'android_enable_native_notifications.gif', ratio: 320 / 361 },
-  androidWeb: { file: 'android_enable_web_notifications.gif', ratio: 315 / 320 },
-  desktopWeb: { file: 'desktop_enable_web_notifications.gif', ratio: 320 / 271 },
-};
-
 /**
- * Гифка «как включить уведомления» под платформу. Сами гифки консьюмер кладёт у себя в
- * `public` под `baseUrl`. Для iOS гифки нет ни в приложении, ни в Safari — там `null`.
+ * Ключ статьи базы знаний «как включить уведомления» под платформу — по нему
+ * <PushPermissionDescription> резолвит статью через хендлеры <ToasterMount>
+ * (`resolveErrorHelp` ищет по `Articles.errorKeys`). Cordova и Safari на iOS — одна
+ * статья: обе про системные настройки.
  */
-export function pushGuide({
+export function pushGuideKey({
   cordova = false,
   os = detectMobileOS(),
-  baseUrl = '/images/guides/',
-}: { cordova?: boolean; os?: MobileOS; baseUrl?: string } = {}): PushGuide | null {
-  const pick = (g: { file: string; ratio: number }) => ({ src: baseUrl + g.file, ratio: g.ratio });
-  if (os === 'android') return pick(cordova ? GUIDES.androidNative : GUIDES.androidWeb);
-  if (cordova || os === 'ios') return null;
-  return pick(GUIDES.desktopWeb);
+}: { cordova?: boolean; os?: MobileOS } = {}): string {
+  if (os === 'android') return cordova ? 'push.blocked.android_app' : 'push.blocked.android_web';
+  if (cordova || os === 'ios') return 'push.blocked.ios';
+  return 'push.blocked.desktop';
 }
 
 export interface PushPromptLabels {
@@ -104,8 +92,8 @@ export interface PushPermissionPromptOptions {
   snoozeKey: string;
   /** Тексты — функцией, чтобы брались на языке момента показа. */
   labels?: () => Partial<PushPromptLabels>;
-  /** Инструкция для заблокированных уведомлений (см. pushGuide); null — без неё. */
-  guide?: PushGuide | null;
+  /** Ключ статьи-инструкции для заблокированных уведомлений (см. pushGuideKey); без него — только текст. */
+  guideKey?: string | null;
   /** Кнопка «Настройки уведомлений» в `denied`; без неё тост без действия. */
   onOpenSettings?: () => void;
   id?: string;
@@ -223,7 +211,7 @@ export function createPushPermissionPrompt(o: PushPermissionPromptOptions): Push
       id,
       duration: Number.POSITIVE_INFINITY,
       description: PushPermissionDescription,
-      componentProps: { text: l.deniedText, instructionsLabel: l.instructions, guide: o.guide ?? null },
+      componentProps: { text: l.deniedText, instructionsLabel: l.instructions, guideKey: o.guideKey ?? null },
       ...(onOpenSettings
         ? {
             action: {
