@@ -1,6 +1,6 @@
 {
   "name": "apartx-ui",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -94,6 +94,10 @@
     "./sync": {
       "svelte": "./src/lib/sync/index.ts",
       "types": "./src/lib/sync/index.ts"
+    },
+    "./utils": {
+      "types": "./src/lib/ui/utils/index.ts",
+      "default": "./src/lib/ui/utils/index.ts"
     },
     "./styles": "./src/lib/styles/index.css",
     "./styles/*": "./src/lib/styles/*"

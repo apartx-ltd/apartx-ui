@@ -82,6 +82,8 @@ const apartxUiAliases = [
       'carousel', 'lightbox', 'maps', 'chat', 'sync', 'styles'].map((m) => ({
     find: `apartx-ui/${m}`, replacement: ui(m),
   })),
+  // helpers without components (cn, copyText, detectMobileOS) live under src/lib/ui/utils
+  { find: 'apartx-ui/utils', replacement: ui('ui/utils') },
   // prefix alias covers both `apartx-ui/router` and `apartx-ui/router/sveltekit`
   { find: 'apartx-ui/router', replacement: ui('router') },
   // bare import — EXACT match so it can't swallow the subpaths above
