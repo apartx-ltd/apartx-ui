@@ -14,6 +14,9 @@ export { default as ErrorToastActions } from './ErrorToastActions.svelte';
 // Ошибка под формой с той же строкой действий, что у тоста; текст слотом, `error` — объект.
 export { default as InlineError } from './InlineError.svelte';
 export { setToasterHandlers, getToasterHandlers, type ToasterHandlers } from './toaster-context.svelte';
+// Слой хоста тостов: единственный `$state` на приложение — пакет поверх кита (apartx-shared)
+// ныряет тостер под модалки на время статьи через эти же функции, а не через копию.
+export { toastLayer, toasterZ, duckToasterUnderModals, restoreToaster } from './toaster-context.svelte';
 export {
   resolveErrorHelp, clearErrorHelpCache, buildErrorDetails, sanitizeDetails, errorHelpProps,
   type ErrorHelpArticle, type ErrorHelpResolver, type ErrorHelpProps,
@@ -33,4 +36,4 @@ export { ConfirmDialog as confirm } from './confirm.svelte';
 
 // Overlay stacking-layer context — hosts that stack overlays inject a z-band; nav-aware
 // components (portalled dropdowns living inside a Dialog) read it to sit above the dialog.
-export { getOverlayLayer, setOverlayLayer, type OverlayLayer } from './layer-context';
+export { getOverlayLayer, setOverlayLayer, provideOverlayZ, type OverlayLayer } from './layer-context';
