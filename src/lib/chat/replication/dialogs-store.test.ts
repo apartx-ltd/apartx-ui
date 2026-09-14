@@ -13,7 +13,7 @@ const mk = (id: string, kind: string, unread: number, offset = 0): StoredDialog 
 describe('createDialogsStore', () => {
   it('sums totalUnread and unreadByKind over the live feed and reacts to updates', async () => {
     const userId = 'user-dlg-1';
-    const db = getChatDb(userId);
+    const db = getChatDb(userId, 'test');
     await db.chatDialogs.bulkPut([
       mk('d1', 'booking', 2, 0),
       mk('d2', 'booking', 1, 1000),
@@ -36,6 +36,6 @@ describe('createDialogsStore', () => {
     expect(store.unreadByKind('booking')).toBe(1);
 
     store.dispose();
-    closeChatDb(userId);
+    closeChatDb(userId, 'test');
   });
 });

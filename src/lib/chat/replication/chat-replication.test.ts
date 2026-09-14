@@ -50,6 +50,7 @@ describe('createChatReplication', () => {
 
     const repl = createChatReplication({
       userId: 'user-repl-1',
+      appVariant: 'test',
       pullMessages,
       pullDialogs,
     });
@@ -74,7 +75,7 @@ describe('createChatReplication', () => {
     expect(meta?.checkpoint?.id).toBe('m4');
 
     repl.stop();
-    closeChatDb('user-repl-1');
+    closeChatDb('user-repl-1', 'test');
   });
 
   it('runs the dialogs pull independently', async () => {
@@ -93,13 +94,13 @@ describe('createChatReplication', () => {
       };
     };
 
-    const repl = createChatReplication({ userId: 'user-repl-2', pullMessages, pullDialogs });
+    const repl = createChatReplication({ userId: 'user-repl-2', appVariant: 'test', pullMessages, pullDialogs });
     const processed = await repl.dialogs.executePull(null);
     expect(processed).toBe(2);
     const dialogs = await repl.db.chatDialogs.toArray();
     expect(dialogs.map((d) => d._id).sort()).toEqual(['d1', 'd2']);
 
     repl.stop();
-    closeChatDb('user-repl-2');
+    closeChatDb('user-repl-2', 'test');
   });
 });

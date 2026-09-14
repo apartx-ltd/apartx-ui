@@ -26,14 +26,17 @@ export class ChatDatabase extends Dexie {
 }
 
 const DBS = new Map<string, ChatDatabase>();
-/** One IndexedDB per user, namespaced by app variant. */
-export function getChatDb(userId: string, appVariant = 'apartx'): ChatDatabase {
+/**
+ * One IndexedDB per user, namespaced by the host's app variant (white-label brand / app id) —
+ * the host always names it; the kit has no default brand.
+ */
+export function getChatDb(userId: string, appVariant: string): ChatDatabase {
   const key = `${appVariant}-${userId}-chat`;
   let db = DBS.get(key);
   if (!db) { db = new ChatDatabase(key); DBS.set(key, db); }
   return db;
 }
-export function closeChatDb(userId: string, appVariant = 'apartx'): void {
+export function closeChatDb(userId: string, appVariant: string): void {
   const key = `${appVariant}-${userId}-chat`;
   const db = DBS.get(key); if (db) { db.close(); DBS.delete(key); }
 }

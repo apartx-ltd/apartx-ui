@@ -43,6 +43,14 @@ not as a side effect of other work.
   diverges the shared API and risks behaviour changes across consumers.
 - **No app coupling.** Never import `meteor/*`, an i18n wrapper, or app routing
   into `src/lib`. `rg "meteor/|i18next|/imports/" src/lib` must stay empty.
+- **No product knowledge** (the 0.10.0 boundary, README § Scope). The kit ships
+  mechanisms — modal registry, link registry, toast host, chat engine — and the
+  host supplies meaning. Nothing in `src/lib` may know a help-article protocol, a
+  support channel, a booking/property, a push-permission policy or an app's
+  link types; those live in a product layer on top of the kit and reach the kit
+  through registries, snippets and slot context. Gate:
+  `rg -n "resolveErrorHelp|helpUrl|articleId|pushGuideKey|onContactSupport|chat\.booking|tenantUserId|landlordUserId" src/lib -g '!*.test.*'`
+  must print nothing (tests may use such words as sample data).
 - **SvelteKit carve-out for the router.** The kit stays framework-agnostic, but
   `apartx-ui/router/sveltekit` ships a `svelteKitHistoryAdapter` for SvelteKit hosts.
   `src/lib/router/sveltekit.ts` is the **only** *runtime* file allowed to import `$app/*`;

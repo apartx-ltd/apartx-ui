@@ -33,7 +33,7 @@ src/
 │   │   │                     #   Drawer, Tooltip, DropdownMenu, ToasterMount
 │   │   └── utils/            # cn, date
 │   ├── hooks/                # useMobile, useDebounce, useLocalStorage,
-│   │                         #   useDisclosure, useNotification, useSearchQuery
+│   │                         #   useDisclosure, useSearchQuery
 │   ├── theme/                # applyTheme, generateTokens (runtime palette)
 │   └── styles/               # tokens.css (@theme), typescale.css
 └── routes/                   # === demo playground (not published) ===
@@ -184,3 +184,14 @@ the consumer**: Meteor hooks (`useTracker`/`useMethod`/`useSubscription`), the
 i18n wrapper, app routing (`useRouter`, `match-route`), and brand assets. All
 user-facing text is passed in via props (English defaults), so the consumer
 owns translation.
+
+**Product knowledge stays out too** (since 0.10.0). The kit ships *mechanisms*
+and the host supplies *meaning*: the modal registry (`apartx-ui/modals`) does not
+know which modals exist; the link registry (`apartx-ui/links`) parses
+`#/<type>/<id>` but not what a type opens; `<ToasterMount>` mounts sonner and
+owns the z-band, but the error toast's action row, help articles, support
+hand-off and push-permission prompts belong to a product layer built on top of
+the kit; chat (`apartx-ui/chat`) is a generic engine — booking/role markers,
+avatars and per-app link types come in through snippets and the slot context.
+When a component needs a product concept (an article id, a support channel, a
+booking) to work, it is in the wrong package.

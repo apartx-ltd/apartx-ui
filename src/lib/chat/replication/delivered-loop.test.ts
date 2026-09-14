@@ -48,6 +48,7 @@ describe('dialogs checkpoint persistence (the loop hinge)', () => {
     const server = makeServer(5);
     const repl = createChatReplication({
       userId,
+      appVariant: 'test',
       pullMessages: async () => ({ documents: [], checkpoint: null, hasMore: false }),
       pullDialogs: server.pullDialogs,
     });
@@ -62,6 +63,6 @@ describe('dialogs checkpoint persistence (the loop hinge)', () => {
     expect(server.seenCheckpoints[1]).not.toBeNull();
 
     repl.stop();
-    closeChatDb(userId);
+    closeChatDb(userId, 'test');
   });
 });
