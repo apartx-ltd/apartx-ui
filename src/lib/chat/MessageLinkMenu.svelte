@@ -11,6 +11,7 @@
   import { copyText } from '../ui/utils/clipboard';
   import { chatT } from './i18n';
   import { getSlotContext } from './registry.svelte';
+  import { linkShareUrl } from '../links/registry';
   import {
     getLinkMenu, closeLinkMenu, openChatLink,
     getExternalConfirm, resolveExternalConfirm,
@@ -41,13 +42,12 @@
   }
 
   async function onCopy() {
-    const ctx = getSlotContext();
-    const url = (await ctx.resolveShareUrl?.(link)) ?? link?.href ?? '';
+    const url = link ? await linkShareUrl(link) : '';
     // Голый navigator.clipboard бросает вне secure context, и меню оставалось
     // открытым без «Скопировано» — см. ui/utils/clipboard.
     if (!(await copyText(url))) return;
     copied = true;
-    ctx.onLinkCopied?.(url);
+    getSlotContext().onLinkCopied?.(url);
     setTimeout(() => closeLinkMenu(), 600);
   }
 

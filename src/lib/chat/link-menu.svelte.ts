@@ -1,22 +1,14 @@
 // Chat link flow, module-level rune state (one menu / one confirm at a time app-wide).
-// Host interception contract (slot context, see design doc):
-//   onLinkOpen?(link)  — return true to claim the click entirely;
-//   resolveShareUrl?(link) — string | Promise<string> for "Copy link";
-//   onLinkCopied?(url) — optional feedback hook after a successful copy;
-//   linkBaseUrl?       — base for resolving relative hrefs (host origin);
-//   linkTypes?         — hash types the host handles (`#/<type>/…`); unset = any type;
-//   linkPaths?         — host path forms ({ pattern, type }), e.g. a legacy `/show/:id`.
+// Links are resolved through the app link registry (`apartx-ui/links`): the host
+// registers `{ open, shareUrl }` per `#/<type>` once, the chat only dispatches.
+// Slot context keeps a single chat-specific hook: `onLinkCopied?(url)` — feedback
+// after a successful "Copy link".
 // The external-open confirm is self-contained (rendered by MessageLinkMenu.svelte),
 // deliberately NOT the global overlays/confirm service — cabinet does not mount it.
-import { classifyChatLink, type ChatLink, type ChatLinkRules } from './message-links';
-import { getSlotContext } from './registry.svelte';
+import { parseLink, openLink, type AppLink } from '../links/registry';
 
-function linkRules(ctx: Record<string, any>): ChatLinkRules {
-  return { baseUrl: ctx.linkBaseUrl, types: ctx.linkTypes, paths: ctx.linkPaths };
-}
-
-let menu = $state<{ link: ChatLink; x: number; y: number } | null>(null);
-let externalConfirm = $state<{ link: ChatLink } | null>(null);
+let menu = $state<{ link: AppLink; x: number; y: number } | null>(null);
+let externalConfirm = $state<{ link: AppLink } | null>(null);
 let confirmResolver: ((ok: boolean) => void) | null = null;
 
 export function getLinkMenu() {
@@ -27,8 +19,7 @@ export function closeLinkMenu(): void {
 }
 
 export function openLinkMenu(href: string, x: number, y: number): void {
-  const ctx = getSlotContext();
-  menu = { link: classifyChatLink(href, linkRules(ctx)), x, y };
+  menu = { link: parseLink(href), x, y };
 }
 
 export function getExternalConfirm() {
@@ -36,10 +27,10 @@ export function getExternalConfirm() {
 }
 
 /**
- * Ask the user to confirm opening an external link. Exported for hosts that claim
- * 'external' in onLinkOpen (e.g. Cordova) but want the same kit dialog.
+ * Ask the user to confirm opening an external link. Exported for hosts that register
+ * an 'external' link handler (e.g. Cordova) but want the same kit dialog.
  */
-export function confirmExternalOpen(link: ChatLink): Promise<boolean> {
+export function confirmExternalOpen(link: AppLink): Promise<boolean> {
   externalConfirm = { link };
   return new Promise((resolve) => { confirmResolver = resolve; });
 }
@@ -51,10 +42,9 @@ export function resolveExternalConfirm(ok: boolean): void {
 }
 
 export async function openChatLink(href: string): Promise<void> {
-  const ctx = getSlotContext();
-  const link = classifyChatLink(href, linkRules(ctx));
-  if (ctx.onLinkOpen?.(link) === true) return;
-  if (link.type !== 'external') return; // internal types need a host handler
+  const link = parseLink(href);
+  if (openLink(link)) return;
+  if (link.type !== 'external') return; // app link without a host handler — nothing to open
   if (!(await confirmExternalOpen(link))) return;
   window.open(link.href, '_blank');
 }

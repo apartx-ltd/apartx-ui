@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { setSlotContext } from './registry.svelte';
+import { setLinkRegistry } from '../links/registry';
 import {
   openChatLink, openLinkMenu, closeLinkMenu, getLinkMenu,
   confirmExternalOpen, resolveExternalConfirm, getExternalConfirm,
@@ -12,18 +13,20 @@ describe('openChatLink', () => {
     opened = [];
     vi.stubGlobal('open', (url: string) => { opened.push(url); return null; });
   });
-  afterEach(() => { vi.unstubAllGlobals(); setSlotContext(() => ({})); });
+  afterEach(() => {
+    vi.unstubAllGlobals(); setSlotContext(() => ({})); setLinkRegistry({});
+    resolveExternalConfirm(false); // no pending confirm may leak into the next test
+  });
 
-  it('host onLinkOpen returning true claims the click, kit does nothing', async () => {
-    const onLinkOpen = vi.fn(() => true);
-    setSlotContext(() => ({ onLinkOpen }));
+  it('registered type → host handler, kit does nothing', async () => {
+    const open = vi.fn();
+    setLinkRegistry({ article: { open } });
     await openChatLink('#/article/a1');
-    expect(onLinkOpen).toHaveBeenCalledWith(expect.objectContaining({ type: 'article', entityId: 'a1' }));
+    expect(open).toHaveBeenCalledWith(expect.objectContaining({ type: 'article', entityId: 'a1' }));
     expect(opened).toEqual([]);
   });
 
   it('external without handler → confirm gate, open only on yes', async () => {
-    setSlotContext(() => ({}));
     const p = openChatLink('https://example.com/x');
     expect(getExternalConfirm()?.link.href).toBe('https://example.com/x');
     resolveExternalConfirm(true);
@@ -32,37 +35,30 @@ describe('openChatLink', () => {
   });
 
   it('external confirm declined → no open', async () => {
-    setSlotContext(() => ({}));
     const p = openChatLink('https://example.com/x');
     resolveExternalConfirm(false);
     await p;
     expect(opened).toEqual([]);
   });
 
-  it('internal type without handler is a no-op (raw #/ href is not openable)', async () => {
-    setSlotContext(() => ({}));
-    await openChatLink('#/booking/b1');
+  it('external claimed by a host handler skips the kit confirm', async () => {
+    const open = vi.fn();
+    setLinkRegistry({ external: { open } });
+    await openChatLink('https://example.com/x');
+    expect(open).toHaveBeenCalledWith(expect.objectContaining({ type: 'external' }));
+    expect(getExternalConfirm()).toBeNull();
     expect(opened).toEqual([]);
   });
 
-  it('host linkTypes / linkPaths shape what the handler sees', async () => {
-    const onLinkOpen = vi.fn(() => true);
-    setSlotContext(() => ({
-      onLinkOpen,
-      linkBaseUrl: 'https://cabinet.example',
-      linkTypes: ['article'],
-      linkPaths: [{ pattern: /^\/show\/([a-zA-Z0-9]+)$/, type: 'property' }],
-    }));
+  it('app link without handler is a no-op (raw #/ href is not openable)', async () => {
     await openChatLink('#/booking/b1');
-    expect(onLinkOpen).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'external' }));
-    await openChatLink('https://cabinet.example/show/p1');
-    expect(onLinkOpen).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'property', entityId: 'p1' }));
+    expect(getExternalConfirm()).toBeNull();
+    expect(opened).toEqual([]);
   });
 });
 
 describe('link menu state', () => {
-  it('open/close round-trip with classified link and coordinates', () => {
-    setSlotContext(() => ({}));
+  it('open/close round-trip with parsed link and coordinates', () => {
     openLinkMenu('#/article/a1', 10, 20);
     expect(getLinkMenu()).toMatchObject({ x: 10, y: 20, link: { type: 'article' } });
     closeLinkMenu();

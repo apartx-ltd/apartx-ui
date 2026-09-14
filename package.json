@@ -39,6 +39,10 @@
       "svelte": "./src/lib/modals/index.ts",
       "types": "./src/lib/modals/index.ts"
     },
+    "./links": {
+      "svelte": "./src/lib/links/index.ts",
+      "types": "./src/lib/links/index.ts"
+    },
     "./navigation": {
       "svelte": "./src/lib/navigation/index.ts",
       "types": "./src/lib/navigation/index.ts"

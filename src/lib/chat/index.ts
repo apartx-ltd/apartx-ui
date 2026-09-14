@@ -8,7 +8,6 @@ export * from './register-defaults';
 export * from './media-slots';
 export * from './i18n';
 export * from './helpers';
-export * from './message-links';
 export * from './markdown';
 export {
   openChatLink, openLinkMenu, closeLinkMenu, confirmExternalOpen,
