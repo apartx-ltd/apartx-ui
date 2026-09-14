@@ -1,18 +1,14 @@
 <script lang="ts">
-  import { useMobile, useDebounce, useDisclosure, useNotification } from '$lib/hooks';
+  import { useMobile, useDebounce, useDisclosure } from '$lib/hooks';
   import { TextField } from '$lib/ui/forms';
   import { Button } from '$lib/ui/display';
-  import { ToasterMount } from '$lib/ui/overlays';
 
   const mobile = useMobile();
   const disclosure = useDisclosure();
-  const notify = useNotification();
 
   let raw = $state('');
   const debounced = useDebounce(() => raw, 400);
 </script>
-
-<ToasterMount />
 
 <h1 class="text-headline-md mb-6">Hooks</h1>
 
@@ -35,9 +31,4 @@
   <h2 class="text-title-md mb-3">useDisclosure</h2>
   <Button onclick={disclosure.toggle}>Toggle</Button>
   <p class="text-body-md text-on-surface-variant mt-2">open = <code>{disclosure.isOpen}</code></p>
-</section>
-
-<section class="mb-8">
-  <h2 class="text-title-md mb-3">useNotification</h2>
-  <Button onclick={() => notify.showNotification('Saved!', { variant: 'success' })}>Show toast</Button>
 </section>

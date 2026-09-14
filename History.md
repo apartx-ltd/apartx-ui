@@ -2,6 +2,57 @@
 
 ## 2026-09-14
 
+### Версия 0.10.0
+
+### BREAKING: кит — чистый дизайн-система; продуктовый код уехал в слой поверх кита
+
+Граница (README § Scope, CLAUDE.md «No product knowledge»): кит отдаёт механизмы, хост —
+смысл. Всё, что знало про статьи базы знаний, саппорт, пуши и брони, удалено из `src/lib`;
+для консьюмеров ApartX это живёт в приватном пакете `apartx-shared` (сабпути `notify`,
+`push`, `help`), который ставится поверх кита тем же симлинком.
+
+**Удалено (символ → куда уехал):**
+
+* `apartx-ui/overlays`: `ErrorToastActions`, `InlineError`, `setToasterHandlers`,
+  `getToasterHandlers`, `ToasterHandlers`, `resolveErrorHelp`, `clearErrorHelpCache`,
+  `buildErrorDetails`, `sanitizeDetails`, `errorHelpProps`, типы `ErrorHelp*` →
+  `apartx-shared/notify`. `ErrorHelpActions.svelte` — туда же.
+* `apartx-ui/overlays`: `PushPermissionDescription`, `createPushPermissionPrompt`,
+  `decidePushPrompt`, `isPushPromptSnoozed`, `pushGuideKey`, `PUSH_PROMPT_SNOOZE_MS`, типы
+  `PushPrompt*` → `apartx-shared/push`.
+* `apartx-ui/hooks`: `useNotification` → `apartx-shared/notify`.
+* `apartx-ui/modals`: `ArticleModal` → `apartx-shared/help`.
+* `<ToasterMount>` больше не принимает `resolveErrorHelp` / `onOpenArticle` /
+  `onContactSupport` / `detailsContext` / `labels` — только пропы sonner. Хост оборачивает
+  его своим компонентом с хендлерами (`AppToasterMount` в `apartx-shared/notify`).
+  `toastLayer` / `toasterZ` / `duckToasterUnderModals` / `restoreToaster` остались.
+
+**Чат без продуктовых дефолтов** (`apartx-ui/chat`):
+
+* `ChatListItem`: новые сниппеты `avatar({ dialog, profile, displayName })` и
+  `markers({ dialog, profile, chat })`. Дефолт — аватар профиля без маркеров. Из кита сняты
+  фото брони с наложенным профилем (`booking-image-fallback`), иконки роли
+  (`isSystemUser` / `tenantUserId` / `landlordUserId`), иконки брони (`cleaning` /
+  `booking`) и `debugUserPhone` — хост рисует их сниппетами.
+* `getChatDb(userId, appVariant)`, `closeChatDb(userId, appVariant)` и
+  `ChatReplicationDeps.appVariant` — вариант приложения обязателен, дефолта `'apartx'` нет.
+* Ссылки в сообщениях: сняты `classifyChatLink`, тип `ChatLink` и слот-хуки `onLinkOpen`,
+  `resolveShareUrl`, `linkBaseUrl`. Вместо них — реестр ссылок (ниже). В слот-контексте
+  остался только `onLinkCopied(url)`.
+
+**Новое: реестр ссылок `apartx-ui/links`** (по образцу реестра модалок):
+
+* Одна форма адреса на весь продукт — `#/<type>` или `#/<type>/<rest>` (её пишут сервер,
+  ИИ, пуши, статьи). Кит разбирает форму, хост один раз объявляет, что она значит:
+  `setLinkRegistry({ booking: { open(link), shareUrl?(link) }, article: {…}, … })` рядом
+  с `setModalRegistry`. `parseLink(href)` → `{ type, entityId, href }` (любой тип, id
+  необязателен; всё остальное — `external`), `openLink(href | link)` — синхронный claim
+  (`true`, если хендлер есть; его промис не ждётся), `linkShareUrl(href | link)`.
+* Хост может зарегистрировать и `external` (Cordova → InAppBrowser; китовый confirm
+  доступен как `confirmExternalOpen` из `apartx-ui/chat`). Без хендлера внешняя ссылка
+  открывается через confirm кита, ссылка приложения без хендлера — no-op.
+* Тип `AppLink` экспортируется оттуда же.
+
 ### Версия 0.9.23
 
 ### feat(display): `AccordionItem` — слоты заголовка и состояние `error`

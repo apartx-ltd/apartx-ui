@@ -7,7 +7,7 @@
     { href: '/data', label: 'Data', desc: 'List, Item, ListHeader, DataTable, Pagination' },
     { href: '/forms', label: 'Forms', desc: 'TextField, Select, Checkbox, Switch, FormField, DatePicker, createForm' },
     { href: '/overlays', label: 'Overlays', desc: 'Dialog, ConfirmDialog, Drawer, Tooltip, DropdownMenu, ToasterMount + confirm service' },
-    { href: '/hooks', label: 'Hooks', desc: 'useMobile, useDebounce, useLocalStorage, useDisclosure, useNotification, useSearchQuery' },
+    { href: '/hooks', label: 'Hooks', desc: 'useMobile, useDebounce, useLocalStorage, useDisclosure, useSearchQuery' },
   ];
 </script>
 

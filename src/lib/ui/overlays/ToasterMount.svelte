@@ -2,7 +2,7 @@
   import type { ComponentProps } from 'svelte';
   import { Toaster } from 'svelte-sonner';
   import { cn } from '../utils/cn';
-  import { setToasterHandlers, toastLayer, type ToasterHandlers } from './toaster-context.svelte';
+  import { toastLayer } from './toaster-context.svelte';
 
   // Хост тостов: svelte-sonner сам ничего не монтирует, `toast.*` без него уходит
   // в никуда. Пропы прокидываются в <Toaster> как есть.
@@ -12,28 +12,19 @@
   // не подходит — в кабинете там кнопки действий Toolbar, и тост перехватывает по
   // ним клики (на этом падал e2e locks-gateways), поэтому позиция и отступы
   // задаются вызывающей стороной.
-  // Хендлеры действий тоста ошибки вынимаются из rest ДО спреда — иначе улетели бы
-  // в <Toaster> DOM-атрибутами. Дальше — контекстом вниз до <ErrorToastActions>
-  // (спека docs/plans/2026-09-01-error-toast-actions в оркестраторе).
+  // Кит не знает, что рисуется внутри тоста: строка действий ошибки, подсказки и т.п. —
+  // это слой хоста поверх кита (он оборачивает <ToasterMount> и кладёт свои хендлеры
+  // контекстом). Здесь только sonner и z-полоса (см. toaster-context).
   let {
     richColors = true,
     position = 'top-right',
-    // Тост ошибки висит до закрытия (см. useNotification) — крестик обязателен: свайп
-    // на десктопе не найти, а без него ошибку нечем убрать.
+    // Тост ошибки у хостов висит до закрытия — крестик обязателен: свайп на десктопе
+    // не найти, а без него ошибку нечем убрать.
     closeButton = true,
     class: className = undefined,
     style: styleProp = undefined,
-    resolveErrorHelp = undefined,
-    onOpenArticle = undefined,
-    onContactSupport = undefined,
-    detailsContext = undefined,
-    labels = undefined,
     ...rest
-  }: ComponentProps<typeof Toaster> & ToasterHandlers = $props();
-
-  setToasterHandlers(() => ({
-    resolveErrorHelp, onOpenArticle, onContactSupport, detailsContext, labels,
-  }));
+  }: ComponentProps<typeof Toaster> = $props();
 
   // z-index — инлайном и только когда хост «нырнул» под модалки (см. toaster-context):
   // у sonner он прописан в его же `:global([data-sonner-toaster])` как 999999999, и класс
