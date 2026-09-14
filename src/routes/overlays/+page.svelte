@@ -19,6 +19,11 @@
   // and closed the modal. The dialog must stay open and the value must apply.
   let selectDialogOpen = $state(false);
   let selectValue = $state('');
+
+  // Полноэкранный Dialog со встроенной шапкой (title) и footer-сниппетом: e2e задаёт
+  // --safe-area-inset-top/bottom, как это делает кордова, и проверяет, что заголовок
+  // не уезжает под статус-бар, а футер — под home indicator.
+  let fullScreenOpen = $state(false);
   const selectOptions = Array.from({ length: 14 }, (_, i) => ({
     value: `opt-${i + 1}`,
     label: `Option ${i + 1}`,
@@ -42,6 +47,7 @@
 <div class="flex flex-wrap gap-3">
   <Button data-testid="open-dialog" onclick={() => (dialogOpen = true)}>Open Dialog</Button>
   <Button data-testid="open-select-dialog" variant="tonal" onclick={() => (selectDialogOpen = true)}>Dialog with Select</Button>
+  <Button data-testid="open-fullscreen-dialog" variant="tonal" onclick={() => (fullScreenOpen = true)}>Full-screen Dialog</Button>
   <Button variant="tonal" onclick={() => (drawerOpen = true)}>Open Drawer</Button>
   <Button variant="outlined" onclick={askConfirm}>Confirm…</Button>
   <Button variant="outlined" color="error" onclick={() => (alertOpen = true)}>Alert dialog…</Button>
@@ -81,6 +87,15 @@
   {/snippet}
   <p data-testid="dialog-body" class="px-6 py-2 text-body-lg text-on-surface-variant">Dialog body content.</p>
   <p class="px-6 text-body-sm text-on-surface-variant">action clicks: <code data-testid="dialog-action-clicks">{actionClicks}</code></p>
+</Dialog>
+
+<Dialog bind:open={fullScreenOpen} fullScreen title="Full-screen dialog">
+  <p data-testid="fullscreen-dialog-body" class="text-body-lg text-on-surface-variant">Full-screen body.</p>
+  {#snippet footer()}
+    <div data-testid="fullscreen-dialog-footer" class="border-outline-variant border-t p-4">
+      <Button class="w-full" onclick={() => (fullScreenOpen = false)}>Done</Button>
+    </div>
+  {/snippet}
 </Dialog>
 
 <Dialog bind:open={selectDialogOpen} title="Select in dialog">

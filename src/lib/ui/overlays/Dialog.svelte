@@ -129,7 +129,12 @@
   {#if header}
     {@render header()}
   {:else if title || showCloseButton || actions}
-    <div class="flex items-center justify-between gap-2 px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
+    <!-- Встроенная шапка сама отступает на --safe-area-inset-top: полноэкранный Dialog
+         иначе кладёт заголовок под статус-бар (кастомный header отступает через Toolbar/
+         Header). Центрированный Dialog гасит переменную — отступ прежний. -->
+    <div
+      class="flex items-center justify-between gap-2 px-4 pt-[calc(1rem_+_var(--safe-area-inset-top,0px))] pb-2 sm:px-6 sm:pt-[calc(1.5rem_+_var(--safe-area-inset-top,0px))]"
+    >
       {#if title}
         <BitsDialog.Title class="text-headline-sm text-on-surface m-0 min-w-0">
           {title}
@@ -202,8 +207,11 @@
               {...props}
               class={cn(
                 'pointer-events-auto flex flex-col bg-surface shadow-level-3 outline-none',
+                // Низ полноэкранной панели отступает на home indicator целиком — футеры
+                // консьюмеров обычные div'ы и сами инсет не резервируют. Детям переменная
+                // обнуляется, чтобы вложенный <Footer> кита не удвоил отступ.
                 fullScreen
-                  ? 'absolute inset-0 rounded-none dlg-in-sheet'
+                  ? 'absolute inset-0 rounded-none dlg-in-sheet pb-[var(--safe-area-inset-bottom,0px)] [&>*]:[--safe-area-inset-bottom:0px]'
                   : 'max-w-lg w-full max-h-[85vh] rounded-xl overflow-hidden dlg-in-pop',
                 className,
                 contentClass,

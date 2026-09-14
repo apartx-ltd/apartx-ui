@@ -79,6 +79,48 @@ test.describe('Dialog close paths', () => {
   });
 });
 
+// Кордова-хост кладёт высоту статус-бара и home indicator в --safe-area-inset-top/bottom
+// на <html>. Встроенная шапка (title) и футер полноэкранного Dialog'а должны отступать на
+// них сами — иначе заголовок уезжает под статус-бар. Центрированный Dialog эти переменные
+// гасит: отступы у него прежние.
+test.describe('Dialog safe-area insets', () => {
+  const TOP = 40;
+  const BOTTOM = 30;
+
+  test.beforeEach(async ({ page }) => {
+    await page.evaluate(
+      ([top, bottom]) => {
+        document.documentElement.style.setProperty('--safe-area-inset-top', `${top}px`);
+        document.documentElement.style.setProperty('--safe-area-inset-bottom', `${bottom}px`);
+      },
+      [TOP, BOTTOM],
+    );
+  });
+
+  test('full-screen: title clears the status bar, footer clears the home indicator', async ({ page }) => {
+    await openOverlay(page, 'open-fullscreen-dialog', 'fullscreen-dialog-body');
+    // Шит въезжает снизу keyframe-анимацией: до её конца координаты врут в плюс и
+    // проверка заголовка прошла бы и без отступа.
+    await page.getByRole('dialog').evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+
+    // pt-4 шапки + инсет: заголовок ниже статус-бара хотя бы на собственный отступ.
+    const title = await page.getByRole('heading', { name: 'Full-screen dialog' }).boundingBox();
+    expect(title!.y).toBeGreaterThanOrEqual(TOP + 16);
+
+    const footer = await page.getByTestId('fullscreen-dialog-footer').boundingBox();
+    const viewport = page.viewportSize()!;
+    expect(footer!.y + footer!.height).toBeLessThanOrEqual(viewport.height - BOTTOM);
+  });
+
+  test('centered: insets do not shift the header', async ({ page }) => {
+    await openOverlay(page, 'open-dialog', 'dialog-body');
+
+    const title = await page.getByRole('heading', { name: 'Example dialog' }).boundingBox();
+    const panel = await page.getByRole('dialog').boundingBox();
+    expect(title!.y - panel!.y).toBeLessThan(TOP);
+  });
+});
+
 test.describe('Select inside Dialog', () => {
   test('picking a bottom option keeps the Dialog open and applies the value', async ({ page }) => {
     const body = await openOverlay(page, 'open-select-dialog', 'select-dialog-body');
