@@ -62,15 +62,24 @@ describe('ChatDatabase', () => {
   });
 
   it('getChatDb returns a stable per-key instance and closeChatDb drops it', () => {
-    const a = getChatDb('u1');
-    const b = getChatDb('u1');
+    const a = getChatDb('u1', 'test');
+    const b = getChatDb('u1', 'test');
     expect(a).toBe(b);
-    const other = getChatDb('u2');
+    const other = getChatDb('u2', 'test');
     expect(other).not.toBe(a);
-    closeChatDb('u1');
-    const c = getChatDb('u1');
+    closeChatDb('u1', 'test');
+    const c = getChatDb('u1', 'test');
     expect(c).not.toBe(a);
-    closeChatDb('u1');
-    closeChatDb('u2');
+    closeChatDb('u1', 'test');
+    closeChatDb('u2', 'test');
+  });
+
+  it('the app variant is part of the key — brands never share a user DB', () => {
+    const a = getChatDb('u1', 'brand-a');
+    const b = getChatDb('u1', 'brand-b');
+    expect(b).not.toBe(a);
+    expect(a.name).toBe('brand-a-u1-chat');
+    closeChatDb('u1', 'brand-a');
+    closeChatDb('u1', 'brand-b');
   });
 });

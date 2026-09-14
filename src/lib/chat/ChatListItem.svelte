@@ -1,15 +1,18 @@
 <script lang="ts">
-  // Shared chat-list row: avatar (booking image with profile overlay, or plain profile avatar),
-  // name + role/booking marker icons, last-message preview (group sender line + preview + optional
-  // warning), and the right rail (4-state delivery tick, time, unread chip, messenger source icon).
+  // Shared chat-list row: avatar, name + marker icons, last-message preview (group sender line +
+  // preview + optional warning), and the right rail (4-state delivery tick, time, unread chip,
+  // messenger source icon).
   //
   // Kit-agnostic: all user-facing TEXT is precomputed by the host and passed as props (displayName,
   // senderLabel, previewText, timeLabel, warningText, missingText) so the kit stays i18n-free. The
   // host also owns dialog fetching; this component only renders + emits click/context/remove.
+  // Product knowledge is the host's too: the default avatar is the counterpart's profile picture
+  // and there are no markers — a host that wants a booking photo with the profile overlaid, or
+  // role/booking icons next to the name, passes the `avatar` / `markers` snippets.
+  import type { Snippet } from 'svelte';
   import { Avatar, Badge, Icon } from '../ui/display';
   import {
-    faTrash, faKey, faHotel, faHouse, faUser, faBroom, faCalendarDays,
-    faExclamationTriangle, faCheckDouble, faCheck, faClock,
+    faTrash, faExclamationTriangle, faCheckDouble, faCheck, faClock,
   } from '@fortawesome/free-solid-svg-icons';
   import { longpress } from '../hooks/useLongPress.svelte';
   import MessengerIcon from './slots/MessengerIcon.svelte';
@@ -26,6 +29,8 @@
     warningText = '',
     missingText = 'Chat does not exist',
     divider = true,
+    avatar,
+    markers,
     onClick,
     onContextTrigger,
     onRemove,
@@ -40,6 +45,10 @@
     warningText?: string;
     missingText?: string;
     divider?: boolean;
+    /** Replaces the default profile avatar (a 48px circle); receives the dialog and its profile. */
+    avatar?: Snippet<[{ dialog: any; profile: any; displayName: string }]>;
+    /** Icons rendered right after the name (role, booking kind, …); nothing by default. */
+    markers?: Snippet<[{ dialog: any; profile: any; chat: any }]>;
     onClick?: (d: any) => void;
     onContextTrigger?: (d: any, clientX: number, clientY: number) => void;
     onRemove?: (d: any) => void;
@@ -48,12 +57,6 @@
   const profile = $derived(dialog?.profile ?? {});
   const chat = $derived(dialog?.chat);
   const lastMessage = $derived(chat?.lastMessage);
-
-  // Booking rows: property photo, or an icon tile when the property has none (the snapshot
-  // carries an empty images list) or the photo fails to load (stale/broken URL) — tracked per
-  // URL so a later snapshot update with a fresh photo retries the <img>.
-  const bookingImage = $derived(chat?.booking?.property?.images?.[0]);
-  let failedBookingImage = $state(null);
 
   // 4-state tick for MY last message (same model as the open chat's MessageTimeDefault):
   // pending → clock, sent → single grey, delivered → double grey, read → double blue, failed →
@@ -84,31 +87,10 @@
         ? 'bg-secondary-container'
         : 'bg-surface'}"
     >
-      <!-- avatar: booking image with a small profile overlay, or a plain profile avatar -->
+      <!-- avatar: host snippet, or the counterpart's profile avatar -->
       <div class="flex flex-shrink-0 items-center">
-        {#if chat.booking}
-          <div class="relative h-[50px] w-[50px]">
-            {#if bookingImage && failedBookingImage !== bookingImage}
-              <img
-                src={bookingImage}
-                alt={displayName}
-                class="h-[50px] w-[50px] rounded-lg object-cover"
-                onerror={() => { failedBookingImage = bookingImage; }}
-              />
-            {:else}
-              <div
-                data-testid="booking-image-fallback"
-                class="flex h-[50px] w-[50px] items-center justify-center rounded-lg bg-primary-container text-on-primary-container"
-              >
-                <Icon icon={faHouse} size="lg" />
-              </div>
-            {/if}
-            <!-- flex: a plain div wraps the inline-flex avatar in a line box whose strut leaves a
-                 ~7px baseline gap under the circle — the avatar must sit flush with the photo edge -->
-            <div class="absolute bottom-0 right-0 flex">
-              <Avatar src={profile.avatarUrl} fallback={profile.initials} alt={displayName} size="sm" />
-            </div>
-          </div>
+        {#if avatar}
+          {@render avatar({ dialog, profile, displayName })}
         {:else}
           <Avatar src={profile.avatarUrl} fallback={profile.initials} alt={displayName} size="lg" class="size-12" />
         {/if}
@@ -118,23 +100,7 @@
       <div class="min-w-0 flex-grow">
         <div class="flex items-center gap-1 truncate leading-tight">
           <span class="truncate">{displayName}</span>
-          {#if profile.isSystemUser}
-            <Icon icon={faKey} size="xs" class="text-primary" />
-          {:else if chat.tenantUserId === meUserId && chat.landlordUserId}
-            <Icon icon={faHotel} class="text-primary" />
-          {:else if chat.tenantUserId}
-            <Icon icon={faUser} class={chat.landlordUserId !== meUserId ? 'text-warning' : 'text-primary'} />
-          {/if}
-          {#if chat.booking}
-            {#if chat.booking.type === 'cleaning'}
-              <Icon icon={faBroom} class="text-warning" />
-            {:else}
-              <Icon icon={faCalendarDays} class="text-warning" />
-            {/if}
-          {/if}
-          {#if profile.debugUserPhone}
-            <span class="text-body-sm text-on-surface-variant">[{profile.debugUserPhone} {profile._id}]</span>
-          {/if}
+          {@render markers?.({ dialog, profile, chat })}
         </div>
         <div class="flex flex-col text-body-sm leading-tight text-on-surface-variant">
           {#if chat.type === 'group' && senderLabel}

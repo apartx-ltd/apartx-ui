@@ -5,7 +5,8 @@ import { createDeliveredAcker } from './delivered-acker';
 
 export interface ChatReplicationDeps {
   userId: string;
-  appVariant?: string;
+  /** Host app variant (brand / app id) — namespaces the per-user IndexedDB, see `getChatDb`. */
+  appVariant: string;
   pullMessages: PullHandler<StoredMessage>;
   pullDialogs: PullHandler<StoredDialog>;
   wireLive?: (h: { onMessage: (chatId: string) => void; onDialogs: () => void }) => () => void;

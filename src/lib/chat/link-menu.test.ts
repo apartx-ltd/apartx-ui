@@ -44,6 +44,20 @@ describe('openChatLink', () => {
     await openChatLink('#/booking/b1');
     expect(opened).toEqual([]);
   });
+
+  it('host linkTypes / linkPaths shape what the handler sees', async () => {
+    const onLinkOpen = vi.fn(() => true);
+    setSlotContext(() => ({
+      onLinkOpen,
+      linkBaseUrl: 'https://cabinet.example',
+      linkTypes: ['article'],
+      linkPaths: [{ pattern: /^\/show\/([a-zA-Z0-9]+)$/, type: 'property' }],
+    }));
+    await openChatLink('#/booking/b1');
+    expect(onLinkOpen).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'external' }));
+    await openChatLink('https://cabinet.example/show/p1');
+    expect(onLinkOpen).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'property', entityId: 'p1' }));
+  });
 });
 
 describe('link menu state', () => {
