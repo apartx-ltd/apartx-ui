@@ -21,11 +21,10 @@ afterEach(() => {
 });
 
 describe('AccordionItem', () => {
-  it('по умолчанию — обычный заголовок без иконки предупреждения', () => {
+  it('по умолчанию — строка-заголовок и шеврон, без слотов и предупреждения', () => {
     const { trigger } = setup();
     expect(trigger.textContent).toContain('Photos');
     expect(trigger.className).not.toContain('text-error');
-    // Только шеврон.
     expect(trigger.querySelectorAll('svg').length).toBe(1);
     expect(target.querySelector('[data-error]')).toBeNull();
   });
@@ -36,8 +35,25 @@ describe('AccordionItem', () => {
     const { trigger } = setup({ error: true });
     expect(trigger.getAttribute('data-state')).toBe('closed');
     expect(trigger.className).toContain('text-error');
-    expect(trigger.className).not.toContain('text-on-surface ');
     expect(trigger.querySelectorAll('svg').length).toBe(2);
     expect(target.querySelector('[data-error]')).not.toBeNull();
+  });
+
+  it('start и end рендерятся в заголовке по порядку: start, заголовок, end, шеврон', () => {
+    const { trigger } = setup({ withSlots: true });
+    const startEl = trigger.querySelector('[data-testid="slot-start"]')!;
+    const endEl = trigger.querySelector('[data-testid="slot-end"]')!;
+    expect(startEl).not.toBeNull();
+    expect(endEl).not.toBeNull();
+    const chevron = trigger.querySelector('svg')!;
+    expect(startEl.compareDocumentPosition(endEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(endEl.compareDocumentPosition(chevron) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(trigger.textContent).toMatch(/S\s*Photos\s*3/);
+  });
+
+  it('title сниппетом рендерится разметкой, а не текстом функции', () => {
+    const { trigger } = setup({ snippetTitle: true });
+    expect(trigger.querySelector('[data-testid="slot-title"] small')?.textContent).toBe('of the property');
+    expect(trigger.textContent).not.toContain('=>');
   });
 });

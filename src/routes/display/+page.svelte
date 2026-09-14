@@ -122,6 +122,10 @@
     <AccordionItem value="one" title="Section one">Content for section one.</AccordionItem>
     <AccordionItem value="two" title="Section two">Content for section two.</AccordionItem>
     <AccordionItem value="three" title="Needs attention" error>Unfilled section — highlighted while collapsed.</AccordionItem>
+    <AccordionItem value="four" title="Photos">
+      {#snippet end()}<Badge>2 / 3</Badge>{/snippet}
+      Trailing slot before the chevron: counts, badges, statuses.
+    </AccordionItem>
   </Accordion>
 </section>
 
