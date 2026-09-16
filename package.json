@@ -1,6 +1,6 @@
 {
   "name": "apartx-ui",
-  "version": "0.10.2",
+  "version": "0.11.0",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -79,6 +79,10 @@
       "svelte": "./src/lib/carousel/index.ts",
       "types": "./src/lib/carousel/index.ts"
     },
+    "./scanner": {
+      "svelte": "./src/lib/scanner/index.ts",
+      "types": "./src/lib/scanner/index.ts"
+    },
     "./lightbox": {
       "svelte": "./src/lib/lightbox/index.ts",
       "types": "./src/lib/lightbox/index.ts"
@@ -118,12 +122,16 @@
   "peerDependencies": {
     "bits-ui": "^2.18.0",
     "cupertino-pane": "^1.5.0",
+    "jsqr": "^1.4.0",
     "media-chrome": "^4.0.0",
     "svelte": "^5.0.0",
     "svelte-fa": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "cupertino-pane": {
+      "optional": true
+    },
+    "jsqr": {
       "optional": true
     }
   },
@@ -170,14 +178,17 @@
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@tailwindcss/vite": "^4.2.4",
     "@types/markdown-it": "^14.2.0",
+    "@types/qrcode": "^1.5.6",
     "@yandex/ymaps3-types": "^1.0.19724900",
     "bits-ui": "^2.18.0",
     "cupertino-pane": "^1.5.0",
     "fake-indexeddb": "^6",
     "jsdom": "^29.1.1",
+    "jsqr": "^1.4.0",
     "lightningcss": "1.32.0",
     "media-chrome": "^4.19.2",
     "phone": "^3.1.72",
+    "qrcode": "^1.5.4",
     "svelte": "^5.55.5",
     "svelte-check": "^4.4.6",
     "svelte-fa": "^4.0.4",

@@ -34,6 +34,8 @@ src/
 │   │   └── utils/            # cn, date
 │   ├── hooks/                # useMobile, useDebounce, useLocalStorage,
 │   │                         #   useDisclosure, useSearchQuery
+│   ├── scanner/              # QrScanner — камера + видоискатель, onScan(text), paused;
+│   │                         #   subpath apartx-ui/scanner, jsqr — optional peer
 │   ├── theme/                # applyTheme, generateTokens (runtime palette)
 │   └── styles/               # tokens.css (@theme), typescale.css
 └── routes/                   # === demo playground (not published) ===
