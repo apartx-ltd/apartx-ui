@@ -12,20 +12,20 @@
    * камерой иначе стреляла бы пять раз в секунду.
    *
    * @example
-   * <QrScanner onscan={(text) => open(text)} paused={busy}>
+   * <QrScanner onScan={(text) => open(text)} paused={busy}>
    *   {#snippet hint()}Point the camera at a QR code{/snippet}
    * </QrScanner>
    */
   let {
-    onscan,
-    onerror,
+    onScan,
+    onError,
     paused = false,
     hint,
     class: className,
     ...restProps
   }: {
-    onscan: (text: string) => void;
-    onerror?: (kind: QrScannerError) => void;
+    onScan: (text: string) => void;
+    onError?: (kind: QrScannerError) => void;
     paused?: boolean;
     hint?: Snippet;
     class?: string;
@@ -73,7 +73,7 @@
         const text = await decode(video).catch(() => null);
         if (text && text !== last && !paused && !stopped) {
           last = text;
-          onscan(text);
+          onScan(text);
         }
       }
       tick(decode);
@@ -82,13 +82,13 @@
 
   async function start() {
     if (!navigator.mediaDevices?.getUserMedia) {
-      onerror?.('unsupported');
+      onError?.('unsupported');
       return;
     }
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
     } catch (error) {
-      if (!stopped) onerror?.(errorKind(error));
+      if (!stopped) onError?.(errorKind(error));
       return;
     }
     if (stopped) {

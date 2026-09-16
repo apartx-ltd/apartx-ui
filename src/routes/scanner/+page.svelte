@@ -7,7 +7,7 @@
 
 <div class="flex flex-col gap-4 p-4">
   <h1 class="text-headline-sm">QrScanner</h1>
-  <QrScanner class="h-96 rounded-xl" onscan={(value) => (text = value)} onerror={(kind) => (error = kind)}>
+  <QrScanner class="h-96 rounded-xl" onScan={(value) => (text = value)} onError={(kind) => (error = kind)}>
     {#snippet hint()}Point the camera at a QR code{/snippet}
   </QrScanner>
   <p>Text: <span data-testid="scanner-text">{text}</span></p>
