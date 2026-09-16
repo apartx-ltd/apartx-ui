@@ -119,6 +119,8 @@
   let startOffset = 0
   let isAllowedToDrag = false
   let dragStartTime = 0
+  // Pointer we hold capture for (mouse/pen only) — null while nothing is captured.
+  let capturedPointerId = null
   // Axis lock, decided on the first significant movement of a gesture:
   //   'x' → horizontal-dominant: it belongs to a horizontally-scrollable child
   //         (e.g. a cssMode/native scroll-snap Carousel). NEVER drag the sheet and
@@ -229,21 +231,40 @@
 
   // ---- pointer handlers: MOUSE / PEN ONLY (touch goes through the touch handlers
   // below, which can preventDefault to stop the list's native scroll) ----
+  // Capture is taken ONLY once the gesture has committed to dragging the sheet, and is
+  // released on pointerup/cancel. Capturing on pointerdown (as this did until 0.10.2) breaks
+  // every click inside the sheet for mouse users: while an element holds pointer capture the
+  // browser dispatches the subsequent `click` to the CAPTURING element, so buttons, tabs and
+  // list rows under the cursor never see it. Touch was unaffected — the touch path below
+  // returns early and never captures — which is why this only ever bit desktop.
+  function capture(pointerId) {
+    if (capturedPointerId !== null) return
+    contentEl?.setPointerCapture?.(pointerId)
+    capturedPointerId = pointerId
+  }
+  function releaseCapture() {
+    if (capturedPointerId === null) return
+    contentEl?.releasePointerCapture?.(capturedPointerId)
+    capturedPointerId = null
+  }
   function onpointerdown(e) {
     if (e.pointerType === 'touch') return
     startDrag(e.screenY, e.screenX, e.target)
-    contentEl?.setPointerCapture?.(e.pointerId)
   }
   function onpointermove(e) {
     if (e.pointerType === 'touch') return
-    moveDrag(e.screenY, e.screenX)
+    // Capture only from the moment the sheet actually starts moving: from here on the
+    // pointer may leave the sheet and we still need its moves.
+    if (moveDrag(e.screenY, e.screenX)) capture(e.pointerId)
   }
   function onpointerup(e) {
     if (e.pointerType === 'touch') return
+    releaseCapture()
     release(e.screenY)
   }
   function onpointercancel(e) {
     if (e.pointerType === 'touch') return
+    releaseCapture()
     endDrag()
   }
 
