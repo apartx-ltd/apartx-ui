@@ -40,6 +40,7 @@
     { path: '/data', label: 'Data' },
     { path: '/forms', label: 'Forms' },
     { path: '/overlays', label: 'Overlays' },
+    { path: '/scanner', label: 'Scanner' },
     { path: '/maps', label: 'Maps' },
     { path: '/lightbox', label: 'Lightbox' },
     { path: '/hooks', label: 'Hooks' },
