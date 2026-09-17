@@ -126,6 +126,7 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
       // SvelteKit doesn't expose stack depth; treat presence of overlay state or a
       // referrer-driven entry as "can go back". Consumers that need the cold-deeplink
       // fallback rely on <Route back>, which the engine path owns (not used here).
+      // Опция `root` у push/replace здесь не поддержана (глубину стека SvelteKit не отдаёт).
       return typeof history !== 'undefined' && history.length > 1;
     },
     get onOverlayEntry() { return overlayDepthOf(page.state) > 0; },

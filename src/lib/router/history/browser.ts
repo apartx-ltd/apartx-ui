@@ -14,9 +14,12 @@
 // navigation; the back/forward buttons fire `popstate`.
 //
 // History-driven back (modal-history-back-plan):
-//  • position (idx) lives in history.state; ROOT_IDX=0 is the app's first entry
-//    (we replaceState idx:0 on first load), so canGoBack = position > 0 and it
-//    survives reload (state.idx persists).
+//  • position (idx) lives in history.state; idx 0 is the app's first entry
+//    (we replaceState idx:0 on first load). Each entry also carries `root` — idx of
+//    its stack root: 0 by default, or its own idx for a `root` push (a deep link
+//    opened over the running app: push tap, service-worker message). canGoBack =
+//    position > root, so back from a deep link falls to <Route back> like a cold
+//    entry. Both survive reload (state persists).
 //  • pushOverlay() adds a synthetic same-URL entry WITHOUT notifying the router
 //    (a modal opened; the page view must not re-render).
 //  • a single backInterceptor is consulted on `back` popstate BEFORE notifying
@@ -25,31 +28,34 @@
 import type { Action, HistoryAdapter } from './adapter';
 
 const isBrowser = typeof window !== 'undefined';
-const ROOT_IDX = 0;
 
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
 
+type EntryState = { idx?: number; root?: number; __overlay?: boolean } | null;
+const rootOf = (st: EntryState) => (st && typeof st.root === 'number' ? st.root : 0);
+
 let action: Action = 'none';
 let position = 0;
+let root = 0;
 let backInterceptor: (() => boolean) | null = null;
 // Ждём forward-возврата на синтетическую запись после вето back'а (см.
 // restoreOverlayEntry): этот popstate — служебный, роутер о нём не узнаёт.
 let pendingOverlayRestore = false;
 
 if (isBrowser) {
-  const st = window.history.state as { idx?: number } | null;
+  const st = window.history.state as EntryState;
   position = st && typeof st.idx === 'number' ? st.idx : 0;
+  root = rootOf(st);
   if (!st || typeof st.idx !== 'number') {
-    window.history.replaceState({ ...(st ?? {}), idx: position }, '');
+    window.history.replaceState({ ...(st ?? {}), idx: position, root }, '');
   }
   window.addEventListener('popstate', (e: PopStateEvent) => {
-    const nextIdx =
-      e.state && typeof (e.state as { idx?: number }).idx === 'number'
-        ? (e.state as { idx: number }).idx
-        : 0;
+    const est = e.state as EntryState;
+    const nextIdx = est && typeof est.idx === 'number' ? est.idx : 0;
     action = nextIdx < position ? 'back' : nextIdx > position ? 'forward' : 'none';
     position = nextIdx;
+    root = rootOf(est);
     if (pendingOverlayRestore) {
       pendingOverlayRestore = false;
       // Ожидаемый служебный возврат на запись оверлея: URL/страница не менялись —
@@ -74,9 +80,9 @@ export const browserHistoryAdapter: HistoryAdapter = {
   get action() {
     return action;
   },
-  /** True when there is an in-app history entry to go back to (idx above ROOT). */
+  /** True when there is an in-app history entry to go back to (idx above the stack root). */
   get canGoBack() {
-    return isBrowser && position > ROOT_IDX;
+    return isBrowser && position > root;
   },
   /** True when the CURRENT browser entry is a synthetic overlay entry (state.__overlay).
    *  Used by overlay-stack to ADOPT a surviving overlay entry on a back-driven remount
@@ -91,8 +97,9 @@ export const browserHistoryAdapter: HistoryAdapter = {
   push(url, opts) {
     if (!isBrowser) return;
     position += 1;
+    if (opts?.root) root = position;
     action = opts?.action ?? 'forward';
-    window.history.pushState({ idx: position }, '', url);
+    window.history.pushState({ idx: position, root }, '', url);
     notify();
   },
   replace(url, opts) {
@@ -101,7 +108,8 @@ export const browserHistoryAdapter: HistoryAdapter = {
     // (e.g. opening a property from the map sheet, which replaces the sheet's
     // overlay entry) can request a directional transition.
     action = opts?.action ?? 'none';
-    window.history.replaceState({ idx: position }, '', url);
+    if (opts?.root) root = position;
+    window.history.replaceState({ idx: position, root }, '', url);
     notify();
   },
   /** Synthetic same-URL entry for an opened overlay; does NOT notify the router. */
@@ -109,7 +117,7 @@ export const browserHistoryAdapter: HistoryAdapter = {
     if (!isBrowser) return;
     position += 1;
     action = 'forward';
-    window.history.pushState({ idx: position, __overlay: true }, '');
+    window.history.pushState({ idx: position, root, __overlay: true }, '');
   },
   /** Возврат на пережившую back синтетическую запись (вето beforeBackClose).
    *  Именно forward-траверс, НЕ pushState: gesture-less pushState пометил бы

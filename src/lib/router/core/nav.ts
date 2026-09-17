@@ -8,13 +8,16 @@ import type { Action } from '../history/adapter';
  *  экран. keepOverlays=true — push ПОД оверлеем (restore-on-back, напр. шторка карты).
  *  `action` пробрасывается в history на путях БЕЗ открытых оверлеев (push/replace) —
  *  так router.push(url, {action}) сохраняет направление транзишена; вариант A всегда
- *  идёт как 'forward' (это и есть навигация вперёд поверх закрывающегося оверлея). */
+ *  идёт как 'forward' (это и есть навигация вперёд поверх закрывающегося оверлея).
+ *  `root` — назначение начинает новый стек «назад» (диплинк поверх живого приложения:
+ *  тап по пушу, сообщение service worker'а): «назад» с него идёт в `<Route back>`, а не
+ *  на страницу, где пользователь был до диплинка. Действует на всех трёх путях. */
 export function navigate(
   to: string,
-  opts?: { replace?: boolean; keepOverlays?: boolean; action?: Action },
+  opts?: { replace?: boolean; keepOverlays?: boolean; action?: Action; root?: boolean },
 ): void {
   const h = getHistory();
-  const hOpts = opts?.action ? { action: opts.action } : undefined;
+  const hOpts = opts?.action || opts?.root ? { action: opts.action, root: opts.root } : undefined;
   // replace-with-open-overlay не поддерживается: перезапишет синтетическую запись, но
   // оставит оверлей в стеке (следующий back закроет фантом). На практике replace зовут
   // без открытых оверлеев (data-replace ссылки на страницах) ЛИБО осознанно поверх
@@ -32,9 +35,9 @@ export function navigate(
       typeof window !== 'undefined' &&
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (wait > 0 && !reduce) {
-      setTimeout(() => h.replace(to, { action: 'forward' }), wait);
+      setTimeout(() => h.replace(to, { action: 'forward', root: opts?.root }), wait);
     } else {
-      h.replace(to, { action: 'forward' });
+      h.replace(to, { action: 'forward', root: opts?.root });
     }
     return;
   }
