@@ -22,10 +22,11 @@ export interface Navigator {
   /** Navigate to `href`, replacing the current history entry. */
   replace(href: string): void;
   /**
-   * Go back. With no argument, pops one history entry (native back). With an
-   * `href`, navigates there but still plays the *backward* view transition —
-   * for "up to parent" buttons whose target may not be the previous entry
-   * (e.g. a deep-linked detail page with no list behind it).
+   * Go back. When there is an in-app entry to return to, pops it (native back) —
+   * with or without `href`. When there is none (cold entry, or a deep-link `root`
+   * entry), goes to `href` replacing the current entry with the *backward* view
+   * transition — for "up to parent" buttons on deep-linked pages. No `href` and
+   * nowhere to go → the route's `<Route back>` parent.
    */
   back(href?: string): void;
   /** Reactive snapshot of the current location. */

@@ -34,6 +34,22 @@ describe('overlay-aware navigate', () => {
     setHistoryAdapter(null);
   });
 
+  it('root reaches history on the push path and on variant A', () => {
+    const roots: (boolean | undefined)[] = [];
+    const f = fakeAdapter();
+    const push = f.adapter.push;
+    const replace = f.adapter.replace;
+    f.adapter.push = (url, o) => { roots.push(o?.root); push(url, o); };
+    f.adapter.replace = (url, o) => { roots.push(o?.root); replace(url, o); };
+    setHistoryAdapter(f.adapter);
+    navigate('/chat', { root: true });
+    registerOverlay({ close: () => {}, exitMs: 0 });
+    navigate('/chat2', { root: true });
+    expect(f.calls).toEqual(['push:/chat', 'pushOverlay', 'replace:/chat2:forward']);
+    expect(roots).toEqual([true, true]);
+    setHistoryAdapter(null);
+  });
+
   it('one overlay open -> closes it and replaces the overlay entry (variant A)', () => {
     const f = fakeAdapter();
     setHistoryAdapter(f.adapter);

@@ -50,7 +50,7 @@ export function useRouter() {
     get action() {
       return state.current.action;
     },
-    push(url: string, opts?: { action?: Action; keepOverlays?: boolean }) {
+    push(url: string, opts?: { action?: Action; keepOverlays?: boolean; root?: boolean }) {
       // Через navigate() — overlay-aware (вариант A). Прямой history.push при открытом
       // оверлее кладёт запись ПОВЕРХ синтетической, а guarded back закрывающегося
       // оверлея тут же её съедает: страница отрисована, URL откатился. navigate()
@@ -58,17 +58,22 @@ export function useRouter() {
       // по-прежнему доходит до history на пути без оверлеев.
       navigate(url, opts);
     },
-    replace(url: string, opts?: { action?: Action }) {
+    replace(url: string, opts?: { action?: Action; root?: boolean }) {
       // Сознательно НЕ overlay-aware: replace поверх открытого оверлея — легитимный
       // паттерн (spaces: property из шторки карты замещает её синтетическую запись,
       // шторка живёт в survival store). Автозакрытие оверлеев здесь сломало бы его.
       getHistory().replace(url, opts);
     },
     back(href?: string) {
-      // href-форма (kit Navigator.back(href)) сохраняется как «фейковый back»-push;
-      // без href — единый history-driven примитив (страница ИЛИ закрытие оверлея).
-      if (href) getHistory().push(href, { action: 'back' });
-      else goBack();
+      // Есть куда вернуться в текущем стеке — всегда history-back (страница ИЛИ закрытие
+      // оверлея), href не трогаем. Некуда (холодный заход, диплинк-корень) — href, если
+      // дан, заменой текущей записи с обратным транзишеном; без href — <Route back>.
+      // Раньше href-форма пушила href всегда и «назад» никогда не шёл по истории.
+      if (href && !getHistory().canGoBack) {
+        getHistory().replace(href, { action: 'back' });
+        return;
+      }
+      goBack();
     },
     goBack() {
       goBack();

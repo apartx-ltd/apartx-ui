@@ -12,11 +12,11 @@ import { registerOverlay, dismissForNavigation } from '../overlay/overlay-stack'
 import { createNavigatorFromRouter } from '../navigator';
 import type { HistoryAdapter, Action } from '../history/adapter';
 
-function fakeAdapter() {
+function fakeAdapter(canGoBack = true) {
   const calls: string[] = [];
   let overlayEntry = false;
   const adapter: HistoryAdapter = {
-    location: null, action: 'none' as Action, canGoBack: true,
+    location: null, action: 'none' as Action, canGoBack,
     get onOverlayEntry() { return overlayEntry; },
     listen: () => () => {},
     push: (url, o) => { calls.push(o?.action ? `push:${url}:${o.action}` : `push:${url}`); },
@@ -117,6 +117,40 @@ describe('createNavigatorFromRouter(useRouter()) push is overlay-aware', () => {
     vi.advanceTimersByTime(120);
     expect(f.calls).toContain('replace:/bookings:forward');
     expect(f.calls.some((c) => c.startsWith('push:/bookings'))).toBe(false);
+    dispose();
+  });
+});
+
+// back(href): href — запасной путь, а не приказ. Раньше href-форма пушила href всегда, и
+// «назад» с чекина spaces уводил в брони даже когда пришли из карточки брони.
+describe('useRouter().back(href)', () => {
+  beforeEach(() => { setHistoryAdapter(null); });
+  afterEach(() => { setHistoryAdapter(null); });
+
+  it('history to go back to -> history back, href ignored', () => {
+    const f = fakeAdapter(true);
+    setHistoryAdapter(f.adapter);
+    const { router, dispose } = mountRouter();
+    router.back('/bookings');
+    expect(f.calls).toEqual(['goBack']);
+    dispose();
+  });
+
+  it('nothing to go back to (cold entry / deep-link root) -> replaces with href, backward', () => {
+    const f = fakeAdapter(false);
+    setHistoryAdapter(f.adapter);
+    const { router, dispose } = mountRouter();
+    router.back('/bookings');
+    expect(f.calls).toEqual(['replace:/bookings:back']);
+    dispose();
+  });
+
+  it('Navigator.back(href) follows the same rule', () => {
+    const f = fakeAdapter(false);
+    setHistoryAdapter(f.adapter);
+    const { router, dispose } = mountRouter();
+    createNavigatorFromRouter(router).back('/accounts/chats');
+    expect(f.calls).toEqual(['replace:/accounts/chats:back']);
     dispose();
   });
 });
