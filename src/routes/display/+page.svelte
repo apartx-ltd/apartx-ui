@@ -1,7 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import {
-    Button, Icon, Badge, Card, Chip, Avatar, Tabs, Separator,
+    Button, Icon, Badge, Card, Callout, Chip, Avatar, Tabs, Separator,
     Progress, Skeleton, Loading, Fab, Link, Accordion, AccordionItem, PopoverJson,
     Popover, BottomNav, ScrollArea,
   } from '$lib/ui/display';
@@ -81,6 +81,19 @@
     <div class="text-title-md mb-1">Card title</div>
     <div class="text-body-md text-on-surface-variant">Card body content goes here.</div>
   </Card>
+</section>
+
+<section class="mb-8">
+  <h2 class="text-title-md mb-3">Callout</h2>
+  <div class="flex max-w-sm flex-col gap-3">
+    <Callout icon={faBell} title="Sign the contract">
+      You need to sign the contract to continue your booking.
+      {#snippet actions()}<Button variant="filled">Sign contract</Button>{/snippet}
+    </Callout>
+    <Callout tone="tertiary" title="Payment required">Please complete the payment.</Callout>
+    <Callout tone="secondary" title="Documents submitted" />
+    <Callout tone="error" title="Cancelled" />
+  </div>
 </section>
 
 <section class="mb-8">
