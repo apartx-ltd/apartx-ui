@@ -23,7 +23,7 @@ src/
 │   │   ├── structure/        # Page, Header, Content, Footer, Toolbar, Title,
 │   │   │                     #   BackButton, Searchbar, Segment, SplitPane,
 │   │   │                     #   Menu, DrawerButton
-│   │   ├── display/          # Button, Icon, Badge, Card, Chip, Avatar, Tabs,
+│   │   ├── display/          # Button, Icon, Badge, Card, Callout, Chip, Avatar, Tabs,
 │   │   │                     #   Separator, Progress, Skeleton, Loading, Fab,
 │   │   │                     #   Link, Accordion, AccordionItem, PopoverJson, Text
 │   │   ├── data/             # List, Item, ListHeader, DataTable, Pagination
@@ -128,6 +128,26 @@ The aliases live in `styles/typography-roles.css` (pulled in by the
 Not to be confused with `structure/Title` — that is the toolbar heading
 (truncating, for the header slot), not a text role. For a page heading inside
 the content use `<Text role="page-title">`.
+
+### Callout — "action needed" on a page
+
+A tonal container with an optional icon, a title, an explanation and stacked
+full-width actions. Use it instead of a hand-coloured `Card` with a heading, a
+paragraph and a button:
+
+```svelte
+<Callout icon={faIdCard} title="Self check-in" data-testid="checkin-callout">
+  Verify your identity before arrival.
+  {#snippet actions()}<Button variant="filled">Start check-in</Button>{/snippet}
+</Callout>
+<Callout tone="error" title="Cancelled" />
+```
+
+`tone` is an M3 container pair — `primary` (default), `secondary`, `tertiary`,
+`error` — so text and icon always contrast the fill and follow the brand theme.
+The title renders as `<Text role="group-title" as="h3">`, the body as
+`<Text role="hint">`, both with `tone="inherit"`. `title` accepts a string or a
+snippet; extra attributes (`data-testid`, `role`) land on the root.
 
 ### Navigation — router-agnostic
 
