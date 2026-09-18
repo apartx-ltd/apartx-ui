@@ -59,11 +59,78 @@ export function addViewportUnitFallbacks(root) {
   });
 }
 
+const HEX = /^#([\da-f]{3}|[\da-f]{6})$/i;
+// Во что Tailwind компилирует модификатор `/N` на цвете темы: `bg-on-surface/12`.
+const ALPHA_MIX = /color-mix\(in oklab,\s*var\((--color-[\w-]+)\)\s*([\d.]+)%,\s*transparent\)/g;
+
+/** `#1a1c1e` → `26 28 30`; не hex (или hex с альфой) — null. */
+export function rgbChannels(value) {
+  const hex = value.trim().match(HEX)?.[1];
+  if (!hex) return null;
+  const full = hex.length === 3 ? [...hex].map((c) => c + c).join('') : hex;
+  return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16)).join(' ');
+}
+
+/**
+ * `--theme-X: #hex` → рядом `--theme-X-rgb: r g b`, в том же правиле (бренд, тёмная тема).
+ * Каналы нужны фолбэку прозрачности: `rgb(var(--theme-X-rgb) / .12)` понимает Safari 13.4,
+ * а color-mix — только Safari 16.2 / Chrome 111.
+ */
+export function addThemeChannels(root) {
+  root.walkDecls(/^--theme-/, (decl) => {
+    const channels = rgbChannels(decl.value);
+    if (channels) decl.cloneAfter({ prop: `${decl.prop}-rgb`, value: channels });
+  });
+}
+
+/**
+ * Модификатор `/N` на цвете темы (`--color-X: var(--theme-X, #hex)`) Tailwind компилирует в
+ * сплошной `var(--color-X)` и color-mix под `@supports`. Движок без color-mix остаётся со
+ * сплошным цветом: нажатый `Item` заливается on-surface, текст того же цвета пропадает.
+ *
+ * Перед каждым таким `@supports` ставим его копию, где color-mix заменён на
+ * `rgb(var(--theme-X-rgb, r g b) / N)`: она перекрывает сплошной фолбэк, а новые движки
+ * по-прежнему берут `@supports` — он ниже. Именно вставка, а не правка фолбэка: в проде
+ * Tailwind склеивает селекторы (`.bg-x,.bg-x\/8{…}`), и фолбэк общий с непрозрачной утилитой.
+ */
+export function addAlphaFallbacks(root) {
+  const channels = new Map();
+  root.walkDecls(/^--color-/, (decl) => {
+    const [, themeVar, hex] = decl.value.match(/^var\((--theme-[\w-]+),\s*(#[\da-f]+)\)$/i) ?? [];
+    const fallback = hex && rgbChannels(hex);
+    if (fallback) channels.set(decl.prop, `var(${themeVar}-rgb, ${fallback})`);
+  });
+
+  const blocks = [];
+  root.walkAtRules('supports', (block) => {
+    if (block.params.includes('color-mix')) blocks.push(block);
+  });
+  for (const block of blocks) {
+    const copy = block.clone();
+    copy.walkDecls((decl) => {
+      const value = decl.value.replace(ALPHA_MIX, (mix, color, percent) =>
+        channels.has(color) ? `rgb(${channels.get(color)} / ${percent / 100})` : mix,
+      );
+      if (value === decl.value || value.includes('color-mix(')) {
+        decl.remove();
+        return;
+      }
+      decl.value = value;
+    });
+    const rules = [];
+    copy.walkRules((rule) => rules.push(rule));
+    for (const rule of rules.reverse()) if (!rule.nodes.length) rule.remove();
+    if (copy.nodes.length) block.before(copy.nodes);
+  }
+}
+
 export function compatCss(css, { from = 'compat.css' } = {}) {
   const root = postcss.parse(css, { from });
   assertLayersFirst(root);
   flattenLayers(root);
   addViewportUnitFallbacks(root);
+  addThemeChannels(root);
+  addAlphaFallbacks(root);
   const { code } = transform({
     filename: from,
     code: Buffer.from(root.toString()),

@@ -29,6 +29,30 @@ describe('collectCssProblems', () => {
     expect(collectCssProblems('a.css', '.x { height: 100vh; flex-direction: column; height: 100dvh }')).toHaveLength(0);
   });
 
+  it('ловит непрозрачный фолбэк у модификатора прозрачности', () => {
+    // Вывод Tailwind 4.3 для `active:bg-on-surface/12` при цвете темы через var(): без
+    // color-mix движок берёт var(--color-on-surface) целиком — сплошная заливка.
+    const css =
+      '.a:active{background-color:var(--color-on-surface)}' +
+      '@supports (color:color-mix(in lab, red, red)){.a:active{background-color:color-mix(in oklab, var(--color-on-surface) 12%, transparent)}}';
+    expect(collectCssProblems('a.css', css)).toEqual([expect.stringContaining('непрозрачный фолбэк')]);
+  });
+
+  it('видит непрозрачный фолбэк в склеенном селекторе', () => {
+    const css =
+      '.b,.b\\/8{background-color:var(--color-primary)}' +
+      '@supports (color:color-mix(in lab, red, red)){.b\\/8{background-color:color-mix(in oklab, var(--color-primary) 8%, transparent)}}';
+    expect(collectCssProblems('a.css', css)).toHaveLength(1);
+  });
+
+  it('пропускает фолбэк, перекрытый полупрозрачным', () => {
+    const css =
+      '.a:active{background-color:var(--color-on-surface)}' +
+      '.a:active{background-color:rgb(var(--theme-on-surface-rgb, 26 28 30) / .12)}' +
+      '@supports (color:color-mix(in lab, red, red)){.a:active{background-color:color-mix(in oklab, var(--color-on-surface) 12%, transparent)}}';
+    expect(collectCssProblems('a.css', css)).toHaveLength(0);
+  });
+
   it('ловит :has()', () => {
     expect(collectCssProblems('a.css', '.x:has(.y) { color: red }')).toHaveLength(1);
   });
