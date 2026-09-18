@@ -1,7 +1,10 @@
 import {
   Hct,
   argbFromHex,
+  blueFromArgb,
+  greenFromArgb,
   hexFromArgb,
+  redFromArgb,
   DynamicScheme,
   MaterialDynamicColors,
   TonalPalette,
@@ -146,6 +149,14 @@ export function generateTokens(seedHex: string): ThemeTokens {
     const tones = isDark ? SURFACE_TONES_DARK : SURFACE_TONES_LIGHT;
     for (const key in tones) {
       tokens[key] = hexFromArgb(scheme.neutralPalette.tone(tones[key]));
+    }
+
+    // Каналы для движков без color-mix: компат-слой ставит им `rgb(var(--theme-X-rgb) / N)`
+    // вместо сплошного цвета (src/lib/compat/compat-css.js, addAlphaFallbacks). Статике брендов
+    // их дописывает сам компат-слой, здесь — для тех, кто красит тему в рантайме.
+    for (const [key, hex] of Object.entries(tokens)) {
+      const argb = argbFromHex(hex);
+      tokens[`${key}-rgb`] = `${redFromArgb(argb)} ${greenFromArgb(argb)} ${blueFromArgb(argb)}`;
     }
 
     return tokens;

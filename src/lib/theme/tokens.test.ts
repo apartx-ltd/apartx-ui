@@ -41,4 +41,11 @@ describe('generateTokens', () => {
     expect(dark['--theme-surface-container']).toBe('#262626');
     expect(dark['--theme-primary']).toBe('#b0b0b0');
   });
+
+  it('отдаёт RGB-каналы к каждому цвету — для фолбэка прозрачности компат-слоя', () => {
+    const { light, dark } = generateTokens('#1976d2');
+    expect(light['--theme-on-surface-rgb']).toBe('27 27 27');
+    expect(dark['--theme-on-surface-rgb']).toBe('220 227 242');
+    expect(Object.keys(light).filter((key) => !key.endsWith('-rgb')).every((key) => `${key}-rgb` in light)).toBe(true);
+  });
 });

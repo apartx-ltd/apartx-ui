@@ -6,6 +6,9 @@ import postcss from 'postcss';
 const BANNED_AT_RULES = new Set(['layer', 'container']);
 const MODERN_COLOR = /(oklch|oklab|lab|lch|color-mix|light-dark)\(/;
 const DYNAMIC_UNIT = /\d*\.?\d+[dsl](vh|vw|vmin|vmax)\b/;
+// `bg-on-surface/12` при цвете темы через var(): Tailwind кладёт перед @supports сплошной
+// var(--color-*) — без color-mix движок заливает элемент цветом целиком.
+const ALPHA_MIX = /color-mix\(in oklab,\s*var\((--color-[\w-]+)\)\s*[\d.]+%,\s*transparent\)/;
 
 // API новее Chrome 80, которых НЕТ в compat/polyfills.js. Полифиленное сюда не добавлять —
 // в бандле оно встречается легитимно, в самом модуле полифилов.
@@ -60,6 +63,22 @@ export function collectCssProblems(file, css) {
       .slice(0, decl.parent.index(decl))
       .some((node) => node.type === 'decl' && node.prop === decl.prop && !DYNAMIC_UNIT.test(node.value));
     if (!hasFallback) problems.push(`${file}: ${decl.prop}: ${decl.value} — без vh-фолбэка`);
+  });
+
+  // Движок без color-mix берёт последнее объявление вне @supports; специфичность у утилит
+  // равная, поэтому хватает порядка в файле.
+  const legacy = new Map();
+  root.walkDecls((decl) => {
+    if (decl.parent.type !== 'rule' || insideSupports(decl)) return;
+    for (const selector of decl.parent.selectors) legacy.set(`${selector} ${decl.prop}`, decl.value);
+  });
+  root.walkDecls((decl) => {
+    const mix = decl.value.match(ALPHA_MIX);
+    if (!mix || decl.parent.type !== 'rule' || !insideSupports(decl)) return;
+    for (const selector of decl.parent.selectors) {
+      if (legacy.get(`${selector} ${decl.prop}`) !== `var(${mix[1]})`) continue;
+      problems.push(`${file}: ${selector} ${decl.prop} — непрозрачный фолбэк var(${mix[1]}) у модификатора прозрачности`);
+    }
   });
 
   return problems;
