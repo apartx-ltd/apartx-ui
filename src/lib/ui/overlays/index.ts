@@ -1,4 +1,7 @@
 export { default as Dialog } from './Dialog.svelte';
+// Читалка HTML-документа (договор, оферта…) — презентационная: html/loading/error/onretry
+// приходят от хоста, кит держит только кнопку скачивания со спиннером. Санитизация — на сервере.
+export { default as DocumentDialog } from './DocumentDialog.svelte';
 export { default as ConfirmDialog } from './ConfirmDialog.svelte';
 export { default as AlertDialog } from './AlertDialog.svelte';
 export { default as Drawer } from './Drawer.svelte';
