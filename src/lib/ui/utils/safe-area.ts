@@ -11,9 +11,26 @@
 export const safeTopFlow =
   'pt-[var(--safe-area-inset-top,0px)] [&>*]:[--safe-area-inset-top:0px]';
 
+/**
+ * Низ контейнера в потоке (Page). Обнулить инсет может и хост: оболочка с нижней навигацией
+ * ставит странице `[--safe-area-inset-bottom:0px]` — края экрана там касается навигация.
+ */
+export const safeBottomFlow =
+  'pb-[var(--safe-area-inset-bottom,0px)] [&>*]:[--safe-area-inset-bottom:0px]';
+
 /** Полоска под статус-баром цвета шапки: у Page фон background, а не surface. */
 export const safeTopStrip =
   'bg-[image:linear-gradient(var(--color-surface),var(--color-surface))] bg-no-repeat bg-[length:100%_var(--safe-area-inset-top,0px)]';
+
+/**
+ * Полоска под Footer его же фоном. Контейнер отступил снизу и отдал футеру ноль, поэтому под
+ * футером осталась бы полоса цвета контейнера; ::after докрашивает её (фон наследуется, так
+ * что работает и с классом хоста). Высота — корневая копия инсета: на вебе 0, а всё, что
+ * выходит за контейнер, срезает его overflow. `:has()` для «Page без Footer» не годится —
+ * его нет в Chrome 80 (compat/check.js).
+ */
+export const safeBottomStrip =
+  "relative after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-[var(--safe-area-root-bottom,0px)] after:bg-inherit after:content-['']";
 
 /*
  * Панели оверлеев привязаны к вьюпорту и берут корневые копии инсетов (styles/tokens.css):

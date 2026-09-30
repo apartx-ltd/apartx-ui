@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Page, Header, Toolbar, Content, Title } from '$lib/ui/structure';
+  import { Page, Header, Footer, Toolbar, Content, Title } from '$lib/ui/structure';
   import { Dialog, Drawer } from '$lib/ui/overlays';
   import { Button } from '$lib/ui/display';
 
@@ -69,6 +69,33 @@
     <Page data-testid="sa-page-p0" class="p-0">
       <Content padding>Host class p-0.</Content>
     </Page>
+  </div>
+
+  <!-- Низ: Page забирает и нижний инсет; Footer внутри видит 0 и докрашивает полоску под
+       собой своим фоном (::after) — иначе под ним был бы шов цвета страницы. -->
+  <div class="flex h-48 border border-outline-variant">
+    <Page data-testid="sa-page-footer">
+      <Content padding>Page with footer.</Content>
+      <Footer data-testid="sa-footer">
+        <div class="p-3"><Button class="w-full">Action</Button></div>
+      </Footer>
+    </Page>
+  </div>
+
+  <!-- Оболочка с нижней навигацией: края касается навигация, поэтому хост обнуляет нижний
+       инсет для страницы, а навигация берёт корневую копию. -->
+  <div class="flex h-48 flex-col border border-outline-variant">
+    <div class="flex min-h-0 flex-1 flex-col [--safe-area-inset-bottom:0px]">
+      <Page data-testid="sa-page-navhost">
+        <Content padding>Page above a bottom nav.</Content>
+      </Page>
+    </div>
+    <div
+      data-testid="sa-nav"
+      class="shrink-0 border-t border-outline-variant bg-surface px-4 pt-2 pb-[calc(0.5rem+var(--safe-area-root-bottom,0px))] text-label-lg"
+    >
+      Bottom nav
+    </div>
   </div>
 </div>
 

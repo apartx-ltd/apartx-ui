@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { cn } from './cn';
-import { safeTopFlow, safeTopStrip, safeTopViewport, safeBottomViewport } from './safe-area';
+import {
+  safeTopFlow,
+  safeTopStrip,
+  safeBottomFlow,
+  safeBottomStrip,
+  safeTopViewport,
+  safeBottomViewport,
+} from './safe-area';
 
 describe('safe-area: утилиты инсета в cn', () => {
   it('p-0 хоста не вычищает отступы контейнера, когда они идут последними', () => {
@@ -24,5 +31,21 @@ describe('safe-area: утилиты инсета в cn', () => {
     expect(cls).toContain('bg-[image:linear-gradient(var(--color-surface),var(--color-surface))]');
     expect(cls).toContain('bg-[length:100%_var(--safe-area-inset-top,0px)]');
     expect(cls).toContain('pt-[var(--safe-area-inset-top,0px)]');
+  });
+
+  it('Page: верхний и нижний отступы переживают p-0 хоста вместе', () => {
+    const cls = cn('flex flex-col', 'p-0', safeTopFlow, safeTopStrip, safeBottomFlow);
+    expect(cls).toContain('pt-[var(--safe-area-inset-top,0px)]');
+    expect(cls).toContain('pb-[var(--safe-area-inset-bottom,0px)]');
+  });
+
+  // У Footer класс хоста идёт ПОСЛЕ полоски: хост вправе сменить фон и позиционирование,
+  // а ::after наследует фон и остаётся на месте.
+  it('Footer: фон хоста не снимает полоску под футером', () => {
+    const cls = cn('bg-surface pb-[var(--safe-area-inset-bottom,0px)]', safeBottomStrip, 'bg-surface-container sticky');
+    expect(cls).toContain('bg-surface-container');
+    expect(cls).toContain('after:bg-inherit');
+    expect(cls).toContain('after:h-[var(--safe-area-root-bottom,0px)]');
+    expect(cls).toContain('pb-[var(--safe-area-inset-bottom,0px)]');
   });
 });

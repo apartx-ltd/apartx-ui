@@ -54,6 +54,35 @@ test.describe('safe-area: инсет задан', () => {
 
   test('класс хоста p-0 не снимает отступ Page', async ({ page }) => {
     expect(await css(page, 'sa-page-p0', 'paddingTop')).toBe(`${TOP}px`);
+    expect(await css(page, 'sa-page-p0', 'paddingBottom')).toBe(`${BOTTOM}px`);
+  });
+
+  test('низ: Page без футера отступает на нижний инсет, вложенный Page не удваивает', async ({ page }) => {
+    expect(await css(page, 'sa-page-bare', 'paddingBottom')).toBe(`${BOTTOM}px`);
+    expect(await css(page, 'sa-page-outer', 'paddingBottom')).toBe(`${BOTTOM}px`);
+    expect(await css(page, 'sa-page-inner', 'paddingBottom')).toBe('0px');
+  });
+
+  test('низ: Footer внутри Page видит ноль и докрашивает полоску под собой', async ({ page }) => {
+    expect(await css(page, 'sa-page-footer', 'paddingBottom')).toBe(`${BOTTOM}px`);
+    expect(await css(page, 'sa-footer', 'paddingBottom')).toBe('0px');
+
+    // Футер стоит над полоской инсета, а его ::after закрывает её целиком своим фоном.
+    const pageBox = await page.getByTestId('sa-page-footer').boundingBox();
+    const footerBox = await page.getByTestId('sa-footer').boundingBox();
+    expect(footerBox!.y + footerBox!.height).toBeCloseTo(pageBox!.y + pageBox!.height - BOTTOM, 0);
+    const strip = await page.getByTestId('sa-footer').evaluate((el) => {
+      const after = getComputedStyle(el, '::after');
+      return { height: after.height, color: after.backgroundColor, own: getComputedStyle(el).backgroundColor };
+    });
+    expect(strip.height).toBe(`${BOTTOM}px`);
+    expect(strip.color).toBe(strip.own);
+  });
+
+  test('низ: над нижней навигацией Page не отступает, навигация берёт инсет сама', async ({ page }) => {
+    expect(await css(page, 'sa-page-navhost', 'paddingBottom')).toBe('0px');
+    expect(await css(page, 'sa-page-navhost', 'paddingTop')).toBe(`${TOP}px`);
+    expect(await css(page, 'sa-nav', 'paddingBottom')).toBe(`${BOTTOM + 8}px`);
   });
 
   test('полноэкранный Dialog с сырой шапкой: шапка ниже статус-бара', async ({ page }) => {
