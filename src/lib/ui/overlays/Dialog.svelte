@@ -5,6 +5,7 @@
   import { overlayFade, dialogPop, sheet } from '../utils/motion';
   import { getOverlayLayer, provideOverlayZ } from './layer-context';
   import { dialogBodyClass, type DialogLayout } from './dialog-layout';
+  import { safeTopViewport, safeBottomViewport } from '../utils/safe-area';
   import { useOverlay } from '../../hooks/useOverlay.svelte';
   import { faXmark } from '@fortawesome/free-solid-svg-icons';
   import Button from '../display/Button.svelte';
@@ -19,6 +20,7 @@
     title = '',
     description = '',
     fullScreen = false,
+    edgeToEdge = false,
     layout = 'form',
     showCloseButton = true,
     onOpenChange,
@@ -49,6 +51,12 @@
     title?: string;
     description?: string;
     fullScreen?: boolean;
+    /** Только с `fullScreen`: панель сверху не отступает на safe-area инсет, дети видят
+     *  настоящий `--safe-area-inset-top`. Для содержимого, которое красит область под
+     *  статус-баром своим фоном и отступ контента делает само (iframe со своей шапкой,
+     *  получающий инсет параметром; камера) — иначе над ним осталась бы полоска цвета
+     *  панели. Низ панель резервирует в любом случае. */
+    edgeToEdge?: boolean;
     /** Плотность тела: `form` — с отступами (поля, текст), `list` — без боковых отступов,
      *  край держит Item, `flush` — без отступов вовсе, содержимое во всю площадь (iframe,
      *  карта, канвас). Модалка объявляет `layout`, а не зануляет отступы через `bodyClass`:
@@ -129,9 +137,10 @@
   {#if header}
     {@render header()}
   {:else if title || showCloseButton || actions}
-    <!-- Встроенная шапка сама отступает на --safe-area-inset-top: полноэкранный Dialog
-         иначе кладёт заголовок под статус-бар (кастомный header отступает через Toolbar/
-         Header). Центрированный Dialog гасит переменную — отступ прежний. -->
+    <!-- Инсет забирает панель (см. ниже) и обнуляет переменную детям — здесь calc
+         схлопывается в обычный pt-4. Он остаётся ради edgeToEdge: панель тогда сверху не
+         отступает, и встроенная шапка отбивает статус-бар сама. Центрированный Dialog
+         переменную гасит — отступ прежний. -->
     <div
       class="flex items-center justify-between gap-2 px-4 pt-[calc(1rem_+_var(--safe-area-inset-top,0px))] pb-2 sm:px-6 sm:pt-[calc(1.5rem_+_var(--safe-area-inset-top,0px))]"
     >
@@ -207,14 +216,17 @@
               {...props}
               class={cn(
                 'pointer-events-auto flex flex-col bg-surface shadow-level-3 outline-none',
-                // Низ полноэкранной панели отступает на home indicator целиком — футеры
-                // консьюмеров обычные div'ы и сами инсет не резервируют. Детям переменная
-                // обнуляется, чтобы вложенный <Footer> кита не удвоил отступ.
                 fullScreen
-                  ? 'absolute inset-0 rounded-none dlg-in-sheet pb-[var(--safe-area-inset-bottom,0px)] [&>*]:[--safe-area-inset-bottom:0px]'
+                  ? 'absolute inset-0 rounded-none dlg-in-sheet'
                   : 'max-w-lg w-full max-h-[85vh] rounded-xl overflow-hidden dlg-in-pop',
                 className,
                 contentClass,
+                // Полноэкранная панель — контейнер у края экрана: забирает инсеты и обнуляет
+                // переменные детям, так что Header/Toolbar/Footer и сырые шапки консьюмеров
+                // внутри не уезжают под статус-бар и не удваивают отступ. Утилиты идут
+                // ПОСЛЕДНИМИ: contentClass="p-0" иначе вычищает их через tailwind-merge.
+                fullScreen && safeBottomViewport,
+                fullScreen && !edgeToEdge && safeTopViewport,
               )}
               out:contentTransition|global
               onanimationend={(e) => {
