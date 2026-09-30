@@ -3,7 +3,7 @@
   import Accordion from './Accordion.svelte';
   import AccordionItem from './AccordionItem.svelte';
 
-  let { error, withSlots = false, snippetTitle = false } = $props();
+  let { error, withSlots = false, snippetTitle = false, subtitle = undefined, expandable = true } = $props();
 </script>
 
 {#snippet start()}<i data-testid="slot-start">S</i>{/snippet}
@@ -17,5 +17,7 @@
     start={withSlots ? start : undefined}
     end={withSlots ? end : undefined}
     {error}
+    {subtitle}
+    {expandable}
   >Body</AccordionItem>
 </Accordion>

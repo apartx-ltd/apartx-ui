@@ -56,4 +56,21 @@ describe('AccordionItem', () => {
     expect(trigger.querySelector('[data-testid="slot-title"] small')?.textContent).toBe('of the property');
     expect(trigger.textContent).not.toContain('=>');
   });
+
+  it('subtitle — вторая строка в заголовке, видна в свёрнутом виде', () => {
+    const { trigger } = setup({ subtitle: 'Paid 10 000 of 10 000' });
+    expect(trigger.getAttribute('data-state')).toBe('closed');
+    expect(trigger.querySelector('[data-accordion-subtitle]')?.textContent?.trim()).toBe('Paid 10 000 of 10 000');
+  });
+
+  // Секция без содержимого не должна притворяться раскрывающейся: ни кнопки, ни шеврона, ни тела.
+  it('expandable=false — статичная строка: без кнопки, шеврона и тела', () => {
+    setup({ expandable: false, subtitle: 'Confirmed', withSlots: true });
+    const row = target.querySelector('[data-expandable="false"]') as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(target.querySelector('button')).toBeNull();
+    expect(row.querySelectorAll('svg').length).toBe(0);
+    expect(row.textContent).toMatch(/S\s*Photos\s*Confirmed\s*3/);
+    expect(row.textContent).not.toContain('Body');
+  });
 });

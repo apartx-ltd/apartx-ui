@@ -139,6 +139,8 @@
       {#snippet end()}<Badge>2 / 3</Badge>{/snippet}
       Trailing slot before the chevron: counts, badges, statuses.
     </AccordionItem>
+    <AccordionItem value="five" title="Payment" subtitle="Paid 10 000 of 10 000">Summary line under the title, visible while collapsed.</AccordionItem>
+    <AccordionItem value="six" title="Confirmation" subtitle="Confirmed on Sep 30" expandable={false} />
   </Accordion>
 </section>
 
