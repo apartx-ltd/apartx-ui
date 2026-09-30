@@ -11,10 +11,7 @@
 export const safeTopFlow =
   'pt-[var(--safe-area-inset-top,0px)] [&>*]:[--safe-area-inset-top:0px]';
 
-/**
- * Низ контейнера в потоке (Page). Обнулить инсет может и хост: оболочка с нижней навигацией
- * ставит странице `[--safe-area-inset-bottom:0px]` — края экрана там касается навигация.
- */
+/** Низ контейнера в потоке (Page): забирает унаследованный нижний инсет, детям отдаёт 0. */
 export const safeBottomFlow =
   'pb-[var(--safe-area-inset-bottom,0px)] [&>*]:[--safe-area-inset-bottom:0px]';
 

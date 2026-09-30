@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Page, Header, Footer, Toolbar, Content, Title } from '$lib/ui/structure';
   import { Dialog, Drawer } from '$lib/ui/overlays';
-  import { Button, Fab } from '$lib/ui/display';
+  import { Button, Fab, BottomNav } from '$lib/ui/display';
 
   // Стенд правила «инсет забирает контейнер у края экрана» (AGENTS.md → «Safe-area»).
   // e2e/safe-area.spec.ts задаёт --safe-area-inset-top/bottom на <html>, как кордова, и
@@ -85,20 +85,25 @@
     </Page>
   </div>
 
-  <!-- Оболочка с нижней навигацией: края касается навигация, поэтому хост обнуляет нижний
-       инсет для страницы, а навигация берёт корневую копию. -->
-  <div class="flex h-48 flex-col border border-outline-variant">
-    <div class="flex min-h-0 flex-1 flex-col [--safe-area-inset-bottom:0px]">
+  <!-- Оболочка с нижней навигацией — сама Page: инсеты забирает она, вложенная страница и
+       навигация в Footer видят ноль. -->
+  <div class="flex h-56 border border-outline-variant">
+    <Page data-testid="sa-shell">
       <Page data-testid="sa-page-navhost">
         <Content padding>Page above a bottom nav.</Content>
       </Page>
-    </div>
-    <div
-      data-testid="sa-nav"
-      class="shrink-0 border-t border-outline-variant bg-surface px-4 pt-2 pb-[calc(0.5rem+var(--safe-area-root-bottom,0px))] text-label-lg"
-    >
-      Bottom nav
-    </div>
+      <Footer>
+        <BottomNav
+          data-testid="sa-nav"
+          class="static"
+          active="home"
+          items={[
+            { value: 'home', label: 'Home' },
+            { value: 'settings', label: 'Settings' },
+          ]}
+        />
+      </Footer>
+    </Page>
   </div>
 </div>
 

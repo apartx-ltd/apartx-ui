@@ -79,10 +79,16 @@ test.describe('safe-area: инсет задан', () => {
     expect(strip.color).toBe(strip.own);
   });
 
-  test('низ: над нижней навигацией Page не отступает, навигация берёт инсет сама', async ({ page }) => {
+  test('низ: оболочка с навигацией забирает инсеты, страница и BottomNav в Footer видят ноль', async ({ page }) => {
+    expect(await css(page, 'sa-shell', 'paddingTop')).toBe(`${TOP}px`);
+    expect(await css(page, 'sa-shell', 'paddingBottom')).toBe(`${BOTTOM}px`);
+    expect(await css(page, 'sa-page-navhost', 'paddingTop')).toBe('0px');
     expect(await css(page, 'sa-page-navhost', 'paddingBottom')).toBe('0px');
-    expect(await css(page, 'sa-page-navhost', 'paddingTop')).toBe(`${TOP}px`);
-    expect(await css(page, 'sa-nav', 'paddingBottom')).toBe(`${BOTTOM + 8}px`);
+    expect(await css(page, 'sa-nav', 'paddingBottom')).toBe('0px');
+    // static: навигация в потоке и не шире своей оболочки.
+    const nav = await page.getByTestId('sa-nav').boundingBox();
+    const shell = await page.getByTestId('sa-shell').boundingBox();
+    expect(nav!.width).toBeLessThanOrEqual(shell!.width);
   });
 
   test('низ: Fab поднимается над home indicator', async ({ page }) => {

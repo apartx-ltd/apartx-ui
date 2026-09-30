@@ -14,8 +14,10 @@
   };
 
   /**
-   * Mobile bottom navigation bar — fixed to the viewport bottom with iOS
-   * safe-area padding. Router-agnostic: items with `href` render through
+   * Mobile bottom navigation bar — fixed to the viewport bottom with
+   * safe-area padding. Inside a screen put it in-flow: `<Page>…<Footer><BottomNav
+   * class="static" /></Footer></Page>` — it then stays within its column on desktop
+   * and the Page owns the inset. Router-agnostic: items with `href` render through
    * `<Link>` (Navigator contract), otherwise emit `onChange(value)`.
    *
    * All labels are caller-supplied props (translate at the call site).
@@ -51,7 +53,9 @@
   class={cn(
     'fixed bottom-0 inset-x-0 z-30 flex items-stretch justify-around',
     'bg-surface-container border-t border-outline-variant',
-    'pb-[env(safe-area-inset-bottom)]',
+    // Унаследованная переменная, а не env(): в Footer внутри Page навигация видит 0 (инсет
+    // забрал Page), вне контейнера отступает сама. AGENTS.md → «Safe-area».
+    'pb-[var(--safe-area-inset-bottom,0px)]',
     className,
   )}
   {...restProps}
