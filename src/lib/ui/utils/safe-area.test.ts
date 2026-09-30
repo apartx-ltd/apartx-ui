@@ -10,7 +10,7 @@ describe('safe-area: утилиты инсета в cn', () => {
     expect(cls).toContain('pt-[var(--safe-area-root-top,0px)]');
   });
 
-  // Ровно этот порядок стоял в Dialog до 0.15.0: contentClass="p-0" шёл после утилиты
+  // Ровно этот порядок стоял в Dialog до 0.16.0: contentClass="p-0" шёл после утилиты
   // панели, и tailwind-merge снимал нижний отступ.
   it('обратный порядок теряет отступ — поэтому константы всегда последние', () => {
     const cls = cn(safeBottomViewport, 'p-0');
