@@ -85,6 +85,11 @@ test.describe('safe-area: инсет задан', () => {
     expect(await css(page, 'sa-nav', 'paddingBottom')).toBe(`${BOTTOM + 8}px`);
   });
 
+  test('низ: Fab поднимается над home indicator', async ({ page }) => {
+    const bottom = await page.getByTestId('sa-fab').evaluate((el) => getComputedStyle(el).bottom);
+    expect(bottom).toBe(`${BOTTOM + 16}px`);
+  });
+
   test('полноэкранный Dialog с сырой шапкой: шапка ниже статус-бара', async ({ page }) => {
     await openOverlay(page, 'open-sa-dialog-raw', 'sa-dialog-raw');
     await settle(page, 'sa-dialog-raw');

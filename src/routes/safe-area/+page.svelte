@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Page, Header, Footer, Toolbar, Content, Title } from '$lib/ui/structure';
   import { Dialog, Drawer } from '$lib/ui/overlays';
-  import { Button } from '$lib/ui/display';
+  import { Button, Fab } from '$lib/ui/display';
 
   // Стенд правила «инсет забирает контейнер у края экрана» (AGENTS.md → «Safe-area»).
   // e2e/safe-area.spec.ts задаёт --safe-area-inset-top/bottom на <html>, как кордова, и
@@ -14,6 +14,9 @@
 </script>
 
 <h1 class="text-headline-md mb-6">Safe area</h1>
+
+<!-- Fab привязан к вьюпорту: поднимается на корневую копию нижнего инсета. -->
+<Fab data-testid="sa-fab"><Button variant="fab" aria-label="Add">+</Button></Fab>
 
 <div class="mb-6 flex flex-wrap gap-3">
   <Button data-testid="open-sa-dialog-raw" onclick={() => (rawOpen = true)}>Dialog: raw header</Button>
