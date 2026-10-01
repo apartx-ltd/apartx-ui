@@ -253,6 +253,15 @@
   }
   function onpointermove(e) {
     if (e.pointerType === 'touch') return
+    // A move with no button held means the press ended somewhere we never saw. Capture is
+    // only taken after the axis-lock threshold, so a press that leaves the sheet before that
+    // (a quick move off its edge, or the sheet sliding out from under the cursor) delivers
+    // neither its moves nor its pointerup here. Without this the gesture stayed "pressed" and
+    // the sheet followed the bare cursor on the next hover.
+    if (e.buttons === 0) {
+      if (pointerStart) { releaseCapture(); endDrag() }
+      return
+    }
     // Capture only from the moment the sheet actually starts moving: from here on the
     // pointer may leave the sheet and we still need its moves.
     if (moveDrag(e.screenY, e.screenX)) capture(e.pointerId)
