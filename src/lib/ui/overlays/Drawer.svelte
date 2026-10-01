@@ -2,6 +2,7 @@
   import { cn } from '../utils/cn';
   import { overlayFade, sheet } from '../utils/motion';
   import { useOverlay } from '../../hooks/useOverlay.svelte';
+  import { safeTopViewport, safeBottomViewport } from '../utils/safe-area';
 
   let {
     children,
@@ -65,10 +66,15 @@
 {/if}
 
 {#snippet panel()}
+  <!-- Панель — контейнер у края экрана: забирает инсеты и обнуляет переменные детям
+       (AGENTS.md → «Safe-area»). Значения берёт из корневых копий: Drawer не портируется
+       в body и внутри Page унаследовал бы обнулённый инсет. Утилиты — последними в cn. -->
   <div
     class={cn(
       'flex h-full flex-col bg-surface shadow-level-3 overflow-hidden w-80 max-w-[85vw]',
       className,
+      safeTopViewport,
+      safeBottomViewport,
     )}
     {...restProps}
   >
