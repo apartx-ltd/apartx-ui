@@ -37,10 +37,18 @@ function mountHost(onpick: () => void) {
   return handle;
 }
 
+// Шторка въезжает за два кадра (сперва рисуется под экраном, потом отпускается к снапу) —
+// ждём, пока она встанет на место, иначе «исходное положение» в тесте было бы положением въезда.
+const settled = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  flushSync();
+};
+
 // jsdom не знает PointerEvent — событие нужного типа с полями мыши обработчикам достаточно
-// (они смотрят только pointerType/screenY/screenX/pointerId).
-const pointer = (type: string, init: { screenX: number; screenY: number }) => {
-  const event = new MouseEvent(type, { bubbles: true, cancelable: true, screenX: init.screenX, screenY: init.screenY });
+// (они смотрят только pointerType/screenY/screenX/pointerId/buttons). buttons — маска нажатых
+// кнопок: 1 при зажатой левой, 0 при движении без нажатия.
+const pointer = (type: string, init: { screenX: number; screenY: number; buttons?: number }) => {
+  const event = new MouseEvent(type, { bubbles: true, cancelable: true, screenX: init.screenX, screenY: init.screenY, buttons: init.buttons ?? 0 });
   Object.defineProperty(event, 'pointerId', { value: 1 });
   Object.defineProperty(event, 'pointerType', { value: 'mouse' });
   return event;
@@ -62,5 +70,39 @@ describe('BottomSheet', () => {
     button!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     flushSync();
     expect(onpick).toHaveBeenCalledTimes(1);
+  });
+
+  // Захват берётся только после сдвига на 6px, и до него события вне шторки она не видит.
+  // Нажали на шторке, отпустили мимо — pointerup до неё не дошёл. Раньше жест оставался
+  // «нажатым»: следующее движение мыши над шторкой уже без кнопки тащило её за курсором.
+  it('кнопку отпустили вне шторки — движение без нажатия шторку не тащит', async () => {
+    mountHost(() => {});
+    await settled();
+    const sheet = document.querySelector('[role="dialog"]') as HTMLElement;
+    const button = byTestId('sheet-button')!;
+    const resting = sheet.style.transform;
+
+    button.dispatchEvent(pointer('pointerdown', { screenY: 500, screenX: 100, buttons: 1 }));
+    document.body.dispatchEvent(pointer('pointerup', { screenY: 300, screenX: 100 }));
+    button.dispatchEvent(pointer('pointermove', { screenY: 300, screenX: 100, buttons: 0 }));
+    flushSync();
+
+    expect(captureSpy).not.toHaveBeenCalled();
+    expect(sheet.style.transform).toBe(resting);
+  });
+
+  it('движение с зажатой кнопкой шторку тащит и забирает захват', async () => {
+    mountHost(() => {});
+    await settled();
+    const sheet = document.querySelector('[role="dialog"]') as HTMLElement;
+    const button = byTestId('sheet-button')!;
+    const resting = sheet.style.transform;
+
+    button.dispatchEvent(pointer('pointerdown', { screenY: 500, screenX: 100, buttons: 1 }));
+    button.dispatchEvent(pointer('pointermove', { screenY: 400, screenX: 100, buttons: 1 }));
+    flushSync();
+
+    expect(captureSpy).toHaveBeenCalledTimes(1);
+    expect(sheet.style.transform).not.toBe(resting);
   });
 });
