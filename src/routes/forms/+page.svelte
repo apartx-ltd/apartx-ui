@@ -43,6 +43,18 @@
     ]}
   />
 
+  <Select
+    bind:value={select}
+    label="Select (clearable)"
+    placeholder="Any"
+    clearable
+    options={[
+      { value: 'a', label: 'Option A' },
+      { value: 'b', label: 'Option B' },
+      { value: 'c', label: 'Option C' },
+    ]}
+  />
+
   <Checkbox bind:checked label="Accept terms" />
   <Switch bind:checked={on} label="Enabled" />
 
