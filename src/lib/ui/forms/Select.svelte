@@ -24,6 +24,10 @@
     disabled = false,
     required = false,
     multiple = false,
+    // The clear "×" is opt-in: for a required choice an empty value is garbage the
+    // field then shows as "Select...". Filters (empty = "all") and optional fields
+    // pass `clearable`. Never shown on a disabled field.
+    clearable = false,
     respectBack = true,
     class: className,
     onchange,
@@ -96,8 +100,9 @@
           </span>
 
           <span class="flex items-center gap-1 flex-shrink-0">
-            {#if hasValue}
+            {#if clearable && hasValue && !disabled}
               <span
+                data-select-clear
                 class="w-5 h-5 rounded-full inline-flex items-center justify-center text-on-surface-variant hover:bg-on-surface/12 cursor-pointer"
                 role="button"
                 tabindex="0"
