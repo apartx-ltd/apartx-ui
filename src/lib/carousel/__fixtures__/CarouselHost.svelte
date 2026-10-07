@@ -2,7 +2,7 @@
   // Хост для SSR-теста: снипет slide в render() не передать, поэтому он объявлен здесь.
   import Carousel from '../Carousel.svelte';
 
-  let { items = [], withSlide = true }: { items?: { url: string; alt: string }[]; withSlide?: boolean } = $props();
+  let { items = [], withSlide = true }: { items?: { url: string; alt: string }[] | null; withSlide?: boolean } = $props();
 </script>
 
 {#if withSlide}

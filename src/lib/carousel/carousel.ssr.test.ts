@@ -29,6 +29,11 @@ describe('Carousel SSR placeholder', () => {
     expect(body).not.toContain('<img');
   });
 
+  it('items = null — пустая заглушка, без падения', () => {
+    const { body } = render(CarouselHost, { props: { items: null } });
+    expect(body).toMatch(/<div class="block h-64" aria-hidden="true"><\/div>/);
+  });
+
   it('keeps the empty aria-hidden placeholder in children mode', () => {
     const { body } = render(CarouselHost, { props: { withSlide: false } });
     expect(body).toMatch(/<div class="block h-64" aria-hidden="true"><\/div>/);
