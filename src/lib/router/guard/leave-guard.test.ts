@@ -6,16 +6,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { HistoryAdapter, Action, LeaveGuardHook } from '../history/adapter';
 
-// resetModules даёт свежий реестр, но window общий: beforeunload-слушатели гардов, которые тест
-// не снял (dispose), пережили бы его и сработали в следующих тестах. Снимаем их после каждого.
-const unloadListeners: EventListenerOrEventListenerObject[] = [];
-const nativeAdd = window.addEventListener.bind(window);
-window.addEventListener = ((type: string, fn: EventListenerOrEventListenerObject, opts?: any) => {
-  if (type === 'beforeunload') unloadListeners.push(fn);
-  return nativeAdd(type, fn, opts);
-}) as typeof window.addEventListener;
+// resetModules даёт свежий реестр, но window общий: beforeunload-слушатель незадиспозенного гарда
+// пережил бы тест. Снимаем все гарды после каждого теста (dispose идемпотентен).
+const disposers: (() => void)[] = [];
 afterEach(() => {
-  for (const fn of unloadListeners.splice(0)) window.removeEventListener('beforeunload', fn);
+  for (const d of disposers.splice(0)) d();
 });
 
 async function setup() {
@@ -33,7 +28,15 @@ async function setup() {
   };
   const { setHistoryAdapter } = await import('../history/registry');
   setHistoryAdapter(adapter);
-  const guard = await import('./leave-guard');
+  const mod = await import('./leave-guard');
+  const guard = {
+    ...mod,
+    addLeaveGuard: (g: Parameters<typeof mod.addLeaveGuard>[0]) => {
+      const d = mod.addLeaveGuard(g);
+      disposers.push(d);
+      return d;
+    },
+  };
   const overlays = await import('../overlay/overlay-stack');
   return { guard, overlays, hook: () => hook, fireBack: () => interceptor?.() };
 }
