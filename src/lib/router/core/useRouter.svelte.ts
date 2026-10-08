@@ -50,7 +50,7 @@ export function useRouter() {
     get action() {
       return state.current.action;
     },
-    push(url: string, opts?: { action?: Action; keepOverlays?: boolean; root?: boolean }) {
+    push(url: string, opts?: { action?: Action; keepOverlays?: boolean; root?: boolean; force?: boolean }) {
       // Через navigate() — overlay-aware (вариант A). Прямой history.push при открытом
       // оверлее кладёт запись ПОВЕРХ синтетической, а guarded back закрывающегося
       // оверлея тут же её съедает: страница отрисована, URL откатился. navigate()
@@ -58,7 +58,7 @@ export function useRouter() {
       // по-прежнему доходит до history на пути без оверлеев.
       navigate(url, opts);
     },
-    replace(url: string, opts?: { action?: Action; root?: boolean }) {
+    replace(url: string, opts?: { action?: Action; root?: boolean; force?: boolean }) {
       // Сознательно НЕ overlay-aware: replace поверх открытого оверлея — легитимный
       // паттерн (spaces: property из шторки карты замещает её синтетическую запись,
       // шторка живёт в survival store). Автозакрытие оверлеев здесь сломало бы его.
