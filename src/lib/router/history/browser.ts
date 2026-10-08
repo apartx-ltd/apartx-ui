@@ -25,7 +25,7 @@
 //  • a single backInterceptor is consulted on `back` popstate BEFORE notifying
 //    the router; if it handled the back (closed an overlay), the router is not
 //    notified (view unchanged).
-import type { Action, HistoryAdapter } from './adapter';
+import type { Action, HistoryAdapter, LeaveGuardHook } from './adapter';
 
 const isBrowser = typeof window !== 'undefined';
 
@@ -42,6 +42,14 @@ let backInterceptor: (() => boolean) | null = null;
 // Ждём forward-возврата на синтетическую запись после вето back'а (см.
 // restoreOverlayEntry): этот popstate — служебный, роутер о нём не узнаёт.
 let pendingOverlayRestore = false;
+// Гард ухода (router/guard). Заблокированный траверс откатывается (history.go(-delta)):
+// popstate отката — служебный, роутер о нём не узнаёт, а confirm открывается только после
+// него — сам confirm оверлей и пушит запись, посреди незавершённого траверса нельзя.
+// На «Уйти»: «назад» — повтор траверса (history.go(delta)), его popstate идёт мимо гарда;
+// «вперёд» — назначение новой записью (forward-хвост стёр pushState confirm'а).
+let leaveGuard: LeaveGuardHook | null = null;
+let pendingLeaveRevert: (() => void) | null = null;
+let leaveRetry = false;
 
 if (isBrowser) {
   const st = window.history.state as EntryState;
@@ -53,6 +61,7 @@ if (isBrowser) {
   window.addEventListener('popstate', (e: PopStateEvent) => {
     const est = e.state as EntryState;
     const nextIdx = est && typeof est.idx === 'number' ? est.idx : 0;
+    const prev = position;
     action = nextIdx < position ? 'back' : nextIdx > position ? 'forward' : 'none';
     position = nextIdx;
     root = rootOf(est);
@@ -63,9 +72,38 @@ if (isBrowser) {
       // флаг и обрабатывается штатно.
       if (action === 'forward' && (e.state as { __overlay?: boolean } | null)?.__overlay) return;
     }
+    if (pendingLeaveRevert) {
+      // Откат заблокированного ухода приземлился: страница не менялась — молча; теперь
+      // можно открывать confirm.
+      const ask = pendingLeaveRevert;
+      pendingLeaveRevert = null;
+      ask();
+      return;
+    }
     // On a backward step, let the overlay layer close the topmost overlay first.
     // If it handled it, the URL/page is unchanged → do NOT notify the router.
     if (action === 'back' && backInterceptor && backInterceptor()) return;
+    if (leaveRetry) {
+      leaveRetry = false;
+      notify();
+      return;
+    }
+    const hook = leaveGuard;
+    if (action !== 'none' && hook?.blocked()) {
+      const delta = nextIdx - prev;
+      // Браузер уже на назначении — для «вперёд» запоминаем его до отката.
+      const target = window.location.pathname + window.location.search + window.location.hash;
+      pendingLeaveRevert = () => hook.onBlocked(() => {
+        if (delta > 0) {
+          browserHistoryAdapter.push(target, { force: true });
+          return;
+        }
+        leaveRetry = true;
+        window.history.go(delta);
+      });
+      window.history.go(-delta);
+      return;
+    }
     notify();
   });
 }
@@ -96,6 +134,10 @@ export const browserHistoryAdapter: HistoryAdapter = {
   },
   push(url, opts) {
     if (!isBrowser) return;
+    if (!opts?.force && leaveGuard?.blocked()) {
+      leaveGuard.onBlocked(() => browserHistoryAdapter.push(url, { ...opts, force: true }));
+      return;
+    }
     position += 1;
     if (opts?.root) root = position;
     action = opts?.action ?? 'forward';
@@ -104,6 +146,10 @@ export const browserHistoryAdapter: HistoryAdapter = {
   },
   replace(url, opts) {
     if (!isBrowser) return;
+    if (!opts?.force && leaveGuard?.blocked()) {
+      leaveGuard.onBlocked(() => browserHistoryAdapter.replace(url, { ...opts, force: true }));
+      return;
+    }
     // Default 'none' (neutral) — but callers that replace AS a forward navigation
     // (e.g. opening a property from the map sheet, which replaces the sheet's
     // overlay entry) can request a directional transition.
@@ -131,6 +177,10 @@ export const browserHistoryAdapter: HistoryAdapter = {
   /** Register the overlay layer's back handler (returns true if it consumed the back). */
   setBackInterceptor(fn) {
     backInterceptor = fn;
+  },
+  /** Подключить гарды ухода (router/guard/leave-guard.ts). */
+  setLeaveGuard(hook) {
+    leaveGuard = hook;
   },
   goBack() {
     if (!isBrowser) return;

@@ -1,6 +1,6 @@
 // projects/apartx-ui/src/lib/router/history/browser.test.ts
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { browserHistoryAdapter as h } from './browser';
 
 describe('browserHistoryAdapter', () => {
@@ -73,6 +73,124 @@ describe('browserHistoryAdapter', () => {
     h.pushOverlay();
     expect(h.onOverlayEntry).toBe(true);
     expect(hits).toBe(0);
+    off();
+  });
+});
+
+describe('browserHistoryAdapter — гард ухода', () => {
+  let go: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    window.history.replaceState({ idx: 0 }, '', '/');
+    go = vi.spyOn(window.history, 'go').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    h.setLeaveGuard!(null);
+    h.setBackInterceptor(null);
+    go.mockRestore();
+  });
+
+  const block = () => {
+    const state = { retry: null as null | (() => void), calls: 0 };
+    h.setLeaveGuard!({ blocked: () => true, onBlocked: (r) => { state.calls += 1; state.retry = r; } });
+    return state;
+  };
+
+  it('push/replace при dirty не пишут историю; retry выполняет их мимо гарда; force — сразу', () => {
+    h.push('/page');
+    const g = block();
+    h.push('/next');
+    expect(window.location.pathname).toBe('/page');
+    expect(g.calls).toBe(1);
+    g.retry!();
+    expect(window.location.pathname).toBe('/next');
+
+    h.replace('/other');
+    expect(window.location.pathname).toBe('/next');
+    g.retry!();
+    expect(window.location.pathname).toBe('/other');
+
+    h.push('/forced', { force: true });
+    expect(window.location.pathname).toBe('/forced');
+    expect(g.calls).toBe(2);
+  });
+
+  it('back при dirty: молча откатывает траверс; confirm — после отката; retry повторяет траверс', () => {
+    h.push('/list');
+    const list = window.history.state;
+    h.push('/info');
+    const info = window.history.state;
+    let hits = 0;
+    const off = h.listen(() => { hits += 1; });
+    const g = block();
+
+    window.dispatchEvent(new PopStateEvent('popstate', { state: list })); // браузер ушёл на /list
+    expect(go).toHaveBeenLastCalledWith(1);
+    expect(g.calls).toBe(0);
+    expect(hits).toBe(0);
+
+    window.dispatchEvent(new PopStateEvent('popstate', { state: info })); // откат осел
+    expect(g.calls).toBe(1);
+    expect(hits).toBe(0);
+
+    g.retry!();
+    expect(go).toHaveBeenLastCalledWith(-1);
+    window.dispatchEvent(new PopStateEvent('popstate', { state: list }));
+    expect(hits).toBe(1);
+    expect(h.action).toBe('back');
+    off();
+  });
+
+  it('прыжок на несколько записей назад откатывается и повторяется на точную дельту', () => {
+    h.push('/a');
+    const a = window.history.state;
+    h.push('/b');
+    h.push('/c');
+    const c = window.history.state;
+    const g = block();
+    window.dispatchEvent(new PopStateEvent('popstate', { state: a }));
+    expect(go).toHaveBeenLastCalledWith(2);
+    window.dispatchEvent(new PopStateEvent('popstate', { state: c }));
+    g.retry!();
+    expect(go).toHaveBeenLastCalledWith(-2);
+    // Приземлить повтор — иначе модульный leaveRetry протечёт в следующий тест.
+    window.dispatchEvent(new PopStateEvent('popstate', { state: a }));
+  });
+
+  it('back, поглощённый оверлеем, гард не спрашивает', () => {
+    h.push('/x');
+    const x = window.history.state;
+    h.pushOverlay();
+    const g = block();
+    h.setBackInterceptor(() => true);
+    window.dispatchEvent(new PopStateEvent('popstate', { state: x }));
+    expect(go).not.toHaveBeenCalled();
+    expect(g.calls).toBe(0);
+  });
+
+  it('«вперёд» при dirty: откат; на «Уйти» — назначение новой записью (forward-хвост стёр confirm)', () => {
+    h.push('/a');
+    const a = window.history.state;
+    h.push('/b');
+    const b = window.history.state;
+    window.dispatchEvent(new PopStateEvent('popstate', { state: a })); // назад на /a, гарда ещё нет
+    window.history.replaceState(a, '', '/a');
+    let hits = 0;
+    const off = h.listen(() => { hits += 1; });
+    const g = block();
+
+    window.history.replaceState(b, '', '/b'); // браузер ушёл вперёд — location уже на назначении
+    window.dispatchEvent(new PopStateEvent('popstate', { state: b }));
+    expect(go).toHaveBeenLastCalledWith(-1);
+    expect(hits).toBe(0);
+
+    window.history.replaceState(a, '', '/a'); // откат осел
+    window.dispatchEvent(new PopStateEvent('popstate', { state: a }));
+    expect(g.calls).toBe(1);
+
+    g.retry!();
+    expect(window.location.pathname).toBe('/b');
+    expect(h.action).toBe('forward');
+    expect(hits).toBe(1);
     off();
   });
 });
