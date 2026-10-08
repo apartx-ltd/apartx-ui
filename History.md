@@ -26,8 +26,17 @@
 * Тесты — `guard/leave-guard.test.ts`, `history/browser.test.ts`, `core/nav.test.ts`, `sveltekit.test.ts`,
   `e2e/leave-guard.spec.ts`; демо — `/router-demo`.
 
-**Консьюмеру при бампе** — ничего: без зарегистрированных гардов поведение прежнее. Первый потребитель —
-apartx-cabinet (вкладка «Инфо» объекта).
+### fix(overlays): `Dialog` — проп `role` доходит до панели
+
+* `role="alertdialog"` молча терялся: bits-ui кладёт в `props` панели свой `role` по variant (`dialog` у
+  `Dialog.Root`), а спред шёл после нашего. Теперь `role` ставится на панель после `{...props}`.
+* Затронуты все, кто передаёт `role="alertdialog"`: `ConfirmDialog` (сервис `confirm`), `AlertDialog`,
+  `MessageLinkMenu` — и диалоги хостов поверх `Dialog` с тем же пропом.
+* Тест — `ui/overlays/dialog-role.dom.test.ts`.
+
+**Консьюмеру при бампе:** гарды — ничего, без зарегистрированных гардов поведение прежнее (первый
+потребитель — apartx-cabinet, вкладка «Инфо» объекта). Роль — e2e-локаторы `getByRole('dialog')`,
+нацеленные на перечисленные диалоги, перестают их находить: заменить на `getByRole('alertdialog')` или testid.
 
 ## 2026-10-04
 
