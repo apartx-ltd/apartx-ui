@@ -60,6 +60,10 @@ export interface OverlayStack {
    *  её URL совпадает со страницей, первый back корректен, мёртв только следующий.
    *  Дизайн: docs/plans/2026-08-02-kit-overlay-host-navigation (оркестратор). */
   dismissForHostNavigation(): void;
+  /** Резолвится, когда guarded back закрытого не через back оверлея приземлился (или сразу,
+   *  если ничего не в полёте). Навигация до этого момента была бы съедена тем back'ом —
+   *  гарды ухода ждут его, прежде чем выполнить «Уйти» (router/guard/leave-guard.ts). */
+  whenHistorySettled(): Promise<void>;
   initOverlayStack(): void;
 }
 
@@ -68,6 +72,8 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
   let seq = 0;
   let suppressNextPop = false;
   let inited = false;
+  const settledWaiters: (() => void)[] = [];
+  const flushSettled = () => { for (const resolve of settledWaiters.splice(0)) resolve(); };
 
   const subs = new Set<() => void>();
   const notify = () => subs.forEach((f) => f());
@@ -99,6 +105,7 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
       // the history root (e.g. closing the map bottom-sheet) updates the native back
       // button immediately instead of staying until the next unrelated history change.
       notify();
+      flushSettled();
       return true;
     }
     if (stack.length === 0) return false;
@@ -214,6 +221,7 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     // безобидно, запись same-URL. Не сбросить было бы хуже: залипший флаг молча съел бы
     // СЛЕДУЮЩИЙ настоящий back пользователя.
     suppressNextPop = false;
+    flushSettled();
     const entries = stack.splice(0, stack.length);
     if (entries.length === 0) return;
     notify();
@@ -221,6 +229,11 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
     // но токен уже снят → no-op. Deferred-записи выбыли из stack → flush в handleBack
     // их не создаст. exitMs не ждём: хостовую навигацию не задержать.
     for (let i = entries.length - 1; i >= 0; i--) entries[i].close();
+  }
+
+  function whenHistorySettled(): Promise<void> {
+    if (!suppressNextPop) return Promise.resolve();
+    return new Promise((resolve) => { settledWaiters.push(resolve); });
   }
 
   /** Один раз на клиенте: подключить back-interceptor. SSR — no-op. */
@@ -232,7 +245,7 @@ export function createOverlayStack(adapter: HistoryAdapter): OverlayStack {
 
   return {
     overlayCount, subscribeOverlay, registerOverlay, openOverlay, closeOverlay,
-    dismissForNavigation, dismissForHostNavigation, initOverlayStack,
+    dismissForNavigation, dismissForHostNavigation, whenHistorySettled, initOverlayStack,
   };
 }
 
@@ -261,3 +274,4 @@ export const closeOverlay = defaultStack.closeOverlay;
 export const dismissForNavigation = defaultStack.dismissForNavigation;
 export const dismissForHostNavigation = defaultStack.dismissForHostNavigation;
 export const initOverlayStack = defaultStack.initOverlayStack;
+export const whenOverlayHistorySettled = defaultStack.whenHistorySettled;

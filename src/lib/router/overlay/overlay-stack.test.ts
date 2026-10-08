@@ -358,6 +358,37 @@ describe('createOverlayStack', () => {
     expect(f.fireBack()).toBe(false);
     expect(f.calls.filter((c) => c === 'pushOverlay').length).toBe(pushesBefore);
   });
+
+  it('whenHistorySettled: сразу без pending-pop; после non-back close — когда back приземлился', async () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    let settled = false;
+    await os.whenHistorySettled(); // ничего не в полёте — резолвится сразу
+
+    const token = os.openOverlay(() => {});
+    os.closeOverlay(token); // non-back close → guarded goBack в полёте
+    void os.whenHistorySettled().then(() => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    f.fireBack(); // приземлился подавленный pop
+    await Promise.resolve();
+    expect(settled).toBe(true);
+  });
+
+  it('whenHistorySettled: dismissForHostNavigation отпускает ждущих', async () => {
+    const f = fakeAdapter();
+    const os = createOverlayStack(f.adapter);
+    os.initOverlayStack();
+    let settled = false;
+    const token = os.openOverlay(() => {});
+    os.closeOverlay(token);
+    void os.whenHistorySettled().then(() => { settled = true; });
+    os.dismissForHostNavigation();
+    await Promise.resolve();
+    expect(settled).toBe(true);
+  });
 });
 
 describe('default overlay-stack binds to history registry', () => {
