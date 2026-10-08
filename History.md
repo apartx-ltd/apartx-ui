@@ -37,6 +37,10 @@
 **Консьюмеру при бампе:** гарды — ничего, без зарегистрированных гардов поведение прежнее (первый
 потребитель — apartx-cabinet, вкладка «Инфо» объекта). Роль — e2e-локаторы `getByRole('dialog')`,
 нацеленные на перечисленные диалоги, перестают их находить: заменить на `getByRole('alertdialog')` или testid.
+На 2026-10-08 это apartx-admin `support-escalation.spec.ts:62`, `support-ai-pause.spec.ts:49`,
+`support-chat-menus.spec.ts:47`, `auth-change-phone.spec.ts:37` и apartx-spaces `auth-change-contact.spec.ts:39`
+(там `getByRole('dialog').nth(1)` → `getByRole('alertdialog')` без `nth`). Менять вместе с бампом — на старом
+ките `alertdialog` не найдётся. У кабинета, help, sandyq и verification таких локаторов нет.
 
 ## 2026-10-04
 
