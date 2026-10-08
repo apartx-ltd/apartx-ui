@@ -196,7 +196,7 @@
       {/snippet}
     </BitsDialog.Overlay>
 
-    <BitsDialog.Content {role} forceMount {...restProps}>
+    <BitsDialog.Content forceMount {...restProps}>
       {#snippet child({ props, open: isOpen })}
         {#if isOpen}
           <!-- Centering wrapper: a transform-based transition on the panel must
@@ -212,8 +212,11 @@
               ? contentZ
               : `${contentZ}--safe-area-inset-top:0px;--safe-area-inset-bottom:0px;`}
           >
+            <!-- role — после {...props}: bits-ui кладёт туда свой role по variant ("dialog"
+                 у Dialog.Root) и перебил бы наш alertdialog. -->
             <div
               {...props}
+              {role}
               class={cn(
                 'pointer-events-auto flex flex-col bg-surface shadow-level-3 outline-none',
                 fullScreen

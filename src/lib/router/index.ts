@@ -17,7 +17,7 @@ export { setRouteBack, getRouteBack, subscribeRouteBack } from './core/active-ro
 export type { RouteLoader } from './core/lazy';
 
 // History seam
-export type { HistoryAdapter, Action } from './history/adapter';
+export type { HistoryAdapter, Action, LeaveGuardHook } from './history/adapter';
 export { browserHistoryAdapter } from './history/browser';
 export { setHistoryAdapter, getHistory } from './history/registry';
 
@@ -30,3 +30,7 @@ export {
 
 // Navigator binding
 export { createNavigatorFromRouter } from './navigator';
+
+// Leave guards (несохранённые правки)
+export { useNavigationGuard } from './guard/useNavigationGuard.svelte';
+export type { LeaveGuard } from './guard/leave-guard';

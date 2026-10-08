@@ -5,10 +5,22 @@ export type Action = 'forward' | 'back' | 'none';
 
 /** Опции записи истории. `root` — запись начинает новый стек «назад»: диплинк из пуша,
  *  service worker'а и т.п., открытый поверх уже живого приложения. Ниже корня `canGoBack`
- *  не смотрит — «назад» с такой записи идёт в `<Route back>`, как на холодном заходе. */
+ *  не смотрит — «назад» с такой записи идёт в `<Route back>`, как на холодном заходе.
+ *  `force` — мимо гардов ухода (router/guard): уход — следствие уже подтверждённого действия
+ *  (удаление, logout) или повтор навигации после «Уйти». */
 export interface HistoryEntryOpts {
   action?: Action;
   root?: boolean;
+  force?: boolean;
+}
+
+/** Мост реестра гардов ухода (router/guard/leave-guard.ts) в адаптер истории. */
+export interface LeaveGuardHook {
+  /** Есть dirty-гард — уход нужно подтвердить. */
+  blocked(): boolean;
+  /** Уход заблокирован; `retry` повторяет его мимо гарда. Адаптер зовёт это, когда история
+   *  уже осела (откат траверса приземлился), — confirm хоста можно открывать сразу. */
+  onBlocked(retry: () => void): void;
 }
 
 /**
@@ -38,5 +50,7 @@ export interface HistoryAdapter {
   restoreOverlayEntry(): void;
   /** Register the overlay layer's back handler (returns true if it consumed the back). */
   setBackInterceptor(fn: (() => boolean) | null): void;
+  /** Подключить гарды ухода (router/guard). Необязателен: адаптер без него уход не охраняет. */
+  setLeaveGuard?(hook: LeaveGuardHook | null): void;
   goBack(): void;
 }

@@ -4,6 +4,7 @@ import { navigate } from './nav';
 import { setHistoryAdapter } from '../history/registry';
 import { registerOverlay, dismissForNavigation } from '../overlay/overlay-stack';
 import type { HistoryAdapter, Action } from '../history/adapter';
+import { addLeaveGuard } from '../guard/leave-guard';
 
 function fakeAdapter() {
   const calls: string[] = [];
@@ -89,6 +90,40 @@ describe('overlay-aware navigate', () => {
     navigate('/property/1', { keepOverlays: true });
     expect(f.calls).toContain('push:/property/1');
     expect(f.calls).not.toContain('replace:/property/1:forward');
+    setHistoryAdapter(null);
+  });
+});
+
+describe('navigate + гард ухода', () => {
+  beforeEach(() => { vi.useFakeTimers(); setHistoryAdapter(null); });
+  afterEach(() => { dismissForNavigation(); vi.runAllTimers(); vi.useRealTimers(); });
+
+  it('dirty: оверлеи не закрываются и история не трогается, пока не ответили', () => {
+    const f = fakeAdapter();
+    setHistoryAdapter(f.adapter);
+    let closed = false;
+    registerOverlay({ close: () => { closed = true; }, exitMs: 0 });
+    let answer!: (v: boolean) => void;
+    const dispose = addLeaveGuard({ when: () => true, confirm: () => new Promise((r) => { answer = r; }) });
+    navigate('/x');
+    expect(closed).toBe(false);
+    expect(f.calls).toEqual(['pushOverlay']);
+    answer(false); // снять модульный флаг «confirm открыт» реестра
+    dispose();
+    setHistoryAdapter(null);
+  });
+
+  it('force идёт мимо гарда и доходит до адаптера', () => {
+    const f = fakeAdapter();
+    const forced: (boolean | undefined)[] = [];
+    const push = f.adapter.push;
+    f.adapter.push = (url, o) => { forced.push(o?.force); push(url, o); };
+    setHistoryAdapter(f.adapter);
+    const dispose = addLeaveGuard({ when: () => true, confirm: async () => false });
+    navigate('/x', { force: true });
+    expect(f.calls).toEqual(['push:/x']);
+    expect(forced).toEqual([true]);
+    dispose();
     setHistoryAdapter(null);
   });
 });
