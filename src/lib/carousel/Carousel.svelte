@@ -7,6 +7,16 @@
    * elements are registered once on mount (browser-only → SSR-safe). Pass
    * `items` plus a `slide` snippet, or arbitrary `children` of `<swiper-slide>`.
    *
+   * During SSR and until Swiper registers, a placeholder of the same box stands
+   * in. With `slide` + non-empty `items` it renders the FIRST slide, so the
+   * server HTML already carries the first image and the browser shows no blank
+   * frame before the swiper takes over. Children mode (or no items) keeps an
+   * empty `aria-hidden` placeholder.
+   *
+   * The SSR slide is the first item at full width: it matches the swiper only for
+   * `slidesPerView={1}`, and the box height must come from `class` (e.g. `h-72`),
+   * otherwise the placeholder and the swiper differ in height.
+   *
    * @example
    * <Carousel items={photos} slidesPerView={1} navigation pagination loop>
    *   {#snippet slide(item)}
@@ -28,7 +38,7 @@
     class: className,
     ...restProps
   }: {
-    items?: any[];
+    items?: any[] | null;
     slide?: any;
     children?: any;
     slidesPerView?: number | 'auto';
@@ -82,13 +92,22 @@
     {...restProps}
   >
     {#if slide}
-      {#each items as item, i (i)}
+      {#each items ?? [] as item, i (i)}
         <swiper-slide>{@render slide(item, i)}</swiper-slide>
       {/each}
     {:else if children}
       {@render children()}
     {/if}
   </swiper-container>
+{:else if slide && items?.length}
+  <!--
+    SSR / pre-register placeholder with the FIRST slide: the server HTML carries the
+    first image (SEO) and the browser shows no blank frame until Swiper registers.
+    Same box classes keep layout height stable; overflow-hidden keeps the slide inside.
+    Not aria-hidden — it holds real content (e.g. an <img alt>). On the client `ready`
+    is false before mount, so this branch hydrates against the identical SSR markup.
+  -->
+  <div class={cn('block overflow-hidden', className)}>{@render slide(items![0], 0)}</div>
 {:else}
   <!-- SSR / pre-register placeholder keeps layout height stable. -->
   <div class={cn('block', className)} aria-hidden="true"></div>
