@@ -12,7 +12,7 @@
 // $app/navigation and $app/state are mocked below; sveltekit.ts is the ONLY file allowed
 // to import them (see CLAUDE.md's SvelteKit carve-out) — this test file is an accepted
 // exception to that grep gate (see CLAUDE.md for the *.test.ts carve-out).
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { mount, unmount, flushSync } from 'svelte';
 
 // Колбэки, которые адаптер регистрирует внутри createSvelteKitHistoryAdapter() при
@@ -167,6 +167,8 @@ describe('SvelteKit history adapter — beforeNavigate guards', () => {
 describe('SvelteKit history adapter — гард ухода', () => {
   // Origin jsdom (vitest) — не http://localhost: pendingLeave сверяет location.href с nav.from.url.href.
   const url = (p: string) => new URL(p, location.origin);
+  // Шпион history.go снимается и при упавшем тесте — иначе он протёк бы в следующие.
+  afterEach(() => { vi.restoreAllMocks(); });
 
   it('link-навигация при dirty: cancel; на «Уйти» — goto(to), повторный beforeNavigate мимо гарда', async () => {
     const { dispose } = await setup();
@@ -209,7 +211,6 @@ describe('SvelteKit history adapter — гард ухода', () => {
     const cancel2 = vi.fn();
     beforeCb!({ type: 'popstate', delta: -1, willUnload: false, cancel: cancel2, from: { url: url('/info') }, to: { url: url('/list') } });
     expect(cancel2).not.toHaveBeenCalled();
-    go.mockRestore();
     dispose();
   });
 
@@ -228,7 +229,64 @@ describe('SvelteKit history adapter — гард ухода', () => {
     retry!();
     expect(goto).toHaveBeenCalledWith(url('/b'));
     expect(go).not.toHaveBeenCalled();
-    go.mockRestore();
+    dispose();
+  });
+
+  it('popstate-back на запись оверлея ЧУЖОЙ страницы при dirty: гард до restore-on-back — cancel', async () => {
+    // История A, A(оверлей d1), B (B открыта ссылкой из открытого Drawer). На B правки, back
+    // приземляется на A(d1): restore-on-back не должен пропустить уход мимо гарда.
+    const { dispose } = await setup();
+    const { getHistory } = await import('./history/registry');
+    const go = vi.spyOn(history, 'go').mockImplementation(() => {});
+    let retry: (() => void) | null = null;
+    getHistory().setLeaveGuard!({ blocked: () => true, onBlocked: (r) => { retry = r; } });
+
+    // Браузер приземлился на A(d1): наш popstate-слушатель видит его раньше beforeNavigate.
+    history.replaceState({ 'sveltekit:states': { __overlayDepth: 1 } }, '', '/a');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    const cancel = vi.fn();
+    beforeCb!({ type: 'popstate', delta: -1, willUnload: false, cancel, from: { url: url('/b') }, to: { url: url('/a') } });
+    expect(cancel).toHaveBeenCalledTimes(1);
+
+    // Откат SvelteKit приземлился на B (d0) — confirm; depth пересчитан с B, иначе
+    // посторонний popstate на d0 закрыл бы «лишний» уровень оверлея.
+    history.replaceState(null, '', '/b');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    expect(retry).not.toBeNull();
+    const interceptor = vi.fn(() => false);
+    getHistory().setBackInterceptor(interceptor);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    expect(interceptor).not.toHaveBeenCalled();
+
+    // «Уйти» — повтор траверса на A(d1): гард пропускает, restore-on-back по-прежнему работает.
+    retry!();
+    expect(go).toHaveBeenCalledWith(-1);
+    history.replaceState({ 'sveltekit:states': { __overlayDepth: 1 } }, '', '/a');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    const cancel2 = vi.fn();
+    beforeCb!({ type: 'popstate', delta: -1, willUnload: false, cancel: cancel2, from: { url: url('/b') }, to: { url: url('/a') } });
+    expect(cancel2).not.toHaveBeenCalled();
+    dispose();
+  });
+
+  it('протухший повтор «Уйти» (его beforeNavigate не случился) не пропускает уход на другую страницу', async () => {
+    const { dispose } = await setup();
+    const { getHistory } = await import('./history/registry');
+    let retry: (() => void) | null = null;
+    getHistory().setLeaveGuard!({ blocked: () => true, onBlocked: (r) => { retry = r; } });
+
+    beforeCb!({ type: 'link', willUnload: false, cancel: vi.fn(), from: { url: url('/info') }, to: { url: url('/x') } });
+    retry!(); // goto('/x') — его beforeNavigate SvelteKit пропустил
+    const cancel = vi.fn();
+    beforeCb!({ type: 'link', willUnload: false, cancel, from: { url: url('/info') }, to: { url: url('/y') } });
+    expect(cancel).toHaveBeenCalledTimes(1);
+
+    // afterNavigate тоже снимает ожидание повтора.
+    retry!();
+    afterCb!();
+    const cancel2 = vi.fn();
+    beforeCb!({ type: 'link', willUnload: false, cancel: cancel2, from: { url: url('/info') }, to: { url: url('/y') } });
+    expect(cancel2).toHaveBeenCalledTimes(1);
     dispose();
   });
 
