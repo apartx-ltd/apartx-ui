@@ -19,16 +19,30 @@ export function getCached(loader: RouteLoader): any {
   return cache.get(loader);
 }
 
-/** Resolve a loader's default export, caching it (and de-duping concurrent loads). */
+/**
+ * Resolve a loader's default export, caching it (and de-duping concurrent loads).
+ *
+ * A rejection is logged here: <Router> renders its `error` snippet from `{:catch}`, which
+ * otherwise swallows the cause — a missing chunk or a module that throws on evaluation left the
+ * console empty. The failed promise is dropped from `inflight`, so the next visit calls the
+ * loader again instead of replaying the same rejection until a full reload.
+ */
 export function load(loader: RouteLoader): Promise<any> {
   if (cache.has(loader)) return Promise.resolve(cache.get(loader));
   let p = inflight.get(loader);
   if (!p) {
-    p = loader().then((m) => {
-      cache.set(loader, m.default);
-      inflight.delete(loader);
-      return m.default;
-    });
+    p = loader().then(
+      (m) => {
+        cache.set(loader, m.default);
+        inflight.delete(loader);
+        return m.default;
+      },
+      (e) => {
+        inflight.delete(loader);
+        console.error('[apartx-ui/router] route chunk failed to load', e);
+        throw e;
+      },
+    );
     inflight.set(loader, p);
   }
   return p;

@@ -20,6 +20,25 @@ describe('lazy route cache', () => {
     expect(loader).toHaveBeenCalledTimes(1);
   });
 
+  it('logs a failed load and lets the next visit retry the loader', async () => {
+    const err = new TypeError("Cannot read properties of undefined (reading 'call')");
+    const Comp = { name: 'Page4' };
+    const loader = vi
+      .fn<() => Promise<{ default: any }>>()
+      .mockRejectedValueOnce(err)
+      .mockResolvedValueOnce({ default: Comp });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(load(loader)).rejects.toBe(err);
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('apartx-ui/router'), err);
+      expect(getCached(loader)).toBeUndefined();
+      await expect(load(loader)).resolves.toBe(Comp);
+      expect(loader).toHaveBeenCalledTimes(2);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it('serves from cache on subsequent loads without re-invoking the loader', async () => {
     const Comp = { name: 'Page3' };
     const loader = vi.fn(() => Promise.resolve({ default: Comp }));
