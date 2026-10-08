@@ -48,8 +48,14 @@ let pendingOverlayRestore = false;
 // На «Уйти»: «назад» — повтор траверса (history.go(delta)), его popstate идёт мимо гарда;
 // «вперёд» — назначение новой записью (forward-хвост стёр pushState confirm'а).
 let leaveGuard: LeaveGuardHook | null = null;
-let pendingLeaveRevert: (() => void) | null = null;
-let leaveRetry = false;
+// Откат ждёт приземления ровно на запись `idx` (откуда ушли); повтор «назад» — на `leaveRetryIdx`.
+// Любой другой popstate (hash-якорь, чужой pushState, быстрый второй back) флаг сбрасывает
+// и обрабатывается штатно — иначе настоящий back приняли бы за приземление.
+let pendingLeaveRevert: { idx: number; ask: () => void } | null = null;
+let leaveRetryIdx: number | null = null;
+// Страница (pathname + search), которую сейчас показывает роутер. Смена только hash и
+// синтетические same-URL записи оверлеев — не уход со страницы, гард их не охраняет.
+let pageKey = isBrowser ? window.location.pathname + window.location.search : '';
 
 if (isBrowser) {
   const st = window.history.state as EntryState;
@@ -60,7 +66,8 @@ if (isBrowser) {
   }
   window.addEventListener('popstate', (e: PopStateEvent) => {
     const est = e.state as EntryState;
-    const nextIdx = est && typeof est.idx === 'number' ? est.idx : 0;
+    const hasIdx = !!est && typeof est.idx === 'number';
+    const nextIdx = hasIdx ? (est as { idx: number }).idx : 0;
     const prev = position;
     action = nextIdx < position ? 'back' : nextIdx > position ? 'forward' : 'none';
     position = nextIdx;
@@ -73,40 +80,61 @@ if (isBrowser) {
       if (action === 'forward' && (e.state as { __overlay?: boolean } | null)?.__overlay) return;
     }
     if (pendingLeaveRevert) {
-      // Откат заблокированного ухода приземлился: страница не менялась — молча; теперь
-      // можно открывать confirm.
-      const ask = pendingLeaveRevert;
+      const pending = pendingLeaveRevert;
       pendingLeaveRevert = null;
-      ask();
-      return;
+      if (hasIdx && nextIdx === pending.idx) {
+        // Откат заблокированного ухода приземлился: страница не менялась — молча; теперь
+        // можно открывать confirm.
+        pending.ask();
+        return;
+      }
+    }
+    if (leaveRetryIdx !== null) {
+      // Повтор после «Уйти» — наш, а не закрытие оверлея: интерцептор не спрашиваем.
+      const expected = leaveRetryIdx;
+      leaveRetryIdx = null;
+      if (hasIdx && nextIdx === expected) {
+        pageKey = window.location.pathname + window.location.search;
+        notify();
+        return;
+      }
     }
     // On a backward step, let the overlay layer close the topmost overlay first.
     // If it handled it, the URL/page is unchanged → do NOT notify the router.
     if (action === 'back' && backInterceptor && backInterceptor()) return;
-    if (leaveRetry) {
-      leaveRetry = false;
-      notify();
-      return;
-    }
+    const landedKey = window.location.pathname + window.location.search;
     const hook = leaveGuard;
-    if (action !== 'none' && hook?.blocked()) {
+    // Запись без числового idx (hash-якорь, чужой pushState) — дельта бессмысленна, не охраняем.
+    if (hasIdx && landedKey !== pageKey && action !== 'none' && hook?.blocked()) {
       const delta = nextIdx - prev;
-      // Браузер уже на назначении — для «вперёд» запоминаем его до отката.
-      const target = window.location.pathname + window.location.search + window.location.hash;
-      pendingLeaveRevert = () => hook.onBlocked(() => {
-        if (delta > 0) {
-          browserHistoryAdapter.push(target, { force: true });
-          return;
-        }
-        leaveRetry = true;
-        window.history.go(delta);
-      });
+      // Браузер уже на назначении — для «вперёд» запоминаем его до отката. «Вперёд» на «Уйти»
+      // открывает назначение заново новой записью: его root/state не восстанавливаются
+      // (принято намеренно, forward-хвост всё равно стёр pushState confirm'а).
+      const target = landedKey + window.location.hash;
+      pendingLeaveRevert = {
+        idx: prev,
+        ask: () => hook.onBlocked(() => {
+          if (delta > 0) {
+            browserHistoryAdapter.push(target, { force: true });
+            return;
+          }
+          leaveRetryIdx = nextIdx;
+          window.history.go(delta);
+        }),
+      };
       window.history.go(-delta);
       return;
     }
+    pageKey = landedKey;
     notify();
   });
 }
+
+// Назначение push/replace — та же страница (отличается разве что hash): это не уход.
+const samePage = (url: string) => {
+  const u = new URL(url, window.location.href);
+  return u.pathname + u.search === pageKey;
+};
 
 export const browserHistoryAdapter: HistoryAdapter = {
   /** Current browser location, or null on the server (router uses context there). */
@@ -134,7 +162,7 @@ export const browserHistoryAdapter: HistoryAdapter = {
   },
   push(url, opts) {
     if (!isBrowser) return;
-    if (!opts?.force && leaveGuard?.blocked()) {
+    if (!opts?.force && leaveGuard?.blocked() && !samePage(url)) {
       leaveGuard.onBlocked(() => browserHistoryAdapter.push(url, { ...opts, force: true }));
       return;
     }
@@ -142,11 +170,12 @@ export const browserHistoryAdapter: HistoryAdapter = {
     if (opts?.root) root = position;
     action = opts?.action ?? 'forward';
     window.history.pushState({ idx: position, root }, '', url);
+    pageKey = window.location.pathname + window.location.search;
     notify();
   },
   replace(url, opts) {
     if (!isBrowser) return;
-    if (!opts?.force && leaveGuard?.blocked()) {
+    if (!opts?.force && leaveGuard?.blocked() && !samePage(url)) {
       leaveGuard.onBlocked(() => browserHistoryAdapter.replace(url, { ...opts, force: true }));
       return;
     }
@@ -156,6 +185,7 @@ export const browserHistoryAdapter: HistoryAdapter = {
     action = opts?.action ?? 'none';
     if (opts?.root) root = position;
     window.history.replaceState({ idx: position, root }, '', url);
+    pageKey = window.location.pathname + window.location.search;
     notify();
   },
   /** Synthetic same-URL entry for an opened overlay; does NOT notify the router. */

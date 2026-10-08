@@ -89,6 +89,12 @@ describe('browserHistoryAdapter — гард ухода', () => {
     go.mockRestore();
   });
 
+  // Приземление траверса, как в браузере: location уже на записи, затем popstate.
+  const land = (state: unknown, url: string) => {
+    window.history.replaceState(state, '', url);
+    window.dispatchEvent(new PopStateEvent('popstate', { state }));
+  };
+
   const block = () => {
     const state = { retry: null as null | (() => void), calls: 0 };
     h.setLeaveGuard!({ blocked: () => true, onBlocked: (r) => { state.calls += 1; state.retry = r; } });
@@ -123,18 +129,18 @@ describe('browserHistoryAdapter — гард ухода', () => {
     const off = h.listen(() => { hits += 1; });
     const g = block();
 
-    window.dispatchEvent(new PopStateEvent('popstate', { state: list })); // браузер ушёл на /list
+    land(list, '/list'); // браузер ушёл на /list
     expect(go).toHaveBeenLastCalledWith(1);
     expect(g.calls).toBe(0);
     expect(hits).toBe(0);
 
-    window.dispatchEvent(new PopStateEvent('popstate', { state: info })); // откат осел
+    land(info, '/info'); // откат осел
     expect(g.calls).toBe(1);
     expect(hits).toBe(0);
 
     g.retry!();
     expect(go).toHaveBeenLastCalledWith(-1);
-    window.dispatchEvent(new PopStateEvent('popstate', { state: list }));
+    land(list, '/list');
     expect(hits).toBe(1);
     expect(h.action).toBe('back');
     off();
@@ -147,13 +153,13 @@ describe('browserHistoryAdapter — гард ухода', () => {
     h.push('/c');
     const c = window.history.state;
     const g = block();
-    window.dispatchEvent(new PopStateEvent('popstate', { state: a }));
+    land(a, '/a');
     expect(go).toHaveBeenLastCalledWith(2);
-    window.dispatchEvent(new PopStateEvent('popstate', { state: c }));
+    land(c, '/c');
     g.retry!();
     expect(go).toHaveBeenLastCalledWith(-2);
-    // Приземлить повтор — иначе модульный leaveRetry протечёт в следующий тест.
-    window.dispatchEvent(new PopStateEvent('popstate', { state: a }));
+    // Приземлить повтор — иначе модульный leaveRetryIdx протечёт в следующий тест.
+    land(a, '/a');
   });
 
   it('back, поглощённый оверлеем, гард не спрашивает', () => {
@@ -172,19 +178,16 @@ describe('browserHistoryAdapter — гард ухода', () => {
     const a = window.history.state;
     h.push('/b');
     const b = window.history.state;
-    window.dispatchEvent(new PopStateEvent('popstate', { state: a })); // назад на /a, гарда ещё нет
-    window.history.replaceState(a, '', '/a');
+    land(a, '/a'); // назад на /a, гарда ещё нет
     let hits = 0;
     const off = h.listen(() => { hits += 1; });
     const g = block();
 
-    window.history.replaceState(b, '', '/b'); // браузер ушёл вперёд — location уже на назначении
-    window.dispatchEvent(new PopStateEvent('popstate', { state: b }));
+    land(b, '/b'); // браузер ушёл вперёд — location уже на назначении
     expect(go).toHaveBeenLastCalledWith(-1);
     expect(hits).toBe(0);
 
-    window.history.replaceState(a, '', '/a'); // откат осел
-    window.dispatchEvent(new PopStateEvent('popstate', { state: a }));
+    land(a, '/a'); // откат осел
     expect(g.calls).toBe(1);
 
     g.retry!();
@@ -192,5 +195,86 @@ describe('browserHistoryAdapter — гард ухода', () => {
     expect(h.action).toBe('forward');
     expect(hits).toBe(1);
     off();
+  });
+
+  it('случайный popstate на чужую idx не принимается за приземление отката', () => {
+    h.push('/list');
+    const list = window.history.state;
+    h.push('/info');
+    const info = window.history.state;
+    let hits = 0;
+    const off = h.listen(() => { hits += 1; });
+    const g = block();
+
+    land(list, '/list'); // откат запущен
+    expect(go).toHaveBeenLastCalledWith(1);
+    h.setLeaveGuard!(null);
+    land({ idx: 99, root: 0 }, '/elsewhere'); // не откат — обрабатывается штатно
+    expect(g.calls).toBe(0);
+    expect(hits).toBe(1);
+
+    land(info, '/info'); // флаг сброшен — confirm не открывается
+    expect(g.calls).toBe(0);
+    off();
+  });
+
+  it('popstate на запись без числового idx: гард не срабатывает, роутер уведомлён', () => {
+    h.push('/page');
+    let hits = 0;
+    const off = h.listen(() => { hits += 1; });
+    const g = block();
+    go.mockClear();
+
+    land(null, '/page#anchor');
+    expect(go).not.toHaveBeenCalled();
+    expect(g.calls).toBe(0);
+    expect(hits).toBe(1);
+    off();
+  });
+
+  it('приземление повтора обрабатывается раньше back-интерцептора оверлеев', () => {
+    h.push('/list');
+    const list = window.history.state;
+    h.push('/info');
+    const info = window.history.state;
+    let hits = 0;
+    const off = h.listen(() => { hits += 1; });
+    const g = block();
+
+    land(list, '/list');
+    land(info, '/info');
+    g.retry!();
+    let asked = 0;
+    h.setBackInterceptor(() => { asked += 1; return true; });
+    land(list, '/list');
+    expect(asked).toBe(0);
+    expect(hits).toBe(1);
+    off();
+  });
+
+  it('«вперёд» на синтетическую запись той же страницы гард не спрашивает', () => {
+    h.push('/x');
+    const x = window.history.state;
+    h.pushOverlay();
+    const overlay = window.history.state;
+    land(x, '/x'); // оверлей закрыт крестиком — его запись осталась хвостом
+    const g = block();
+    go.mockClear();
+
+    land(overlay, '/x');
+    expect(go).not.toHaveBeenCalled();
+    expect(g.calls).toBe(0);
+  });
+
+  it('push на ту же страницу (меняется только hash) идёт мимо гарда', () => {
+    h.push('/p?q=1');
+    const g = block();
+    h.push('/p?q=1#h');
+    expect(g.calls).toBe(0);
+    expect(window.location.hash).toBe('#h');
+
+    h.push('/p?q=2');
+    expect(g.calls).toBe(1);
+    expect(window.location.search).toBe('?q=1');
   });
 });
