@@ -1,7 +1,7 @@
 // projects/apartx-ui/src/lib/router/sveltekit.ts
 import { goto, beforeNavigate, afterNavigate, pushState } from '$app/navigation';
 import { page } from '$app/state';
-import type { HistoryAdapter, Action } from './history/adapter';
+import type { HistoryAdapter, Action, LeaveGuardHook } from './history/adapter';
 import { defaultOverlayStack, type OverlayStack } from './overlay/overlay-stack';
 import { setHistoryAdapter } from './history/registry';
 import { setNavigator, setRouteKey, matchActive } from '../navigation/context';
@@ -51,8 +51,18 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
   let backInterceptor: (() => boolean) | null = null;
   let depth = 0; // our view of the current overlay nesting depth
   let selfNav = false; // навигацию инициировал кит (push/replace ниже) — не хост
+  // Гард ухода (router/guard). Хостовая навигация (plain <a>, host goto) и popstate при
+  // dirty-гарде отменяются nav.cancel(). Popstate SvelteKit откатывает сам (history.go(-delta)):
+  // confirm открываем, только когда этот откат приземлился (pendingLeave, popstate-слушатель
+  // ниже) — confirm оверлей и пушит shallow-запись. leaveRetry — повтор после «Уйти».
+  let leaveGuard: LeaveGuardHook | null = null;
+  let pendingLeave: { url: string | null; ask: () => void } | null = null;
+  let leaveRetry = false;
   const listeners = new Set<() => void>();
   const notify = () => listeners.forEach((l) => l());
+
+  // Та же страница (pathname + search), отличается разве что hash — это не уход.
+  const samePage = (a: URL, b: URL) => a.pathname + a.search === b.pathname + b.search;
 
   beforeNavigate((nav) => {
     if (nav.type === 'popstate' && typeof nav.delta === 'number') {
@@ -85,6 +95,30 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
     // (keepOverlays: шторка карты переживает уход на детальную страницу и обратно)
     // убивал бы выживший оверлей на обратном пути.
     if (nav.type === 'popstate' && depthFromHistory() > 0) return;
+    if (leaveRetry) {
+      leaveRetry = false;
+    } else if (!(nav.from && nav.to && samePage(nav.from.url, nav.to.url)) && leaveGuard?.blocked()) {
+      const hook = leaveGuard;
+      nav.cancel();
+      const to = nav.to?.url;
+      const leave = () => {
+        if (!to) return;
+        leaveRetry = true;
+        void goto(to).catch(() => { leaveRetry = false; });
+      };
+      if (nav.type === 'popstate') {
+        const delta = nav.delta ?? -1;
+        // «Назад» — повтор траверса; «вперёд» повторить нечем (forward-хвост стёр shallow-push
+        // confirm'а) — назначение открываем через goto, как и для ссылки.
+        pendingLeave = {
+          url: nav.from?.url.href ?? null,
+          ask: () => hook.onBlocked(delta > 0 ? leave : () => { leaveRetry = true; history.go(delta); }),
+        };
+        return;
+      }
+      hook.onBlocked(leave);
+      return;
+    }
     defaultOverlayStack.dismissForHostNavigation();
   });
   afterNavigate(() => {
@@ -106,6 +140,14 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
 
   if (typeof window !== 'undefined') {
     window.addEventListener('popstate', () => {
+      // Любой popstate, кроме приземления отката, снимает ожидание — иначе устаревший
+      // pendingLeave сработал бы на чужом popstate, случайно попавшем на тот же URL.
+      const pending = pendingLeave;
+      pendingLeave = null;
+      if (pending && (pending.url === null || location.href === pending.url)) {
+        pending.ask();
+        return;
+      }
       const landed = depthFromHistory();
       const closed = depth - landed;
       depth = landed;
@@ -131,14 +173,27 @@ function createSvelteKitHistoryAdapter(): HistoryAdapter {
     },
     get onOverlayEntry() { return overlayDepthOf(page.state) > 0; },
     listen(cb) { listeners.add(cb); return () => { listeners.delete(cb); }; },
-    push(url, opts) { action = opts?.action ?? 'forward'; selfNav = true; void goto(url).catch(() => { selfNav = false; }); },
-    replace(url, opts) { action = opts?.action ?? 'none'; selfNav = true; void goto(url, { replaceState: true }).catch(() => { selfNav = false; }); },
+    push(url, opts) {
+      if (!opts?.force && leaveGuard?.blocked() && !samePage(new URL(url, location.href), page.url)) {
+        leaveGuard.onBlocked(() => this.push(url, { ...opts, force: true }));
+        return;
+      }
+      action = opts?.action ?? 'forward'; selfNav = true; void goto(url).catch(() => { selfNav = false; });
+    },
+    replace(url, opts) {
+      if (!opts?.force && leaveGuard?.blocked() && !samePage(new URL(url, location.href), page.url)) {
+        leaveGuard.onBlocked(() => this.replace(url, { ...opts, force: true }));
+        return;
+      }
+      action = opts?.action ?? 'none'; selfNav = true; void goto(url, { replaceState: true }).catch(() => { selfNav = false; });
+    },
     pushOverlay() {
       action = 'forward';
       depth = overlayDepthOf(page.state) + 1;
       pushState('', { ...(page.state as object), __overlayDepth: depth });
     },
     setBackInterceptor(fn) { backInterceptor = fn; },
+    setLeaveGuard(hook) { leaveGuard = hook; },
     // Вето back'а: вернуться на пережившую traversal запись оверлея. forward, не
     // pushState — см. adapter.ts. depth здесь не трогаем: собственный popstate-хендлер
     // выше пересчитает его с приземлившейся записи (closed = -1 → цикл не идёт), а
