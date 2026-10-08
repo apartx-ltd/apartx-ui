@@ -4,6 +4,7 @@
   import { page } from '$app/state';
   import { PageTransition } from '$lib/navigation';
   import { useSvelteKitNavigation } from '$lib/router/sveltekit';
+  import { ConfirmDialog } from '$lib/ui/overlays';
 
   let { children } = $props();
 
@@ -19,3 +20,4 @@
 <PageTransition key={page.url.pathname} direction={() => nav.direction}>
   {@render children()}
 </PageTransition>
+<ConfirmDialog />

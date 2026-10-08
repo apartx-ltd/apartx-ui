@@ -12,3 +12,4 @@
 </p>
 
 <Button onclick={() => history.back()}>← Back</Button>
+<a href="/router-demo" class="ml-2 underline" data-testid="detail-to-list">List</a>
