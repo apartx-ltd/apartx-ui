@@ -25,7 +25,7 @@
 //  • a single backInterceptor is consulted on `back` popstate BEFORE notifying
 //    the router; if it handled the back (closed an overlay), the router is not
 //    notified (view unchanged).
-import type { Action, HistoryAdapter } from './adapter';
+import type { Action, HistoryAdapter, LeaveGuardHook } from './adapter';
 
 const isBrowser = typeof window !== 'undefined';
 
@@ -42,6 +42,20 @@ let backInterceptor: (() => boolean) | null = null;
 // Ждём forward-возврата на синтетическую запись после вето back'а (см.
 // restoreOverlayEntry): этот popstate — служебный, роутер о нём не узнаёт.
 let pendingOverlayRestore = false;
+// Гард ухода (router/guard). Заблокированный траверс откатывается (history.go(-delta)):
+// popstate отката — служебный, роутер о нём не узнаёт, а confirm открывается только после
+// него — сам confirm оверлей и пушит запись, посреди незавершённого траверса нельзя.
+// На «Уйти»: «назад» — повтор траверса (history.go(delta)), его popstate идёт мимо гарда;
+// «вперёд» — назначение новой записью (forward-хвост стёр pushState confirm'а).
+let leaveGuard: LeaveGuardHook | null = null;
+// Откат ждёт приземления ровно на запись `idx` (откуда ушли); повтор «назад» — на `leaveRetryIdx`.
+// Любой другой popstate (hash-якорь, чужой pushState, быстрый второй back) флаг сбрасывает
+// и обрабатывается штатно — иначе настоящий back приняли бы за приземление.
+let pendingLeaveRevert: { idx: number; ask: () => void } | null = null;
+let leaveRetryIdx: number | null = null;
+// Страница (pathname + search), которую сейчас показывает роутер. Смена только hash и
+// синтетические same-URL записи оверлеев — не уход со страницы, гард их не охраняет.
+let pageKey = isBrowser ? window.location.pathname + window.location.search : '';
 
 if (isBrowser) {
   const st = window.history.state as EntryState;
@@ -52,7 +66,9 @@ if (isBrowser) {
   }
   window.addEventListener('popstate', (e: PopStateEvent) => {
     const est = e.state as EntryState;
-    const nextIdx = est && typeof est.idx === 'number' ? est.idx : 0;
+    const hasIdx = !!est && typeof est.idx === 'number';
+    const nextIdx = hasIdx ? (est as { idx: number }).idx : 0;
+    const prev = position;
     action = nextIdx < position ? 'back' : nextIdx > position ? 'forward' : 'none';
     position = nextIdx;
     root = rootOf(est);
@@ -63,12 +79,62 @@ if (isBrowser) {
       // флаг и обрабатывается штатно.
       if (action === 'forward' && (e.state as { __overlay?: boolean } | null)?.__overlay) return;
     }
+    if (pendingLeaveRevert) {
+      const pending = pendingLeaveRevert;
+      pendingLeaveRevert = null;
+      if (hasIdx && nextIdx === pending.idx) {
+        // Откат заблокированного ухода приземлился: страница не менялась — молча; теперь
+        // можно открывать confirm.
+        pending.ask();
+        return;
+      }
+    }
+    if (leaveRetryIdx !== null) {
+      // Повтор после «Уйти» — наш, а не закрытие оверлея: интерцептор не спрашиваем.
+      const expected = leaveRetryIdx;
+      leaveRetryIdx = null;
+      if (hasIdx && nextIdx === expected) {
+        pageKey = window.location.pathname + window.location.search;
+        notify();
+        return;
+      }
+    }
     // On a backward step, let the overlay layer close the topmost overlay first.
     // If it handled it, the URL/page is unchanged → do NOT notify the router.
     if (action === 'back' && backInterceptor && backInterceptor()) return;
+    const landedKey = window.location.pathname + window.location.search;
+    const hook = leaveGuard;
+    // Запись без числового idx (hash-якорь, чужой pushState) — дельта бессмысленна, не охраняем.
+    if (hasIdx && landedKey !== pageKey && action !== 'none' && hook?.blocked()) {
+      const delta = nextIdx - prev;
+      // Браузер уже на назначении — для «вперёд» запоминаем его до отката. «Вперёд» на «Уйти»
+      // открывает назначение заново новой записью: его root/state не восстанавливаются
+      // (принято намеренно, forward-хвост всё равно стёр pushState confirm'а).
+      const target = landedKey + window.location.hash;
+      pendingLeaveRevert = {
+        idx: prev,
+        ask: () => hook.onBlocked(() => {
+          if (delta > 0) {
+            browserHistoryAdapter.push(target, { force: true });
+            return;
+          }
+          leaveRetryIdx = nextIdx;
+          window.history.go(delta);
+        }),
+      };
+      window.history.go(-delta);
+      return;
+    }
+    pageKey = landedKey;
     notify();
   });
 }
+
+// Назначение push/replace — та же страница (отличается разве что hash): это не уход.
+const samePage = (url: string) => {
+  const u = new URL(url, window.location.href);
+  return u.pathname + u.search === pageKey;
+};
 
 export const browserHistoryAdapter: HistoryAdapter = {
   /** Current browser location, or null on the server (router uses context there). */
@@ -96,20 +162,30 @@ export const browserHistoryAdapter: HistoryAdapter = {
   },
   push(url, opts) {
     if (!isBrowser) return;
+    if (!opts?.force && leaveGuard?.blocked() && !samePage(url)) {
+      leaveGuard.onBlocked(() => browserHistoryAdapter.push(url, { ...opts, force: true }));
+      return;
+    }
     position += 1;
     if (opts?.root) root = position;
     action = opts?.action ?? 'forward';
     window.history.pushState({ idx: position, root }, '', url);
+    pageKey = window.location.pathname + window.location.search;
     notify();
   },
   replace(url, opts) {
     if (!isBrowser) return;
+    if (!opts?.force && leaveGuard?.blocked() && !samePage(url)) {
+      leaveGuard.onBlocked(() => browserHistoryAdapter.replace(url, { ...opts, force: true }));
+      return;
+    }
     // Default 'none' (neutral) — but callers that replace AS a forward navigation
     // (e.g. opening a property from the map sheet, which replaces the sheet's
     // overlay entry) can request a directional transition.
     action = opts?.action ?? 'none';
     if (opts?.root) root = position;
     window.history.replaceState({ idx: position, root }, '', url);
+    pageKey = window.location.pathname + window.location.search;
     notify();
   },
   /** Synthetic same-URL entry for an opened overlay; does NOT notify the router. */
@@ -131,6 +207,10 @@ export const browserHistoryAdapter: HistoryAdapter = {
   /** Register the overlay layer's back handler (returns true if it consumed the back). */
   setBackInterceptor(fn) {
     backInterceptor = fn;
+  },
+  /** Подключить гарды ухода (router/guard/leave-guard.ts). */
+  setLeaveGuard(hook) {
+    leaveGuard = hook;
   },
   goBack() {
     if (!isBrowser) return;

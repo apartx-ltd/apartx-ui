@@ -1,6 +1,7 @@
 import { getHistory } from '../history/registry';
 import { overlayCount, dismissForNavigation } from '../overlay/overlay-stack';
 import type { Action } from '../history/adapter';
+import { isLeaveBlocked, requestLeave } from '../guard/leave-guard';
 
 /** Программная SPA-навигация. При открытых оверлеях (и без keepOverlays) закрывает их
  *  (флип open=false, без history.back) и заменяет верхнюю синтетическую overlay-запись
@@ -11,13 +12,20 @@ import type { Action } from '../history/adapter';
  *  идёт как 'forward' (это и есть навигация вперёд поверх закрывающегося оверлея).
  *  `root` — назначение начинает новый стек «назад» (диплинк поверх живого приложения:
  *  тап по пушу, сообщение service worker'а): «назад» с него идёт в `<Route back>`, а не
- *  на страницу, где пользователь был до диплинка. Действует на всех трёх путях. */
+ *  на страницу, где пользователь был до диплинка. Действует на всех трёх путях.
+ *  `force` — мимо гардов ухода (router/guard). Без него при dirty-гарде навигация ждёт
+ *  confirm хоста ДО закрытия оверлеев: иначе модалка закрылась бы, а навигация потом
+ *  отменилась. Дальше адаптер получает `force: true` — гард уже спрошен. */
 export function navigate(
   to: string,
-  opts?: { replace?: boolean; keepOverlays?: boolean; action?: Action; root?: boolean },
+  opts?: { replace?: boolean; keepOverlays?: boolean; action?: Action; root?: boolean; force?: boolean },
 ): void {
+  if (!opts?.force && isLeaveBlocked()) {
+    void requestLeave(() => navigate(to, { ...opts, force: true }));
+    return;
+  }
   const h = getHistory();
-  const hOpts = opts?.action || opts?.root ? { action: opts.action, root: opts.root } : undefined;
+  const hOpts = { action: opts?.action, root: opts?.root, force: true };
   // replace-with-open-overlay не поддерживается: перезапишет синтетическую запись, но
   // оставит оверлей в стеке (следующий back закроет фантом). На практике replace зовут
   // без открытых оверлеев (data-replace ссылки на страницах) ЛИБО осознанно поверх
@@ -35,9 +43,9 @@ export function navigate(
       typeof window !== 'undefined' &&
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (wait > 0 && !reduce) {
-      setTimeout(() => h.replace(to, { action: 'forward', root: opts?.root }), wait);
+      setTimeout(() => h.replace(to, { action: 'forward', root: opts?.root, force: true }), wait);
     } else {
-      h.replace(to, { action: 'forward', root: opts?.root });
+      h.replace(to, { action: 'forward', root: opts?.root, force: true });
     }
     return;
   }

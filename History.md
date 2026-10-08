@@ -1,5 +1,47 @@
 # История изменений — apartx-ui
 
+## 2026-10-08
+
+### Версия 0.18.0
+
+### feat(router): гарды ухода — `useNavigationGuard`
+
+* `useNavigationGuard({ when, confirm, onStay? })` — пока `when()`, уход со страницы ждёт `confirm()` хоста.
+  Один диалог на всё приложение, сколько бы гардов ни были dirty; `onStay` — у гарда, чей confirm показан.
+  Отказ `confirm()` (reject) считается «Остаться».
+* Охраняются: `navigate`/`push`/`replace` (браузерный адаптер — в самих `push`/`replace`, так что и прямые
+  вызовы `browserHistoryAdapter.push`), «назад»/«вперёд» браузера и «назад» Android (`popstate` с откатом
+  траверса), ссылки и `goto` SvelteKit (`beforeNavigate` + `cancel`), закрытие вкладки (`beforeunload`,
+  нативный диалог). На «Уйти» «назад» повторяет траверс, «вперёд» открывает назначение новой записью.
+* Не уходом считается переход на ту же страницу (тот же pathname+search): смена hash, синтетическая запись
+  истории модалки с тем же URL. Такие переходы не охраняются.
+* После «Уйти» гарды, что были dirty, «отпускаются»: старая страница остаётся смонтированной на время
+  перехода (или редиректа цели) и не должна спрашивать второй раз. Снятый гард из отпущенных уходит.
+* Ожидание закрытия диалога подтверждения и приземления его `back` ограничено (`SETTLE_TIMEOUT_MS` = 1000 мс):
+  зависший диалог не вешает «Уйти» навсегда. Приземления отката и повтора `popstate` проверяются по `idx`
+  записи истории; записи без `idx` (hash-якорь, чужой `pushState`) не охраняются.
+* `force: true` у `navigate`/`router.push`/`router.replace`/адаптера — мимо гардов (уход после удаления,
+  logout).
+* `HistoryAdapter.setLeaveGuard?` — необязательный метод; свои адаптеры хостов продолжают собираться.
+* Тесты — `guard/leave-guard.test.ts`, `history/browser.test.ts`, `core/nav.test.ts`, `sveltekit.test.ts`,
+  `e2e/leave-guard.spec.ts`; демо — `/router-demo`.
+
+### fix(overlays): `Dialog` — проп `role` доходит до панели
+
+* `role="alertdialog"` молча терялся: bits-ui кладёт в `props` панели свой `role` по variant (`dialog` у
+  `Dialog.Root`), а спред шёл после нашего. Теперь `role` ставится на панель после `{...props}`.
+* Затронуты все, кто передаёт `role="alertdialog"`: `ConfirmDialog` (сервис `confirm`), `AlertDialog`,
+  `MessageLinkMenu` — и диалоги хостов поверх `Dialog` с тем же пропом.
+* Тест — `ui/overlays/dialog-role.dom.test.ts`.
+
+**Консьюмеру при бампе:** гарды — ничего, без зарегистрированных гардов поведение прежнее (первый
+потребитель — apartx-cabinet, вкладка «Инфо» объекта). Роль — e2e-локаторы `getByRole('dialog')`,
+нацеленные на перечисленные диалоги, перестают их находить: заменить на `getByRole('alertdialog')` или testid.
+На 2026-10-08 это apartx-admin `support-escalation.spec.ts:62`, `support-ai-pause.spec.ts:49`,
+`support-chat-menus.spec.ts:47`, `auth-change-phone.spec.ts:37` и apartx-spaces `auth-change-contact.spec.ts:39`
+(там `getByRole('dialog').nth(1)` → `getByRole('alertdialog')` без `nth`). Менять вместе с бампом — на старом
+ките `alertdialog` не найдётся. У кабинета, help, sandyq и verification таких локаторов нет.
+
 ## 2026-10-04
 
 ### Версия 0.17.0

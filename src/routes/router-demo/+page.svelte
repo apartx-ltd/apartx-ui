@@ -2,8 +2,9 @@
 <script lang="ts">
   import { getContext } from 'svelte';
   import type { SvelteKitNavigation } from '$lib/router/sveltekit';
+  import { useNavigationGuard } from '$lib/router';
   import { Button } from '$lib/ui/display';
-  import { Dialog } from '$lib/ui/overlays';
+  import { Dialog, confirm } from '$lib/ui/overlays';
 
   const nav = getContext<SvelteKitNavigation>('router-demo:nav');
 
@@ -31,6 +32,15 @@
     { id: 'beta', label: 'Beta' },
     { id: 'gamma', label: 'Gamma' },
   ];
+
+  // Гард ухода (демо): пока черновик не пуст — уход со страницы спрашивает подтверждение.
+  let draft = $state('');
+  let stays = $state(0);
+  useNavigationGuard({
+    when: () => draft !== '',
+    confirm: () => confirm.open({ title: 'Unsaved changes', text: 'Leave without saving?', confirmText: 'Leave', cancelText: 'Stay' }),
+    onStay: () => { stays += 1; },
+  });
 </script>
 
 <h1 class="text-headline-md mb-2">Router demo</h1>
@@ -56,6 +66,12 @@
 </ul>
 
 <Button onclick={openOverlay}>Open overlay</Button>
+
+<div class="mt-6 flex flex-col gap-2">
+  <label class="text-body-md" for="leave-guard-draft">Draft (leave guard)</label>
+  <input id="leave-guard-draft" data-testid="leave-guard-draft" class="rounded-sm border border-outline-variant px-3 py-2" bind:value={draft} />
+  <span data-testid="leave-guard-stays">{stays}</span>
+</div>
 
 <Dialog open={overlayOpen} onOpenChange={onOverlayOpenChange} title="Overlay">
   <p class="px-6 py-2 text-body-lg text-on-surface-variant">
