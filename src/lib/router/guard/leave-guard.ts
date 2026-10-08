@@ -14,16 +14,24 @@ import { overlayCount, subscribeOverlay, whenOverlayHistorySettled } from '../ov
 export interface LeaveGuard {
   /** Есть несохранённое. Читается в момент попытки ухода — реактивность не нужна. */
   when: () => boolean;
-  /** Диалог хоста. true — уйти без сохранения. */
+  /** Диалог хоста. true — уйти без сохранения. Отказ (reject) трактуется как «Остаться».
+   *  Диалог должен закрыться сам; уход выполнится, когда он закроется (не дольше SETTLE_TIMEOUT_MS). */
   confirm: () => Promise<boolean>;
   /** Пользователь остался. Зовётся у того же гарда, чей confirm был показан. */
   onStay?: () => void;
 }
 
+// Больше любого реального приземления back; дольше — не ждём, навигация всё равно лучше
+// молчаливого зависания.
+const SETTLE_TIMEOUT_MS = 1000;
+
 const guards: LeaveGuard[] = [];
+// Гарды, которым пользователь уже ответил «Уйти»: старая страница остаётся смонтированной на
+// время перехода (а цель может сразу редиректить), и всё ещё dirty-гард спросил бы второй раз.
+const released = new Set<LeaveGuard>();
 let asking = false;
 
-const firstDirty = () => guards.find((g) => g.when());
+const firstDirty = () => guards.find((g) => !released.has(g) && g.when());
 
 export function isLeaveBlocked(): boolean {
   return !!firstDirty();
@@ -33,11 +41,23 @@ export function isLeaveBlocked(): boolean {
  *  закрытия приземлится. Хост резолвит confirm раньше, чем его Dialog снимет оверлей ($effect). */
 function overlaysSettled(baseline: number): Promise<void> {
   return new Promise((resolve) => {
+    let off = () => {};
+    let finished = false;
+    // Ожидание ограничено целиком: не приземлившийся back или диалог, который хост не закрыл,
+    // не должны вешать «Уйти» навсегда.
+    const timer = setTimeout(() => finish(), SETTLE_TIMEOUT_MS);
+    function finish() {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      off();
+      resolve();
+    }
     // Не синхронно: подписчик зовётся из closeOverlay() ДО того, как тот взведёт
     // suppressNextPop и выпустит back, — whenHistorySettled() раньше времени сказал бы «осело».
-    const done = () => { void Promise.resolve().then(whenOverlayHistorySettled).then(resolve); };
+    const done = () => { void Promise.resolve().then(whenOverlayHistorySettled).then(finish); };
     if (overlayCount() <= baseline) { done(); return; }
-    const off = subscribeOverlay(() => {
+    off = subscribeOverlay(() => {
       if (overlayCount() > baseline) return;
       off();
       done();
@@ -57,10 +77,14 @@ export async function requestLeave(proceed: () => void): Promise<void> {
   let leave = false;
   try {
     leave = await guard.confirm();
+  } catch {
+    // Диалог хоста упал — считаем «Остаться», а не роняем вызывающего (`void requestLeave(...)`).
+    leave = false;
   } finally {
     asking = false;
   }
   if (!leave) { guard.onStay?.(); return; }
+  for (const g of guards) if (g.when()) released.add(g);
   await overlaysSettled(baseline);
   proceed();
 }
@@ -89,6 +113,7 @@ export function addLeaveGuard(guard: LeaveGuard): () => void {
     const i = guards.indexOf(guard);
     if (i < 0) return;
     guards.splice(i, 1);
+    released.delete(guard);
     if (guards.length === 0 && typeof window !== 'undefined') {
       window.removeEventListener('beforeunload', onBeforeUnload);
     }

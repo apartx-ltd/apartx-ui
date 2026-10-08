@@ -10,6 +10,7 @@ import type { HistoryAdapter, Action, LeaveGuardHook } from '../history/adapter'
 // пережил бы тест. Снимаем все гарды после каждого теста (dispose идемпотентен).
 const disposers: (() => void)[] = [];
 afterEach(() => {
+  vi.useRealTimers();
   for (const d of disposers.splice(0)) d();
 });
 
@@ -135,5 +136,60 @@ describe('leave-guard', () => {
     dirty = true;
     dispose();
     expect(fire()).toBe(false);
+  });
+
+  it('ожидание приземления ограничено: back, который не приземлился, не вешает «Уйти»', async () => {
+    vi.useFakeTimers();
+    const { guard, overlays } = await setup();
+    guard.addLeaveGuard({
+      when: () => true,
+      confirm: async () => {
+        const token = overlays.openOverlay(() => {});
+        setTimeout(() => overlays.closeOverlay(token), 0);
+        return true;
+      },
+    });
+    let n = 0;
+    const pending = guard.requestLeave(() => { n += 1; });
+    await vi.advanceTimersByTimeAsync(999); // оверлей закрыт, guarded back в полёте и не придёт
+    expect(n).toBe(0);
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
+    expect(n).toBe(1);
+  });
+
+  it('после «Уйти» гард отпущен: тот же dirty-гард пропускает без confirm, новый — спрашивает', async () => {
+    const { guard } = await setup();
+    const confirm = vi.fn(async () => true);
+    const old = { when: () => true, confirm };
+    const dispose = guard.addLeaveGuard(old);
+    let n = 0;
+    await guard.requestLeave(() => { n += 1; });
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(n).toBe(1);
+
+    void guard.requestLeave(() => { n += 1; });
+    expect(confirm).toHaveBeenCalledTimes(1); // не спросил второй раз
+    expect(n).toBe(2);
+
+    dispose();
+    const confirm2 = vi.fn(async () => true);
+    guard.addLeaveGuard({ when: () => true, confirm: confirm2 });
+    await guard.requestLeave(() => { n += 1; });
+    expect(confirm2).toHaveBeenCalledTimes(1);
+    expect(n).toBe(3);
+  });
+
+  it('отказ confirm (reject) = «Остаться»: onStay, без исключения, proceed не зовётся', async () => {
+    const { guard } = await setup();
+    const onStay = vi.fn();
+    guard.addLeaveGuard({ when: () => true, confirm: async () => { throw new Error('dialog failed'); }, onStay });
+    let n = 0;
+    await expect(guard.requestLeave(() => { n += 1; })).resolves.toBeUndefined();
+    expect(n).toBe(0);
+    expect(onStay).toHaveBeenCalledTimes(1);
+    // asking сброшен: следующая попытка снова доходит до confirm
+    await guard.requestLeave(() => { n += 1; });
+    expect(onStay).toHaveBeenCalledTimes(2);
   });
 });
