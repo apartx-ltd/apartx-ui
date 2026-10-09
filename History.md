@@ -1,5 +1,58 @@
 # История изменений — apartx-ui
 
+## 2026-10-09
+
+### Версия 0.19.0
+
+### perf: `"sideEffects"` в package.json — консьюмеры выкидывают неиспользуемые реэкспорты
+
+* У кита не было поля `sideEffects`, и rspack держал каждый модуль, который реэкспортирует
+  подключённый баррель: `import { TextField } from 'apartx-ui/forms'` тянул в главный чанк
+  `DatePicker`, `DateRangePicker`, `RangeCalendar`, `Select`, `RadioGroup` и вместе с ними
+  календари, select и radio-group bits-ui — даже если хост грузит их лениво.
+* Теперь `package.json` объявляет список модулей с побочным эффектом, остальное сборщик вправе
+  выкинуть:
+  * `**/*.css` — таблицы стилей кита;
+  * `./src/lib/compat/**` — `polyfills.js` импортируется хостами ради эффекта;
+  * `./src/lib/ui/utils/date.ts` — `dayjs.extend(...)` и локали на общем синглтоне dayjs;
+  * `./src/lib/router/history/browser.ts` — штамп `idx` в `history.state` и `popstate`-слушатель
+    при импорте;
+  * `DocumentDialog.svelte`, `VideoLightbox.svelte` — единственные компоненты со `<style>`.
+* Почему компоненты со `<style>` в списке поимённо. svelte-loader с `emitCss` выносит стили в
+  виртуальный модуль `X.svelte.N.css!=!…X.svelte`, а rspack сверяет `sideEffects` пакета по
+  настоящему ресурсу (`X.svelte`). Замер показал: с одним `**/*.css` у консьюмера без своего
+  правила на `.css` из `main.css` пропадали стили `DocumentDialog` и `VideoLightbox`, при том что
+  JS компонентов в бандле оставался.
+* Замер — прод-сборка клиента apartx-spaces (`docs/plans/2026-10-08-spaces-bundle-i18n/measure`
+  в оркестраторе, кит подменён, исходник spaces один и тот же):
+  * ветка `feature/spaces-bundle-i18n` (календарь грузится лениво): `client-rspack.js`
+    298 177 → 256 749 байт gzip (−41 КБ, −14 %). Из главного чанка ушли 54 модуля кита (баррели
+    и неиспользуемые компоненты), а календари, select, radio-group и accordion bits-ui вместе с
+    `RangeCalendar`, `Select`, `DocumentDialog`, `MessagesList` переехали в ленивые чанки, где
+    они и используются;
+  * `develop` от 2026-09-26 (календарь в главном чанке): 495 354 → 493 123 байт gzip;
+  * CSS: объединение правил по всем CSS-файлам сборки совпадает до правила; стили компонентов,
+    уехавших в ленивые чанки, едут CSS-чанками этих чанков. У консьюмера без правила
+    `sideEffects` на `.css` CSS кита байт в байт тот же, что был;
+  * apartx-help (Vite): −0,1 КБ gzip, `polyfills.js` в сборке.
+* Гард — `src/lib/side-effects.test.ts`: падает, если модуль с инструкцией верхнего уровня
+  (голый `import`, вызов, `if`) или компонент со `<style>` не попал в список, или запись списка
+  указывает на несуществующий файл. Правило и разбор — AGENTS.md, «sideEffects: что выкидывает
+  сборщик».
+
+**Правило на будущее:** модуль с эффектом уровня модуля (`dayjs.extend`, `customElements.define`,
+`window.addEventListener`, патч прототипа, регистрация в глобальном реестре, голый `import`) и
+каждый новый компонент со `<style>` вносятся в `sideEffects` путём `./src/lib/...`.
+
+**Консьюмерам:** только бамп указателя, конфиги не трогать — проверено сборкой spaces без
+правила `/\.svelte\.\d+\.css$/`. В dev rspack тоже читает поле (`optimization.sideEffects:
+'flag'`, `usedExports` у `@meteorjs/rspack` включён и в dev), так что неиспользуемые модули кита
+перестают грузиться и там — с тем же списком исключений; стили в dev инжектирует JS компонента
+(`emitCss` выключен), CSS-модулей нет. Отдельной dev-сборкой это не замерялось. Отдельно и не от кита: у консьюмера с `emitCss` и без правила
+`sideEffects: true` на `.css` (apartx-verification, apartx-spaces до !105) стили svelte-sonner
+и bits-ui (select / scroll-area viewport) из прод-CSS выпадают и так — их пакеты объявляют
+`"sideEffects": false`.
+
 ## 2026-10-08
 
 ### Версия 0.18.2
