@@ -59,6 +59,22 @@ describe('NumberStepper', () => {
     expect(inc.disabled).toBe(true);
   });
 
+  it('onchange получает новое значение и не зовётся при клике на границе', () => {
+    const calls: number[] = [];
+    const { inc } = setup({ initial: 2, onchange: (v: number) => calls.push(v) });
+    inc.click();
+    flushSync();
+    expect(calls).toEqual([3]);
+    inc.click();
+    flushSync();
+    expect(calls).toEqual([3]);
+  });
+
+  it('format меняет показ значения («—» вместо нуля)', () => {
+    setup({ min: 0, initial: 0, format: (v: number) => (v === 0 ? '—' : String(v)) });
+    expect(target.querySelector('[data-stepper="value"]')!.textContent).toBe('—');
+  });
+
   it('restProps уходят на корень (data-testid)', () => {
     setup();
     expect(target.querySelector('[data-testid="stepper"]')).not.toBeNull();
