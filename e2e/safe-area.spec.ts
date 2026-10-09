@@ -3,7 +3,7 @@ import { openOverlay } from './helpers';
 
 // Правило «инсет забирает контейнер у края экрана» (AGENTS.md → «Safe-area»). Кордова-хост
 // кладёт высоту статус-бара и home indicator в --safe-area-inset-top/bottom на <html>;
-// здесь они задаются так же. Отступить должен контейнер (Page, панель Dialog/Drawer), а
+// здесь они задаются так же. Отступить должен контейнер (Page, панель Dialog/Drawer/BottomSheet), а
 // Header/Toolbar внутри него — увидеть 0.
 
 const TOP = 40;
@@ -130,6 +130,22 @@ test.describe('safe-area: инсет задан', () => {
     expect(await css(page, 'sa-drawer', 'paddingTop')).toBe(`${TOP}px`);
     expect(await css(page, 'sa-drawer', 'paddingBottom')).toBe(`${BOTTOM}px`);
     expect(await css(page, 'sa-drawer-header', 'paddingTop')).toBe('0px');
+  });
+
+  test('BottomSheet: панель отступает на нижний инсет, последняя строка над home indicator', async ({ page }) => {
+    // openOverlay: первый клик до гидрации теряется (SSR-кнопка без обработчика).
+    const last = await openOverlay(page, 'open-sa-sheet', 'sa-sheet-last');
+    expect(
+      await last.evaluate((el) => getComputedStyle(el.closest('[role="dialog"]')!).paddingBottom),
+    ).toBe(`${BOTTOM}px`);
+    // Шторка въезжает transition'ом transform снизу: пока едет, строка ниже финала.
+    const viewport = page.viewportSize()!;
+    await expect
+      .poll(async () => {
+        const box = await last.boundingBox();
+        return box ? box.y + box.height : Infinity;
+      })
+      .toBeLessThanOrEqual(viewport.height - BOTTOM);
   });
 });
 

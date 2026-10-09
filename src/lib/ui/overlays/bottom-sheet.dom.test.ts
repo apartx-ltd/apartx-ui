@@ -28,10 +28,10 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-function mountHost(onpick: () => void) {
+function mountHost(onpick: () => void, sheetClass = '') {
   const target = document.createElement('div');
   document.body.appendChild(target);
-  const handle = mount(Host as any, { target, props: { onpick } });
+  const handle = mount(Host as any, { target, props: { onpick, sheetClass } });
   mounted.push(handle);
   flushSync();
   return handle;
@@ -104,5 +104,19 @@ describe('BottomSheet', () => {
 
     expect(captureSpy).toHaveBeenCalledTimes(1);
     expect(sheet.style.transform).not.toBe(resting);
+  });
+});
+
+// Нижний инсет (home indicator) шторка берёт сама: она портируется в body, и переменная
+// --safe-area-inset-bottom там может быть обнулена предком-Page. Поэтому отступ идёт по
+// корневой копии, и утилита стоит в cn последней: pb-0 хоста её не вычищает.
+// Вычисленный отступ проверяет e2e (в jsdom нет CSS).
+describe('BottomSheet: нижний инсет', () => {
+  it('панель отступает на корневой нижний инсет, pb-0 хоста его не снимает', async () => {
+    mountHost(() => {}, 'pb-0');
+    await settled();
+    const panel = byTestId('sheet-button')!.closest('[role="dialog"]') as HTMLElement;
+    expect(panel.className).toContain('pb-[var(--safe-area-root-bottom,0px)]');
+    expect(panel.className.split(/\s+/)).not.toContain('pb-0');
   });
 });

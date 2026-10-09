@@ -12,6 +12,7 @@
   import { onMount, untrack } from 'svelte'
   import { Dialog } from 'bits-ui'
   import { cn } from '../utils/cn'
+  import { safeBottomViewport } from '../utils/safe-area'
   import { getPagePortalHost } from '../../navigation/context'
   import { getOverlayLayer } from './layer-context'
   import { useOverlay } from '../../hooks/useOverlay.svelte'
@@ -518,6 +519,10 @@
           'rounded-t-2xl shadow-level-3 select-none',
           squareTop && 'rounded-t-none',
           className,
+          // Нижний инсет (home indicator) — по корневой копии: шторка портируется в body, а
+          // объявлена бывает внутри Page, где --safe-area-inset-bottom обнулён. Последней —
+          // pb-0 хоста её не вычищает (AGENTS.md → «Safe-area»).
+          safeBottomViewport,
         )}
         style={`${contentZ}height:100dvh;transform:translate3d(0,${translateY}px,0);transition:${dragging || !animate ? 'none' : TRANSITION};touch-action:pan-y;overscroll-behavior:contain;`}
       >

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Page, Header, Footer, Toolbar, Content, Title } from '$lib/ui/structure';
-  import { Dialog, Drawer } from '$lib/ui/overlays';
+  import { Dialog, Drawer, BottomSheet } from '$lib/ui/overlays';
   import { Button, Fab, BottomNav } from '$lib/ui/display';
 
   // Стенд правила «инсет забирает контейнер у края экрана» (AGENTS.md → «Safe-area»).
@@ -11,6 +11,7 @@
   let p0Open = $state(false);
   let edgeOpen = $state(false);
   let drawerOpen = $state(false);
+  let sheetOpen = $state(false);
 </script>
 
 <h1 class="text-headline-md mb-6">Safe area</h1>
@@ -22,6 +23,7 @@
   <Button data-testid="open-sa-dialog-raw" onclick={() => (rawOpen = true)}>Dialog: raw header</Button>
   <Button data-testid="open-sa-dialog-p0" variant="tonal" onclick={() => (p0Open = true)}>Dialog: host p-0</Button>
   <Button data-testid="open-sa-dialog-edge" variant="tonal" onclick={() => (edgeOpen = true)}>Dialog: edgeToEdge</Button>
+  <Button data-testid="open-sa-sheet" variant="tonal" onclick={() => (sheetOpen = true)}>BottomSheet</Button>
 </div>
 
 <div class="grid gap-4 sm:grid-cols-2">
@@ -134,3 +136,11 @@
     <Button data-testid="sa-dialog-edge-close" variant="text" onclick={() => (edgeOpen = false)}>Close</Button>
   </div>
 </Dialog>
+
+<!-- BottomSheet портируется в body и отступает снизу по корневой копии инсета: последняя
+     строка контента на полном снапе стоит над home indicator. -->
+<BottomSheet bind:open={sheetOpen} snapPoints={[1]}>
+  <div class="flex h-full flex-col justify-end p-4">
+    <p data-testid="sa-sheet-last">Last row of the sheet.</p>
+  </div>
+</BottomSheet>

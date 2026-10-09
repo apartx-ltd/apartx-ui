@@ -30,8 +30,9 @@ export const safeBottomStrip =
   "relative after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-[var(--safe-area-root-bottom,0px)] after:bg-inherit after:content-['']";
 
 /*
- * Панели оверлеев привязаны к вьюпорту и берут корневые копии инсетов (styles/tokens.css):
- * Drawer не портируется в body и внутри Page унаследовал бы обнулённую переменную.
+ * Панели оверлеев (Dialog, Drawer, BottomSheet) привязаны к вьюпорту и берут корневые копии
+ * инсетов (styles/tokens.css): Drawer не портируется в body и внутри Page унаследовал бы
+ * обнулённую переменную, а BottomSheet объявляют и внутри Page.
  */
 export const safeTopViewport =
   'pt-[var(--safe-area-root-top,0px)] [&>*]:[--safe-area-inset-top:0px]';
