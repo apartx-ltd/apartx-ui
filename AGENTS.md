@@ -87,6 +87,43 @@ not as a side effect of other work.
 - `bits-ui`, `svelte`, `svelte-fa` are peer deps — never bump independently of
   consumers; a duplicate `bits-ui` breaks overlay context.
 
+### sideEffects: что выкидывает сборщик
+
+`package.json` объявляет `"sideEffects"` списком. Всё, что в него не попало, сборщик консьюмера
+(rspack, Rollup/Vite) считает модулем без побочных эффектов: если ни один экспорт модуля не
+используется, модуль выпадает из бандла целиком — даже когда его реэкспортирует подключённый
+баррель. Так `import { TextField } from 'apartx-ui/forms'` больше не тащит в главный чанк
+`DatePicker`/`RangeCalendar` и календари bits-ui.
+
+Что в списке и почему:
+
+- `**/*.css` — таблицы стилей кита (`styles/*.css`), если хост импортирует их из JS.
+- `./src/lib/compat/**` — `polyfills.js` хосты импортируют ради эффекта (`import '…/polyfills.js'`),
+  остальное — node-инструменты сборки.
+- `./src/lib/ui/utils/date.ts` — `dayjs.extend(...)` и локали на общем синглтоне dayjs.
+- `./src/lib/router/history/browser.ts` — при импорте штампует `idx` в `history.state` и вешает
+  `popstate`-слушатель.
+- Компоненты со `<style>` (`DocumentDialog.svelte`, `VideoLightbox.svelte`). svelte-loader с
+  `emitCss` выносит `<style>` в виртуальный модуль `X.svelte.N.css!=!…X.svelte`, а rspack сверяет
+  `sideEffects` пакета по настоящему ресурсу — `X.svelte`, не по `.css`-имени. `**/*.css` такой
+  модуль **не защищает**: без записи компонента его CSS молча пропадает из прод-сборки
+  консьюмера, у которого нет своего правила `sideEffects: true` на `.css`.
+
+Правила:
+
+- Модуль, у которого есть эффект **уровня модуля** — голый `import 'x'`, вызов или `if` на
+  верхнем уровне (`dayjs.extend`, `customElements.define`, `window.addEventListener`, патч
+  прототипа, регистрация в глобальном реестре), то же в `<script module>` компонента, — вносится
+  в `sideEffects` путём от корня пакета (`./src/lib/...`). Код инстанс-`<script>` компонента
+  эффектом модуля не является.
+- Новый компонент со `<style>` — тоже в список. Лучше обойтись Tailwind-классами.
+- `const x = вызов()` на верхнем уровне тест не ловит: если вызов трогает что-то за пределами
+  модуля, модуль вносится в список руками.
+- Гард — `src/lib/side-effects.test.ts` (входит в `npm test`): падает на модуле с инструкцией
+  верхнего уровня или компоненте со `<style>` вне списка и на записи-пути, которого нет.
+  Модуль, чей эффект не выходит за его пределы (`chat/markdown.ts` настраивает свой экземпляр
+  Marked), заносится в `LOCAL_ONLY` теста с причиной.
+
 ### Плотность модалок
 
 `Dialog` объявляет плотность тела пропом `layout`:
