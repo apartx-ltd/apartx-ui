@@ -153,7 +153,18 @@ describe('Combobox', () => {
     expect(['cash', 'card', 'acme']).toContain(byTestId('val')!.textContent);
   });
 
-  it('freeSolo: после ввода Enter подтверждает подсвеченную строку «создать», стрелкой — опцию', async () => {
+  it('freeSolo: Enter после посимвольного ввода подтверждает набранный текст, а не опцию', async () => {
+    mountHost({ freeSolo: true });
+    await open();
+    await type('C');
+    const input = await type('Ca');
+    key(input, 'Enter');
+    await settle();
+    expect(byTestId('val')!.textContent).toBe('Ca');
+    expect(options().length).toBe(0);
+  });
+
+  it('freeSolo: Enter после ввода целиком подтверждает набранный текст', async () => {
     mountHost({ freeSolo: true });
     await open();
     const input = await type('Car');
@@ -161,14 +172,29 @@ describe('Combobox', () => {
     await settle();
     expect(byTestId('val')!.textContent).toBe('Car');
     expect(options().length).toBe(0);
+  });
 
+  it('freeSolo: ввод, стрелка и Enter — выбирается подсвеченная опция', async () => {
+    mountHost({ freeSolo: true });
     await open();
-    await type('Car');
-    key(input, 'ArrowUp');
+    await type('C');
+    const input = await type('Ca');
+    key(input, 'ArrowDown');
     await settle();
+    const highlighted = options().find((o) => o.hasAttribute('data-highlighted'))!;
+    const expected = highlighted.textContent!.trim();
     key(input, 'Enter');
     await settle();
-    expect(byTestId('val')!.textContent).toBe('card');
+    expect(byTestId('val')!.textContent).toBe(expected.toLowerCase());
+    expect(options().length).toBe(0);
+  });
+
+  it('freeSolo: пустое значение, ArrowDown открывает, Enter выбирает первую опцию', async () => {
+    mountHost({ freeSolo: true });
+    await open();
+    key(document.querySelector('input')!, 'Enter');
+    await settle();
+    expect(byTestId('val')!.textContent).toBe('cash');
   });
 
   it('freeSolo: программное open=true засевает input текущим значением', async () => {

@@ -19,7 +19,8 @@
   /**
    * Searchable combobox (bits-ui). Filters `options` by the typed query;
    * with `creatable`, an unmatched query can be committed as a new value;
-   * with `freeSolo`, the typed text IS the value (committed on every keystroke).
+   * with `freeSolo`, the typed text IS the value (committed on every keystroke, and Enter
+   * keeps it — Enter selects a row only after arrow/Home/End/Page navigation).
    * Серии соседних опций с одинаковым `group` — под заголовком; `item` рисует
    * содержимое строки, `itemTrailing` — действия справа (кит гасит их события,
    * клик по кнопке не выбирает строку и не уводит фокус из input). Действия
@@ -79,6 +80,8 @@
   let dirty = $state(false);
   // freeSolo: пользователь ходил по списку стрелками с момента открытия — Enter выбирает строку.
   let navigated = false;
+  // freeSolo: меню открыто стрелкой при пустом value — первая опция подсвечена самим bits.
+  let openedByArrow = false;
 
   useOverlay(() => open, () => { open = false; }, { respectBack });
 
@@ -110,6 +113,7 @@
   function handleInput(e: Event) {
     search = (e.target as HTMLInputElement).value;
     dirty = true;
+    navigated = false; // набор текста отменяет прежнюю навигацию: Enter снова фиксирует текст
     if (!freeSolo) return;
     // Текст, совпавший с label опции, — выбор этой опции: коммитим её value, не сырой текст.
     const match = options.find((o) => o.label.toLowerCase() === search.trim().toLowerCase());
@@ -127,23 +131,31 @@
     if (isOpen && !wasOpen) {
       untrack(() => {
         dirty = false;
-        navigated = false;
+        navigated = openedByArrow;
+        openedByArrow = false;
         search = freeSolo ? selectedLabel : '';
       });
     }
     wasOpen = isOpen;
   });
 
-  // freeSolo, MUI-семантика: Enter фиксирует текст в input. bits при открытии подсвечивает
-  // первую опцию, и Enter без ввода подменил бы сохранённое значение (вне списка) ею.
-  // Пока пользователь не печатал и не ходил стрелками, Enter просто закрывает меню.
+  // freeSolo, MUI-семантика: Enter фиксирует текст в input, а не подсвеченную опцию. Значение
+  // уже записано вживую (handleInput), поэтому Enter только закрывает меню. Иначе bits
+  // выберет подсвеченную строку: при открытии он подсвечивает первую опцию, а при вводе
+  // подсветку первого кандидата считает по DOM до перерисовки — «Kaspi» превратился бы
+  // в существующий «Kaspi Gold». Стрелки/Home/End/Page* означают намерение выбрать строку —
+  // с них (navigated) Enter отдаём bits. Стрелка, которой меню открыли, не в счёт, кроме
+  // пустого value: bits тогда сам подсвечивает первую опцию, и Enter её выбирает, как в select.
   // Наш обработчик идёт в mergeProps первым; preventDefault не даёт bits выбрать строку.
   const NAV_KEYS = ['ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp'];
   function handleKeydown(e: KeyboardEvent) {
-    if (!freeSolo || !open) return;
+    if (!freeSolo) return;
+    if (!open) {
+      openedByArrow = !value && (e.key === 'ArrowDown' || e.key === 'ArrowUp');
+      return;
+    }
     if (NAV_KEYS.includes(e.key)) navigated = true;
-    if (e.key !== 'Enter' || e.isComposing) return;
-    if (dirty || navigated || !value || options.some((o) => o.value === value)) return;
+    if (e.key !== 'Enter' || e.isComposing || navigated) return;
     e.preventDefault();
     open = false;
   }
