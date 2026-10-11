@@ -74,6 +74,9 @@ describe('Combobox', () => {
     expect(byTestId('val')!.textContent).toBe('');
   });
 
+  // Страхует от отката обёртки к «только stopPropagation»: сам bits-Item тоже вызывает
+  // preventDefault на pointerdown, поэтому тест не отличит наш keepFocus от нуля — он ловит
+  // лишь регресс, при котором pointerdown перестаёт быть defaultPrevented вовсе.
   it('pointerdown по itemTrailing не уводит фокус из input (preventDefault)', async () => {
     mountHost();
     await open();
@@ -117,6 +120,56 @@ describe('Combobox', () => {
     key(input, 'Escape');
     await settle();
     expect(byTestId('val')!.textContent).toBe('acc_1');
+  });
+
+  it('freeSolo: Enter без ввода при значении вне списка закрывает меню и не подменяет значение', async () => {
+    mountHost({ freeSolo: true, value: 'Petty cash' });
+    await open();
+    expect(options().length).toBeGreaterThan(0);
+    key(document.querySelector('input')!, 'Enter');
+    await settle();
+    expect(byTestId('val')!.textContent).toBe('Petty cash');
+    expect(options().length).toBe(0);
+  });
+
+  it('freeSolo: стрелками до опции и Enter — опция выбирается', async () => {
+    mountHost({ freeSolo: true, value: 'Petty cash' });
+    await open();
+    const input = document.querySelector('input')!;
+    key(input, 'ArrowDown');
+    key(input, 'ArrowDown');
+    await settle();
+    key(input, 'Enter');
+    await settle();
+    expect(['cash', 'card', 'acme']).toContain(byTestId('val')!.textContent);
+  });
+
+  it('freeSolo: после ввода Enter подтверждает подсвеченную строку «создать», стрелкой — опцию', async () => {
+    mountHost({ freeSolo: true });
+    await open();
+    const input = await type('Car');
+    key(input, 'Enter');
+    await settle();
+    expect(byTestId('val')!.textContent).toBe('Car');
+    expect(options().length).toBe(0);
+
+    await open();
+    await type('Car');
+    key(input, 'ArrowUp');
+    await settle();
+    key(input, 'Enter');
+    await settle();
+    expect(byTestId('val')!.textContent).toBe('card');
+  });
+
+  it('freeSolo: программное open=true засевает input текущим значением', async () => {
+    mountHost({ freeSolo: true });
+    byTestId('host-set-value')!.click();
+    await settle();
+    byTestId('host-open')!.click();
+    await settle();
+    expect((document.querySelector('input') as HTMLInputElement).value).toBe('Bank 2');
+    expect(options().length).toBe(3);
   });
 
   it('freeSolo: открытие не стирает сохранённый текст, фильтр включается после ввода', async () => {

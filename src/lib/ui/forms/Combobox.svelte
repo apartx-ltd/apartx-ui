@@ -1,5 +1,5 @@
 <script lang="ts" generics="T extends Option">
-  import type { Snippet } from 'svelte';
+  import { untrack, type Snippet } from 'svelte';
   import { Combobox as BitsCombobox } from 'bits-ui';
   import { cn } from '../utils/cn';
   import Icon from '../display/Icon.svelte';
@@ -73,6 +73,8 @@
   // freeSolo: при открытии в input остаётся сохранённый текст (его можно править), но
   // список фильтруется только после первого ввода — до того он показан целиком.
   let dirty = $state(false);
+  // freeSolo: пользователь ходил по списку стрелками с момента открытия — Enter выбирает строку.
+  let navigated = false;
 
   useOverlay(() => open, () => { open = false; }, { respectBack });
 
@@ -112,10 +114,34 @@
     onValueChange?.(next);
   }
 
-  function handleOpenChange(o: boolean) {
-    dirty = false;
-    search = freeSolo ? selectedLabel : '';
-    onOpenChange?.(o);
+  // open меняют и снаружи (bind:open), а bits зовёт onOpenChange только за свои изменения —
+  // засев query делаем по фронту false→true самого open. pre — до отрисовки, чтобы input
+  // не мигнул прежним поиском.
+  let wasOpen = false;
+  $effect.pre(() => {
+    const isOpen = open;
+    if (isOpen && !wasOpen) {
+      untrack(() => {
+        dirty = false;
+        navigated = false;
+        search = freeSolo ? selectedLabel : '';
+      });
+    }
+    wasOpen = isOpen;
+  });
+
+  // freeSolo, MUI-семантика: Enter фиксирует текст в input. bits при открытии подсвечивает
+  // первую опцию, и Enter без ввода подменил бы сохранённое значение (вне списка) ею.
+  // Пока пользователь не печатал и не ходил стрелками, Enter просто закрывает меню.
+  // Наш обработчик идёт в mergeProps первым; preventDefault не даёт bits выбрать строку.
+  const NAV_KEYS = ['ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp'];
+  function handleKeydown(e: KeyboardEvent) {
+    if (!freeSolo || !open) return;
+    if (NAV_KEYS.includes(e.key)) navigated = true;
+    if (e.key !== 'Enter' || e.isComposing) return;
+    if (dirty || navigated || !value || options.some((o) => o.value === value)) return;
+    e.preventDefault();
+    open = false;
   }
 
   // itemTrailing: кнопка внутри bits Item — без этого bits выбирает строку по pointerup/click.
@@ -142,7 +168,7 @@
     {onValueChange}
     allowDeselect={!freeSolo}
     inputValue={displayValue}
-    onOpenChange={handleOpenChange}
+    {onOpenChange}
     {...restProps}
   >
     <div
@@ -156,6 +182,7 @@
     >
       <BitsCombobox.Input
         oninput={handleInput}
+        onkeydown={handleKeydown}
         {placeholder}
         class="flex-1 bg-transparent border-none outline-none text-body-lg text-on-surface placeholder:text-on-surface-variant/60 min-w-0"
       />
