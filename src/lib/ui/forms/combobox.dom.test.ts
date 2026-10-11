@@ -64,6 +64,15 @@ describe('Combobox', () => {
     expect(document.body.textContent).toContain('Custom');
   });
 
+  it('попап по ширине поля (как у Select), шеврон — тот же svg, что у Select', async () => {
+    mountHost();
+    await open();
+    const content = document.querySelector('[data-combobox-content]') as HTMLElement;
+    expect(content).not.toBeNull();
+    expect(content.getAttribute('style')).toMatch(/(^|;)\s*width:\s*var\(--bits-combobox-anchor-width\)/);
+    expect(document.querySelector('[aria-label="Open"] svg path[d="M6 9l6 6 6-6"]')).not.toBeNull();
+  });
+
   it('клик по itemTrailing вызывает действие и НЕ выбирает строку', async () => {
     const seen: string[] = [];
     mountHost({ onAction: (v: string) => seen.push(v) });

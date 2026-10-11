@@ -3,7 +3,7 @@
   import { Combobox as BitsCombobox } from 'bits-ui';
   import { cn } from '../utils/cn';
   import Icon from '../display/Icon.svelte';
-  import { faChevronDown, faPlus } from '@fortawesome/free-solid-svg-icons';
+  import { faPlus } from '@fortawesome/free-solid-svg-icons';
   import { getOverlayLayer } from '../overlays/layer-context';
   import { useOverlay } from '../../hooks/useOverlay.svelte';
   import { groupOptions, type Option } from './option-groups';
@@ -68,6 +68,10 @@
     class?: string;
     [key: string]: any;
   } = $props();
+
+  // Поле целиком (рамка с input + триггером) — якорь попапа: он встаёт под всё поле
+  // и берёт его ширину, как у Select.
+  let fieldEl = $state<HTMLElement | null>(null);
 
   let search = $state('');
   // freeSolo: при открытии в input остаётся сохранённый текст (его можно править), но
@@ -172,6 +176,7 @@
     {...restProps}
   >
     <div
+      bind:this={fieldEl}
       class={cn(
         'flex items-center gap-2 px-3 h-12 rounded-xs border bg-transparent transition-colors',
         error
@@ -187,15 +192,24 @@
         class="flex-1 bg-transparent border-none outline-none text-body-lg text-on-surface placeholder:text-on-surface-variant/60 min-w-0"
       />
       <BitsCombobox.Trigger class="flex-shrink-0 text-on-surface-variant cursor-pointer" aria-label="Open">
-        <Icon icon={faChevronDown} class={cn('transition-transform', open && 'rotate-180')} />
+        <svg
+          class={cn('w-4 h-4 text-on-surface-variant transition-transform', open && 'rotate-180')}
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
       </BitsCombobox.Trigger>
     </div>
 
     <BitsCombobox.Portal>
       <BitsCombobox.Content
         sideOffset={4}
+        align="start"
+        customAnchor={fieldEl}
         class="z-50 rounded-sm bg-surface shadow-level-2 border border-outline-variant overflow-hidden py-1 max-h-64"
-        style={overlayLayer ? `z-index:${overlayLayer.z + 2};` : ''}
+        style={overlayLayer
+          ? `z-index:${overlayLayer.z + 2};width:var(--bits-combobox-anchor-width);`
+          : 'width:var(--bits-combobox-anchor-width);'}
       >
         <BitsCombobox.Viewport>
           {#each groups as g, gi (gi)}
