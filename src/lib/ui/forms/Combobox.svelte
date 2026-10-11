@@ -1,10 +1,12 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import { Combobox as BitsCombobox } from 'bits-ui';
   import { cn } from '../utils/cn';
   import Icon from '../display/Icon.svelte';
   import { faChevronDown, faPlus } from '@fortawesome/free-solid-svg-icons';
   import { getOverlayLayer } from '../overlays/layer-context';
   import { useOverlay } from '../../hooks/useOverlay.svelte';
+  import { groupOptions, type Option } from './option-groups';
 
   // The dropdown portals to <body> at z-50 by default — fine standalone, but when
   // this combobox lives inside a layered overlay (modal registry's <Dialog>, which
@@ -14,15 +16,18 @@
   // keep the z-50 class (fully backwards-compatible). Mirrors Dialog/BottomSheet.
   const overlayLayer = getOverlayLayer();
 
-  type Option = { value: string; label: string; disabled?: boolean };
-
   /**
    * Searchable combobox (bits-ui). Filters `options` by the typed query;
-   * with `creatable`, an unmatched query can be committed as a new value.
-   * Bind `value`. All user text is a prop with an English default.
+   * with `creatable`, an unmatched query can be committed as a new value;
+   * with `freeSolo`, the typed text IS the value (committed on every keystroke).
+   * Серии соседних опций с одинаковым `group` — под заголовком; `item` рисует
+   * содержимое строки, `itemTrailing` — действия справа (кит гасит их события,
+   * клик по кнопке не выбирает строку). Bind `value`/`open`. All user text is a
+   * prop with an English default.
    */
   let {
     value = $bindable(''),
+    open = $bindable(false),
     options = [],
     label = '',
     placeholder = 'Search…',
@@ -30,14 +35,18 @@
     required = false,
     disabled = false,
     creatable = false,
+    freeSolo = false,
     createLabel = 'Create',
     emptyText = 'No results',
     respectBack = true,
     onValueChange,
+    item,
+    itemTrailing,
     class: className,
     ...restProps
   }: {
     value?: string;
+    open?: boolean;
     options?: Option[];
     label?: string;
     placeholder?: string;
@@ -45,16 +54,18 @@
     required?: boolean;
     disabled?: boolean;
     creatable?: boolean;
+    freeSolo?: boolean;
     createLabel?: string;
     emptyText?: string;
     respectBack?: boolean;
     onValueChange?: (v: string) => void;
+    item?: Snippet<[Option, { selected: boolean; highlighted: boolean }]>;
+    itemTrailing?: Snippet<[Option]>;
     class?: string;
     [key: string]: any;
   } = $props();
 
   let search = $state('');
-  let open = $state(false);
 
   useOverlay(() => open, () => { open = false; }, { respectBack });
 
@@ -63,10 +74,14 @@
       ? options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
       : options,
   );
+  let groups = $derived(groupOptions(filtered));
 
   let exactMatch = $derived(
     options.some((o) => o.label.toLowerCase() === search.trim().toLowerCase()),
   );
+  // Строка «создать»: creatable — по клику, freeSolo — текст уже в value, строка лишь
+  // закрывает меню тем же путём, что выбор опции.
+  let showCreateRow = $derived((creatable || freeSolo) && !!search.trim() && !exactMatch);
 
   // Show the selected option's label in the input when not actively searching.
   // `defaultValue` on BitsCombobox.Input is non-reactive (set once at mount), so a
@@ -74,12 +89,19 @@
   // would never display. Drive the input via the Root's reactive `inputValue` box
   // instead: while the popup is open the user is searching → show their query; when
   // closed → show the selected option's label (reactively, even if it arrives late).
-  let selectedLabel = $derived(options.find((o) => o.value === value)?.label ?? '');
+  // freeSolo: значение вне списка показываем как есть.
+  let selectedLabel = $derived(options.find((o) => o.value === value)?.label ?? (freeSolo ? value : ''));
   let displayValue = $derived(open ? search : selectedLabel);
 
   function handleInput(e: Event) {
     search = (e.target as HTMLInputElement).value;
+    if (!freeSolo) return;
+    value = search;
+    onValueChange?.(search);
   }
+
+  // itemTrailing: кнопка внутри bits Item — без этого bits выбирает строку по pointerup/click.
+  const stop = (e: Event) => e.stopPropagation();
 </script>
 
 <div class={cn('flex flex-col gap-1', className)}>
@@ -114,7 +136,7 @@
         class="flex-1 bg-transparent border-none outline-none text-body-lg text-on-surface placeholder:text-on-surface-variant/60 min-w-0"
       />
       <BitsCombobox.Trigger class="flex-shrink-0 text-on-surface-variant cursor-pointer" aria-label="Open">
-        <Icon icon={faChevronDown} />
+        <Icon icon={faChevronDown} class={cn('transition-transform', open && 'rotate-180')} />
       </BitsCombobox.Trigger>
     </div>
 
@@ -125,34 +147,53 @@
         style={overlayLayer ? `z-index:${overlayLayer.z + 2};` : ''}
       >
         <BitsCombobox.Viewport>
-          {#each filtered as opt (opt.value)}
-            <BitsCombobox.Item
-              value={opt.value}
-              label={opt.label}
-              disabled={opt.disabled}
-              class={cn(
-                'flex items-center w-full px-3 py-2.5 text-body-md cursor-pointer transition-colors text-left',
-                'text-on-surface data-[highlighted]:bg-on-surface/8',
-                'data-[selected]:bg-secondary-container data-[selected]:text-on-secondary-container',
-                'data-[disabled]:opacity-38 data-[disabled]:pointer-events-none',
-              )}
-            >
-              {opt.label}
-            </BitsCombobox.Item>
+          {#each groups as g, gi (gi)}
+            <BitsCombobox.Group class={cn(gi > 0 && 'mt-1 border-t border-outline-variant pt-1')}>
+              {#if g.label}
+                <BitsCombobox.GroupHeading class="px-3 py-1.5 text-label-sm text-on-surface-variant/70">
+                  {g.label}
+                </BitsCombobox.GroupHeading>
+              {/if}
+              {#each g.options as opt (opt.value)}
+                <BitsCombobox.Item
+                  value={opt.value}
+                  label={opt.label}
+                  disabled={opt.disabled}
+                  class={cn(
+                    'flex items-center gap-2 w-full px-3 py-2.5 text-body-md cursor-pointer transition-colors text-left',
+                    'text-on-surface data-[highlighted]:bg-on-surface/8',
+                    'data-[selected]:bg-secondary-container data-[selected]:text-on-secondary-container',
+                    'data-[disabled]:opacity-38 data-[disabled]:pointer-events-none',
+                  )}
+                >
+                  {#snippet children({ selected, highlighted })}
+                    <span class="min-w-0 flex-1 truncate">
+                      {#if item}{@render item(opt, { selected, highlighted })}{:else}{opt.label}{/if}
+                    </span>
+                    {#if itemTrailing}
+                      <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
+                      <span class="flex flex-shrink-0 items-center gap-1" onpointerdown={stop} onpointerup={stop} onclick={stop}>
+                        {@render itemTrailing(opt)}
+                      </span>
+                    {/if}
+                  {/snippet}
+                </BitsCombobox.Item>
+              {/each}
+            </BitsCombobox.Group>
           {/each}
 
-          {#if creatable && search.trim() && !exactMatch}
+          {#if showCreateRow}
             <BitsCombobox.Item
               value={search.trim()}
               label={search.trim()}
               class="flex items-center gap-2 w-full px-3 py-2.5 text-body-md cursor-pointer text-primary data-[highlighted]:bg-on-surface/8"
             >
               <Icon icon={faPlus} />
-              {createLabel} “{search.trim()}”
+              {#if creatable}{createLabel} “{search.trim()}”{:else}{search.trim()}{/if}
             </BitsCombobox.Item>
           {/if}
 
-          {#if filtered.length === 0 && !(creatable && search.trim())}
+          {#if filtered.length === 0 && !showCreateRow}
             <div class="px-3 py-2.5 text-body-md text-on-surface-variant">{emptyText}</div>
           {/if}
         </BitsCombobox.Viewport>
