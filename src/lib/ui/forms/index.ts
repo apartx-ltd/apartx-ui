@@ -10,6 +10,7 @@ export { default as FormCheckbox } from './FormCheckbox.svelte';
 export { default as FormDatePicker } from './FormDatePicker.svelte';
 export { default as RadioGroup } from './RadioGroup.svelte';
 export { default as Combobox } from './Combobox.svelte';
+export { groupOptions, type Option, type OptionGroup } from './option-groups';
 export { default as PhoneInput } from './PhoneInput.svelte';
 export { default as PhoneField } from './PhoneField.svelte';
 export { default as CountrySelect } from './CountrySelect.svelte';

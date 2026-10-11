@@ -26,5 +26,6 @@
     {/if}
   {/snippet}
 </Select>
+<button type="button" data-testid="host-close" onclick={() => (open = false)}>close</button>
 <output data-testid="val">{value}</output>
 <output data-testid="open">{String(open)}</output>

@@ -124,6 +124,10 @@ describe('Select: группы и действия', () => {
     await openMenu();
     expect(byTestId('open')!.textContent).toBe('true');
     expect(options().length).toBe(3);
+    byTestId('host-close')!.click();
+    await settle();
+    expect(byTestId('open')!.textContent).toBe('false');
+    expect(options().length).toBe(0);
     unmount(comp);
     target.remove();
     document.body.innerHTML = '';
