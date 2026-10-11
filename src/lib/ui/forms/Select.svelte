@@ -3,6 +3,7 @@
   import { cn } from '../utils/cn';
   import { getOverlayLayer } from '../overlays/layer-context';
   import { useOverlay } from '../../hooks/useOverlay.svelte';
+  import { groupOptions } from './option-groups';
 
   // Built on the bits-ui Select primitive (mirrors Combobox). The popup portals to
   // <body> via BitsSelect.Portal so it escapes clipping ancestors — a kit <Dialog>
@@ -29,12 +30,18 @@
     // pass `clearable`. Never shown on a disabled field.
     clearable = false,
     respectBack = true,
+    // Открытость меню наружу (bind:open): хост закрывает меню до своего диалога.
+    open = $bindable(false),
+    // Опции с одинаковым `group` подряд — серия под заголовком. `item(opt, {selected,
+    // highlighted})` — содержимое строки; `itemTrailing(opt)` — действия справа, только
+    // указателем: они внутри role=option и вне порядка табуляции, кит гасит их события
+    // (клик по кнопке не выбирает строку и не уводит фокус с триггера).
+    item,
+    itemTrailing,
     class: className,
     onchange,
     ...restProps
   } = $props();
-
-  let open = $state(false);
 
   useOverlay(() => open, () => { open = false; }, { respectBack });
 
@@ -48,6 +55,8 @@
     return options.find(o => o.value === value)?.label ?? '';
   });
 
+  let groups = $derived(groupOptions(options));
+
   let hasValue = $derived(multiple ? Array.isArray(value) && value.length > 0 : !!value);
 
   // bits fires onValueChange only on user-driven selection — map it to the legacy
@@ -55,6 +64,13 @@
   function handleValueChange(v) {
     onchange?.({ target: { value: v } });
   }
+
+  // itemTrailing: кнопка внутри bits Item — без этого bits выбирает строку по pointerup/click.
+  const stop = (e) => e.stopPropagation();
+  const keepFocus = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
   function clear(e) {
     e.stopPropagation();
@@ -133,33 +149,50 @@
           : 'width:var(--bits-select-anchor-width);'}
       >
         <BitsSelect.Viewport>
-          {#each options as opt (opt.value)}
-            <BitsSelect.Item
-              value={opt.value}
-              label={opt.label}
-              disabled={opt.disabled}
-              class={cn(
-                'flex items-start w-full px-3 py-2.5 text-body-md cursor-pointer transition-colors text-left',
-                multiple && 'gap-3',
-                'text-on-surface data-[highlighted]:bg-on-surface/8',
-                'data-[selected]:bg-secondary-container data-[selected]:text-on-secondary-container',
-                'data-[disabled]:opacity-38 data-[disabled]:pointer-events-none'
-              )}
-            >
-              {#snippet children({ selected })}
-                {#if multiple}
-                  <span class={cn(
-                    'w-5 h-5 rounded-xs border-2 flex items-center justify-center flex-shrink-0 transition-colors',
-                    selected ? 'bg-primary border-primary' : 'border-outline'
-                  )}>
-                    {#if selected}
-                      <svg class="w-3.5 h-3.5 text-on-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+          {#each groups as g, gi (gi)}
+            <BitsSelect.Group class={cn(gi > 0 && 'mt-1 border-t border-outline-variant pt-1')}>
+              {#if g.label}
+                <BitsSelect.GroupHeading class="px-3 py-1.5 text-label-sm text-on-surface-variant/70">
+                  {g.label}
+                </BitsSelect.GroupHeading>
+              {/if}
+              {#each g.options as opt (opt.value)}
+                <BitsSelect.Item
+                  value={opt.value}
+                  label={opt.label}
+                  disabled={opt.disabled}
+                  class={cn(
+                    'flex items-start w-full px-3 py-2.5 text-body-md cursor-pointer transition-colors text-left',
+                    (multiple || itemTrailing) && 'gap-3',
+                    'text-on-surface data-[highlighted]:bg-on-surface/8',
+                    'data-[selected]:bg-secondary-container data-[selected]:text-on-secondary-container',
+                    'data-[disabled]:opacity-38 data-[disabled]:pointer-events-none'
+                  )}
+                >
+                  {#snippet children({ selected, highlighted })}
+                    {#if multiple}
+                      <span class={cn(
+                        'w-5 h-5 rounded-xs border-2 flex items-center justify-center flex-shrink-0 transition-colors',
+                        selected ? 'bg-primary border-primary' : 'border-outline'
+                      )}>
+                        {#if selected}
+                          <svg class="w-3.5 h-3.5 text-on-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+                        {/if}
+                      </span>
                     {/if}
-                  </span>
-                {/if}
-                <span class="min-w-0 break-words">{opt.label}</span>
-              {/snippet}
-            </BitsSelect.Item>
+                    <span class={cn('min-w-0 break-words', itemTrailing && 'flex-1')}>
+                      {#if item}{@render item(opt, { selected, highlighted })}{:else}{opt.label}{/if}
+                    </span>
+                    {#if itemTrailing}
+                      <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
+                      <span class="flex flex-shrink-0 items-center gap-1 self-center" onpointerdown={keepFocus} onpointerup={stop} onclick={stop}>
+                        {@render itemTrailing(opt)}
+                      </span>
+                    {/if}
+                  {/snippet}
+                </BitsSelect.Item>
+              {/each}
+            </BitsSelect.Group>
           {/each}
         </BitsSelect.Viewport>
       </BitsSelect.Content>
