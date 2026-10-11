@@ -8,13 +8,12 @@
     value = $bindable(''),
     freeSolo = false,
     onAction,
-  }: { value?: string; freeSolo?: boolean; onAction?: (v: string) => void } = $props();
-
-  const options: Option[] = [
-    { value: 'cash', label: 'Cash' },
-    { value: 'card', label: 'Card' },
-    { value: 'acme', label: 'ACME', group: 'Custom' },
-  ];
+    options = [
+      { value: 'cash', label: 'Cash' },
+      { value: 'card', label: 'Card' },
+      { value: 'acme', label: 'ACME', group: 'Custom' },
+    ],
+  }: { value?: string; freeSolo?: boolean; onAction?: (v: string) => void; options?: Option[] } = $props();
 </script>
 
 <Combobox bind:value {options} {freeSolo} label="Account">

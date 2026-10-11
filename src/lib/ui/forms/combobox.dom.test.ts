@@ -20,16 +20,27 @@ function mountHost(props: Record<string, unknown> = {}) {
   flushSync();
   return handle;
 }
+// jsdom: bits открывает триггер по pointerdown, синтетический click меню не открывает —
+// открываем тем же путём, что клавиатура (ArrowDown на input).
 async function open() {
-  (document.querySelector('button[aria-label="Open"]') as HTMLElement).click();
+  document.querySelector('input')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
   await settle();
-  // jsdom: bits открывает триггер по pointerdown, синтетический click меню не открывает —
-  // открываем тем же путём, что клавиатура (ArrowDown на input).
-  if (options().length === 0) {
-    document.querySelector('input')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-    await settle();
-  }
 }
+// bits выбирает строку по pointerup — настоящий жест, а не одиночный click.
+function press(el: HTMLElement) {
+  const init = { bubbles: true, cancelable: true, button: 0, pointerType: 'mouse' };
+  el.dispatchEvent(new PointerEvent('pointerdown', init));
+  el.dispatchEvent(new PointerEvent('pointerup', init));
+  el.dispatchEvent(new MouseEvent('click', init));
+}
+async function type(text: string) {
+  const input = document.querySelector('input') as HTMLInputElement;
+  input.value = text;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  await settle();
+  return input;
+}
+const key = (el: HTMLElement, k: string) => el.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
 
 beforeEach(() => {
   document.body.innerHTML = '';
@@ -57,10 +68,66 @@ describe('Combobox', () => {
     const seen: string[] = [];
     mountHost({ onAction: (v: string) => seen.push(v) });
     await open();
-    byTestId('act-acme')!.click();
+    press(byTestId('act-acme')!);
     await settle();
     expect(seen).toEqual(['acme']);
     expect(byTestId('val')!.textContent).toBe('');
+  });
+
+  it('pointerdown по itemTrailing не уводит фокус из input (preventDefault)', async () => {
+    mountHost();
+    await open();
+    const ev = new PointerEvent('pointerdown', { bubbles: true, cancelable: true });
+    byTestId('act-acme')!.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it('контроль: pointerup по обычной строке её выбирает', async () => {
+    mountHost();
+    await open();
+    press(options()[0]);
+    await settle();
+    expect(byTestId('val')!.textContent).toBe('cash');
+  });
+
+  it('freeSolo: Enter по строке «создать» сохраняет value и закрывает меню', async () => {
+    mountHost({ freeSolo: true });
+    await open();
+    const input = await type('Petty cash');
+    key(input, 'Enter');
+    await settle();
+    expect(byTestId('val')!.textContent).toBe('Petty cash');
+    expect(options().length).toBe(0);
+  });
+
+  it('freeSolo: pointerup по строке «создать» сохраняет value и закрывает меню', async () => {
+    mountHost({ freeSolo: true });
+    await open();
+    await type('Petty cash');
+    press(options().find((o) => o.textContent?.trim() === 'Petty cash')!);
+    await settle();
+    expect(byTestId('val')!.textContent).toBe('Petty cash');
+    expect(options().length).toBe(0);
+  });
+
+  it('freeSolo: текст, совпавший с label опции, коммитит её value', async () => {
+    mountHost({ freeSolo: true, options: [{ value: 'acc_1', label: 'Bank' }] });
+    await open();
+    const input = await type('bank');
+    key(input, 'Escape');
+    await settle();
+    expect(byTestId('val')!.textContent).toBe('acc_1');
+  });
+
+  it('freeSolo: открытие не стирает сохранённый текст, фильтр включается после ввода', async () => {
+    mountHost({ freeSolo: true, value: 'Petty cash' });
+    const input = document.querySelector('input') as HTMLInputElement;
+    expect(input.value).toBe('Petty cash');
+    await open();
+    expect(input.value).toBe('Petty cash');
+    expect(options().filter((o) => ['Cash', 'Card', 'ACME x'].includes(o.textContent?.replace(/\s+/g, ' ').trim() ?? '')).length).toBe(3);
+    await type('Petty cash 2');
+    expect(byTestId('val')!.textContent).toBe('Petty cash 2');
   });
 
   it('freeSolo: набранный текст сразу становится value и показан после закрытия', async () => {
