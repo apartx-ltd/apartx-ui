@@ -4,6 +4,7 @@
     Label, FormSelect, FormCheckbox, FormDatePicker,
     RadioGroup, Combobox, PhoneInput, DateRangePicker,
   } from '$lib/ui/forms';
+  import { Button } from '$lib/ui/display';
   import { countryPhoneData } from 'phone';
 
   let text = $state('');
@@ -16,6 +17,7 @@
   let fdate = $state('');
   let radio = $state('email');
   let combo = $state('');
+  let comboFree = $state('');
   let phone = $state('');
   let phoneIntl = $state('');
   let range = $state({ start: '', end: '' });
@@ -94,12 +96,30 @@
 
   <Combobox
     bind:value={combo}
-    label="Combobox (searchable, creatable)"
+    label="Combobox (searchable, creatable, groups, row action)"
     creatable
     options={[
       { value: 'almaty', label: 'Almaty' },
       { value: 'astana', label: 'Astana' },
       { value: 'shymkent', label: 'Shymkent' },
+      { value: 'berlin', label: 'Berlin', group: 'Custom' },
+      { value: 'paris', label: 'Paris', group: 'Custom' },
+    ]}
+  >
+    {#snippet itemTrailing(opt)}
+      {#if opt.group}
+        <Button variant="icon" size="sm" aria-label="Remove" onclick={() => alert(`remove ${opt.value}`)}>×</Button>
+      {/if}
+    {/snippet}
+  </Combobox>
+
+  <Combobox
+    bind:value={comboFree}
+    label="Combobox (freeSolo — typed text is the value)"
+    freeSolo
+    options={[
+      { value: 'cash', label: 'Cash' },
+      { value: 'card', label: 'Card' },
     ]}
   />
 
