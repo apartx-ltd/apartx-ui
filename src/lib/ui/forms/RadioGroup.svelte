@@ -64,12 +64,14 @@
           value={opt.value}
           disabled={opt.disabled}
           class={cn(
-            'relative w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors',
+            'group/radio-item relative w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors',
             'border-outline data-[state=checked]:border-primary',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
           )}
         >
-          <span class="w-2.5 h-2.5 rounded-full bg-primary scale-0 transition-transform [[data-state=checked]_&]:scale-100"></span>
+          <!-- Точка — от именованной группы СВОЕЙ опции: анонимный предок `[data-state=checked]`
+               ловил и отмеченный элемент снаружи группы, и точка горела у всех опций. -->
+          <span class="w-2.5 h-2.5 rounded-full bg-primary scale-0 transition-transform group-data-[state=checked]/radio-item:scale-100"></span>
         </BitsRadioGroup.Item>
         {#if opt.label}
           <span class="text-body-md text-on-surface">{opt.label}</span>
