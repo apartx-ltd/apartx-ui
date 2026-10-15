@@ -51,9 +51,11 @@
 {#if expandable}
   <Accordion.Item {value} class={cn('rounded-xl bg-surface-container overflow-hidden', className)} data-error={error || undefined} {...restProps}>
     <Accordion.Header>
-      <Accordion.Trigger class={cn('w-full px-4 py-3 cursor-pointer flex items-center gap-2 text-left text-title-sm text-on-surface hover:bg-on-surface/8', error && 'text-error')}>
+      <!-- Поворот шеврона — от именованной группы СВОЕГО триггера. Анонимный предок
+           `[data-state=open]` ловил и раскрытую внешнюю секцию: вложенная свёрнутая смотрела вверх. -->
+      <Accordion.Trigger class={cn('group/accordion-trigger w-full px-4 py-3 cursor-pointer flex items-center gap-2 text-left text-title-sm text-on-surface hover:bg-on-surface/8', error && 'text-error')}>
         {@render header()}
-        <Icon icon={faChevronDown} class="shrink-0 transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
+        <Icon icon={faChevronDown} class="shrink-0 transition-transform duration-200 group-data-[state=open]/accordion-trigger:rotate-180" />
       </Accordion.Trigger>
     </Accordion.Header>
     <Accordion.Content class="overflow-hidden">

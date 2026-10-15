@@ -2,6 +2,12 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { mount, unmount, flushSync } from 'svelte';
 import Harness from './accordion-item.harness.svelte';
+import { utilityApplies } from '../__fixtures__/tailwind-match';
+
+const isRotated = (el: Element) => utilityApplies(el, 'rotate-180');
+
+// Шеврон — последний span-обёртка Icon в триггере.
+const chevronOf = (trigger: HTMLElement) => trigger.querySelector(':scope > span:last-of-type') as HTMLElement;
 
 let comp: any = null;
 let target: HTMLElement;
@@ -61,6 +67,25 @@ describe('AccordionItem', () => {
     const { trigger } = setup({ subtitle: 'Paid 10 000 of 10 000' });
     expect(trigger.getAttribute('data-state')).toBe('closed');
     expect(trigger.querySelector('[data-accordion-subtitle]')?.textContent?.trim()).toBe('Paid 10 000 of 10 000');
+  });
+
+  // Поворот шеврона — CSS-вариант Tailwind, jsdom его не вычисляет: utilityApplies компилирует
+  // классы шеврона настоящим Tailwind и матчит селекторы на элементе. Регресс: `[[data-state=open]_&]` ловил раскрытого
+  // предка, и свёрнутая вложенная секция показывала шеврон вверх.
+  it('вложенная свёрнутая секция в раскрытой — её шеврон не повёрнут, поворачивается при раскрытии', async () => {
+    setup({ nested: true });
+    const outerTrigger = target.querySelector('[data-testid="outer"] button') as HTMLButtonElement;
+    const innerTrigger = target.querySelector('[data-testid="inner"] button') as HTMLButtonElement;
+    expect(outerTrigger.getAttribute('data-state')).toBe('open');
+    expect(innerTrigger.getAttribute('data-state')).toBe('closed');
+
+    expect(await isRotated(chevronOf(outerTrigger))).toBe(true);
+    expect(await isRotated(chevronOf(innerTrigger))).toBe(false);
+
+    innerTrigger.click();
+    flushSync();
+    expect(innerTrigger.getAttribute('data-state')).toBe('open');
+    expect(await isRotated(chevronOf(innerTrigger))).toBe(true);
   });
 
   // Секция без содержимого не должна притворяться раскрывающейся: ни кнопки, ни шеврона, ни тела.
