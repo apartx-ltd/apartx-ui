@@ -57,6 +57,14 @@ test.describe('safe-area: инсет задан', () => {
     expect(await css(page, 'sa-page-p0', 'paddingBottom')).toBe(`${BOTTOM}px`);
   });
 
+  test('Page edgeToEdge: инсеты отбивают дети — шапка своим фоном, лист до нижнего края', async ({ page }) => {
+    expect(await css(page, 'sa-page-edge', 'paddingTop')).toBe('0px');
+    expect(await css(page, 'sa-page-edge', 'paddingBottom')).toBe('0px');
+    expect(await css(page, 'sa-page-edge', 'backgroundSize')).not.toBe(`100% ${TOP}px`);
+    expect(await css(page, 'sa-page-edge-header', 'paddingTop')).toBe(`${TOP}px`);
+    expect(await css(page, 'sa-page-edge-sheet', 'paddingBottom')).toBe(`${16 + BOTTOM}px`);
+  });
+
   test('низ: Page без футера отступает на нижний инсет, вложенный Page не удваивает', async ({ page }) => {
     expect(await css(page, 'sa-page-bare', 'paddingBottom')).toBe(`${BOTTOM}px`);
     expect(await css(page, 'sa-page-outer', 'paddingBottom')).toBe(`${BOTTOM}px`);

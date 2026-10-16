@@ -76,6 +76,21 @@
     </Page>
   </div>
 
+  <!-- edgeToEdge: Page инсеты не забирает — шапка отступает сама своим фоном, низ отбивает
+       содержимое (лист до нижнего края). -->
+  <div class="flex h-40 border border-outline-variant">
+    <Page data-testid="sa-page-edge" edgeToEdge class="bg-inverse-surface">
+      <Header data-testid="sa-page-edge-header" class="bg-inverse-surface text-inverse-on-surface">
+        <Toolbar><Title>Page edgeToEdge</Title></Toolbar>
+      </Header>
+      <Content>
+        <div data-testid="sa-page-edge-sheet" class="min-h-full rounded-t-xl bg-surface p-4 pb-[calc(1rem+var(--safe-area-inset-bottom,0px))]">
+          The header and the sheet pad the insets themselves.
+        </div>
+      </Content>
+    </Page>
+  </div>
+
   <!-- Низ: Page забирает и нижний инсет; Footer внутри видит 0 и докрашивает полоску под
        собой своим фоном (::after) — иначе под ним был бы шов цвета страницы. -->
   <div class="flex h-48 border border-outline-variant">
