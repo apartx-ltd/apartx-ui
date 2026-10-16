@@ -12,6 +12,7 @@
 
   const MAP: Record<string, { icon: any; color: string }> = {
     whatsapp: { icon: faWhatsapp, color: '#0dc143' },
+    whatsapp_business: { icon: faWhatsapp, color: '#0dc143' },
     telegram: { icon: faTelegram, color: '#0088cc' },
     telegram_bot: { icon: faTelegram, color: '#0088cc' },
     airbnb: { icon: faAirbnb, color: '#FF5A5F' },
