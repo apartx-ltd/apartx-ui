@@ -1,5 +1,11 @@
 {
-	"extends": "./.svelte-kit/tsconfig.json",
+	// Self-contained on purpose: no `extends: "./.svelte-kit/tsconfig.json"`.
+	// The kit is vendored as a git submodule, where .svelte-kit/ never exists,
+	// and Vite 8 (rolldown/oxc) resolves the nearest tsconfig.json per file —
+	// a missing `extends` fails the consumer's build. The options below mirror
+	// what `svelte-kit sync` generates for the demo; the generated .d.ts files
+	// are picked up by `include` when they exist (kit checkout) and silently
+	// skipped when they don't (consumer submodule).
 	"compilerOptions": {
 		"allowJs": true,
 		"checkJs": true,
@@ -9,6 +15,30 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
-		"moduleResolution": "bundler"
-	}
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"target": "esnext",
+		"lib": ["esnext", "DOM", "DOM.Iterable"],
+		"types": ["node"],
+		"noEmit": true,
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
+		"paths": {
+			"$lib": ["./src/lib"],
+			"$lib/*": ["./src/lib/*"],
+			"$app/types": ["./.svelte-kit/types/index.d.ts"]
+		},
+		"rootDirs": [".", "./.svelte-kit/types"]
+	},
+	"include": [
+		".svelte-kit/ambient.d.ts",
+		".svelte-kit/non-ambient.d.ts",
+		".svelte-kit/types/**/$types.d.ts",
+		"vite.config.js",
+		"vite.config.ts",
+		"src/**/*.js",
+		"src/**/*.ts",
+		"src/**/*.svelte"
+	],
+	"exclude": ["node_modules/**"]
 }
