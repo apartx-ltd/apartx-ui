@@ -9,6 +9,7 @@ export * from './media-slots';
 export * from './i18n';
 export * from './helpers';
 export * from './markdown';
+export * from './channel-icons';
 export {
   openChatLink, openLinkMenu, closeLinkMenu, confirmExternalOpen,
 } from './link-menu.svelte';

@@ -2,6 +2,7 @@
   import Fa from 'svelte-fa';
   import { faCheck, faCheckDouble, faTriangleExclamation, faComment, faClock } from '@fortawesome/free-solid-svg-icons';
   import { faWhatsapp, faTelegram } from '@fortawesome/free-brands-svg-icons';
+  import { faWhatsappBusiness } from '../channel-icons';
   import Icon from '../../ui/display/Icon.svelte';
   import MessengerIcon from './MessengerIcon.svelte';
   import type { Message } from '../types';
@@ -14,7 +15,7 @@
   const isMine = $derived(!!meUserId && message.userId === meUserId);
   const tick = $derived(isMine ? deliveryTick(message, meUserId, counterpartReadSeq, counterpartDeliveredSeq) : null);
 
-  const CHANNEL_ICON: Record<string, any> = { whatsapp: faWhatsapp, whatsapp_business: faWhatsapp, telegram: faTelegram };
+  const CHANNEL_ICON: Record<string, any> = { whatsapp: faWhatsapp, whatsapp_business: faWhatsappBusiness, telegram: faTelegram };
   const channelIcon = (c: string) => CHANNEL_ICON[c] ?? faComment;
   const channelClass = (s: string) =>
     s === 'failed' ? 'text-error' : s === 'read' ? 'text-success' : 'text-on-surface-variant';
