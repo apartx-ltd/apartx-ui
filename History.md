@@ -1,5 +1,22 @@
 # История изменений — apartx-ui
 
+## 2026-10-30
+
+### Версия 0.23.0
+
+### feat(chat): канал `whatsapp_business` — своя иконка `faWhatsappBusiness`
+
+* **Зачем.** У канала WhatsApp Business (Meta Cloud API, coexistence) была та же иконка, что у
+  WhatsApp: в бейдже сообщения и статусе доставки каналы не различались. В наборах FontAwesome
+  иконки WhatsApp Business нет.
+* **`faWhatsappBusiness`** (`apartx-ui/chat`) — `IconDefinition` в формате FontAwesome: глиф
+  `faWhatsapp` (тот же бокс 448×512 и телефон), у которого в правом верхнем углу вырезано кольцо и
+  стоит «+», — как у иконки приложения WhatsApp Business. Рисуется через `<Fa>`/`<Icon>`.
+* `MessengerIcon` и статус доставки в `MessageTimeDefault` показывают её для канала
+  `whatsapp_business`; цвет тот же, `#0dc143`.
+
+**Консьюмерам:** бамп указателя; хосту со своей иконкой канала — брать `faWhatsappBusiness` из кита.
+
 ## 2026-10-27
 
 ### Версия 0.22.1

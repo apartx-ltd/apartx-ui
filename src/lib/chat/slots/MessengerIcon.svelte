@@ -5,6 +5,7 @@
   import Fa from 'svelte-fa';
   import { faWhatsapp, faTelegram, faAirbnb } from '@fortawesome/free-brands-svg-icons';
   import { faHotel, faGroupArrowsRotate, faEnvelope } from '@fortawesome/free-solid-svg-icons';
+  import { faWhatsappBusiness } from '../channel-icons';
   import type { Message } from '../types';
   import { messengerKey } from '../helpers';
 
@@ -12,6 +13,7 @@
 
   const MAP: Record<string, { icon: any; color: string }> = {
     whatsapp: { icon: faWhatsapp, color: '#0dc143' },
+    whatsapp_business: { icon: faWhatsappBusiness, color: '#0dc143' },
     telegram: { icon: faTelegram, color: '#0088cc' },
     telegram_bot: { icon: faTelegram, color: '#0088cc' },
     airbnb: { icon: faAirbnb, color: '#FF5A5F' },
