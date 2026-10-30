@@ -93,11 +93,6 @@ const apartxUiAliases = [
 export default defineConfig({
   plugins: [tailwindcss(), sveltekit()],
   resolve: { alias: apartxUiAliases },
-  // The vendored kit ships a tsconfig.json that `extends` its generated
-  // .svelte-kit/tsconfig.json — absent in a submodule checkout. esbuild
-  // auto-resolves the nearest tsconfig per file and chokes on the broken
-  // `extends`; pinning an empty tsconfigRaw disables that lookup.
-  esbuild: { tsconfigRaw: '{}' },
   ssr: {
     // The kit uses extensionless internal imports that Node's ESM resolver
     // rejects during SSR — let Vite bundle these instead.
@@ -105,6 +100,17 @@ export default defineConfig({
   },
 });
 ```
+
+**Vite 7 and Vite 8 both work, with no tsconfig workaround.** Vite compiles each
+`.ts` file of the kit against the nearest `tsconfig.json` — the kit's own
+root `tsconfig.json`. Since 0.22.1 that file is self-contained (no `extends` of
+the generated `.svelte-kit/tsconfig.json`, which never exists in a submodule
+checkout), so neither esbuild (Vite 7) nor oxc (Vite 8) trips over it. Older
+kit versions failed the Vite 8 build with
+`Tsconfig not found …/src/lib/apartx-ui/.svelte-kit/tsconfig.json` and needed
+`esbuild: { tsconfigRaw: '{}' }` under Vite 7; drop that line after bumping the
+submodule. On SvelteKit 3 the kit options (adapter, …) move from
+`svelte.config.js` into `sveltekit({ ... })`; the aliases above stay the same.
 
 ## 4. Tailwind v4 + kit styles + theme
 
