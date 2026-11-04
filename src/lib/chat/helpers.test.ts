@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, mediaBox, mediaBoxHeight, MEDIA_BOX_MAX_H, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX, messageAttachments, splitAttachments, albumBoxHeight, albumLayout, ALBUM_MAX_CELLS, DOC_ROW_H } from './helpers';
+import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, isMediaProcessing, mediaBox, mediaBoxHeight, MEDIA_BOX_MAX_H, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX, messageAttachments, splitAttachments, albumBoxHeight, albumLayout, ALBUM_MAX_CELLS, DOC_ROW_H } from './helpers';
 import type { Message } from './types';
 
 const m = (over: Partial<Message> = {}): Message => ({ _id: 'm', chatId: 'c', userId: 'u1', createdAt: new Date('2026-06-30T10:00:00Z'), ...over });
@@ -413,6 +413,20 @@ describe('chatImageGallery', () => {
     // Тот же файл без mime, но у сообщения-документа — не картинка.
     const legacyDoc = m({ _id: 'ld', type: 'document', meta: { file: { url: 'https://cdn/legacy.bin' } } as any });
     expect(chatImageGallery([legacyDoc])).toEqual([]);
+  });
+});
+
+describe('isMediaProcessing', () => {
+  it('processing (перекодирование) и pending (файла ещё нет) — не готово', () => {
+    expect(isMediaProcessing({ status: 'processing' })).to.equal(true);
+    expect(isMediaProcessing({ status: 'pending' })).to.equal(true);
+  });
+
+  it('ready, error, без статуса или без файла — готово', () => {
+    expect(isMediaProcessing({ status: 'ready' })).to.equal(false);
+    expect(isMediaProcessing({ status: 'error' })).to.equal(false);
+    expect(isMediaProcessing({})).to.equal(false);
+    expect(isMediaProcessing(undefined)).to.equal(false);
   });
 });
 
