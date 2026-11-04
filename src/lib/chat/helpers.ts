@@ -243,6 +243,15 @@ export function formatDuration(seconds?: number | null): string {
   return `${m}:${ss}`;
 }
 
+/**
+ * The server is still preparing an attachment, so it isn't playable yet: a video or voice note
+ * being transcoded (`'processing'`), or a file whose doc doesn't exist yet (`'pending'` — a video
+ * sent before its upload landed). An attachment without a status is ready.
+ */
+export function isMediaProcessing(file?: { status?: string } | null): boolean {
+  return file?.status === 'processing' || file?.status === 'pending';
+}
+
 /** First message of a visual group (author changed from the previous message). */
 export function groupStart(message: Message, prev: Message | null): boolean {
   if (!prev) return true;

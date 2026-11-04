@@ -9,9 +9,11 @@
   // viewerjs-backed Lightbox, whose static `viewerjs/dist/viewer.css` import would otherwise be
   // dragged into every chat bundle. VideoLightbox itself lazy-loads media-chrome, so it's cheap.
   import VideoLightbox from '../../lightbox/VideoLightbox.svelte';
-  import { formatDuration, createMediaTapGuard, mediaBox, MEDIA_BOX_MAX } from '../helpers';
+  import Progress from '../../ui/display/Progress.svelte';
+  import { chatT } from '../i18n';
+  import { formatDuration, createMediaTapGuard, mediaBox, isMediaProcessing, MEDIA_BOX_MAX } from '../helpers';
 
-  let { message } = $props();
+  let { message, processingLabel = chatT('chat.video_processing', { defaultValue: 'Processing video…' }) } = $props();
 
   let file = $derived(message.meta?.file ?? {});
   let url = $derived(file.url ?? (message.sendState === 'sending' ? message.meta?.previewUrl : undefined));
@@ -20,6 +22,8 @@
 
   let sending = $derived(message.sendState === 'sending' || message.meta?.status === 'sending');
   let failed = $derived(message.sendState === 'failed' || message.meta?.status === 'error');
+  // apartx-video is transcoding it: a badge only — the original stays playable meanwhile.
+  let processing = $derived(!sending && !failed && isMediaProcessing(file));
 
   // Та же общая формула, что у картинки: `mediaBoxHeight` (оценка высоты строки) одна на оба типа
   // (через `isFullBleedMedia`), так что видео обязано считать коробку ровно так же.
@@ -68,5 +72,13 @@
     <div class="absolute inset-0 grid place-items-center bg-scrim/30 text-body-sm text-white">Uploading…</div>
   {:else if failed}
     <div class="absolute inset-0 grid place-items-center text-body-sm text-error">Upload failed</div>
+  {:else if processing}
+    <div
+      class="pointer-events-none absolute bottom-1 left-1 flex w-32 flex-col gap-1 rounded bg-scrim/60 px-1.5 py-1 text-xs text-white"
+      data-testid="chat-video-processing"
+    >
+      {processingLabel}
+      <Progress indeterminate class="bg-white/30" />
+    </div>
   {/if}
 </div>

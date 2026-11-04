@@ -92,6 +92,54 @@ describe('MediaAttachments — одиночное вложение (регрес
   });
 });
 
+describe('MediaAttachments — файл ещё обрабатывается на сервере', () => {
+  // Голосовое ogg/opus сервер перекодирует в AAC: пока файл processing, iOS не сыграл бы исходник,
+  // поэтому вместо плеера заглушка. Перепушенное сообщение приносит готовый файл — и плеер.
+  it('голосовое processing — заглушка, плеера нет', () => {
+    const message = msg({
+      type: 'audio',
+      meta: { file: { url: 'https://cdn/voice.ogg', type: 'audio/ogg; codecs=opus', status: 'processing' } },
+    } as any);
+    const el = render({ message });
+
+    expect(el.querySelector('audio')).toBe(null);
+    expect(el.querySelector('[data-testid="chat-audio-processing"]')).not.toBe(null);
+    expect(el.textContent).toContain('Processing audio…');
+  });
+
+  it('голосовое ready — плеер с готовым файлом', () => {
+    const message = msg({
+      type: 'audio',
+      meta: { file: { url: 'https://cdn/voice.m4a', type: 'audio/mp4', status: 'ready' } },
+    } as any);
+    const el = render({ message });
+
+    expect(el.querySelector('[data-testid="chat-audio-processing"]')).toBe(null);
+    expect((el.querySelector('audio') as HTMLAudioElement).getAttribute('src')).toBe('https://cdn/voice.m4a');
+  });
+
+  it('видео processing — бейдж обработки, кнопка воспроизведения остаётся', () => {
+    const message = msg({
+      type: 'video',
+      meta: { file: { url: 'https://cdn/clip.mov', type: 'video/quicktime', status: 'processing' } },
+    } as any);
+    const el = render({ message });
+
+    expect(el.querySelector('[data-testid="chat-video-processing"]')?.textContent).toContain('Processing video…');
+    expect(el.querySelector('button[aria-label="Play video"]')).not.toBe(null);
+  });
+
+  it('видео ready — без бейджа', () => {
+    const message = msg({
+      type: 'video',
+      meta: { file: { url: 'https://cdn/clip.mp4', type: 'video/mp4', status: 'ready' } },
+    } as any);
+    const el = render({ message });
+
+    expect(el.querySelector('[data-testid="chat-video-processing"]')).toBe(null);
+  });
+});
+
 describe('MediaAttachments — альбом', () => {
   it('3 картинки: 3 ячейки, первая растянута на обе колонки', () => {
     const files = [img(1), img(2), img(3)];
