@@ -9,6 +9,7 @@
   import { getHistory } from '../history/registry';
   import { parseHashParams, splitUrl, withHashParams } from './hash-params';
   import { ROUTER_LOCATION_CTX, type RouterLocationSource } from './location-source';
+  import { ROUTER_CTX, type RouterContextValue } from './context';
 
   let {
     hashParam,
@@ -81,6 +82,9 @@
   };
 
   setContext(ROUTER_LOCATION_CTX, source);
+  // Отрезаем base внешнего <Router>: путь поддерева — свой, вложенный <Router> без basepath
+  // начинает от '/'. Сам VirtualRouter роутов не держит — регистрация в пустоту.
+  setContext<RouterContextValue>(ROUTER_CTX, { base: '/', register: () => {}, unregister: () => {} });
 </script>
 
 <div data-router-scope={hashParam} class="contents">{@render children()}</div>

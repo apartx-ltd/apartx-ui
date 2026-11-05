@@ -37,11 +37,11 @@ function fakeAdapter(url: string) {
   return { adapter, calls, state, notify: () => listeners.forEach((f) => f()) };
 }
 
-function mountProbe() {
+function mountProbe(outerBase?: string) {
   let router: Router | undefined;
   const target = document.createElement('div');
   document.body.appendChild(target);
-  const handle = mount(Probe, { target, props: { onrouter: (r: Router) => { router = r; } } });
+  const handle = mount(Probe, { target, props: { outerBase, onrouter: (r: Router) => { router = r; } } });
   flushSync();
   return { router: router!, target, dispose: () => { unmount(handle); target.remove(); } };
 }
@@ -111,7 +111,34 @@ describe('<VirtualRouter>', () => {
     setHistoryAdapter(f.adapter);
     const { router, dispose } = mountProbe();
     expect(getRouteBack()).toBe('/accounts/chats');
+    f.state.canGoBack = false;
     expect(router.currentHasParent).toBe(true);
+    dispose();
+  });
+
+  it('isolates the subtree from an enclosing router basepath', () => {
+    const f = fakeAdapter('/accounts/chats/c1/chat#panel=/properties/p1/info');
+    setHistoryAdapter(f.adapter);
+    const { target, dispose } = mountProbe('/accounts');
+    const info = target.querySelector('[data-testid="info"]');
+    expect(info).not.toBeNull();
+    expect(info!.getAttribute('data-id')).toBe('p1');
+    dispose();
+  });
+
+  it('re-renders the subtree when the real hash changes', () => {
+    const f = fakeAdapter('/accounts/chats/c1/chat#panel=/properties/p1/info');
+    setHistoryAdapter(f.adapter);
+    const { router, target, dispose } = mountProbe();
+    f.state.location = { pathname: '/accounts/chats/c1/chat', search: '', hash: '#panel=/properties/p2/booking/new?x=1' };
+    f.notify();
+    flushSync();
+    expect(target.querySelector('[data-testid="info"]')).toBeNull();
+    const booking = target.querySelector('[data-testid="booking-new"]');
+    expect(booking).not.toBeNull();
+    expect(booking!.getAttribute('data-id')).toBe('p2');
+    expect(router.pathname).toBe('/accounts/properties/p2/booking/new');
+    expect(router.current.search).toBe('?x=1');
     dispose();
   });
 

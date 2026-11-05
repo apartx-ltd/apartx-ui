@@ -7,14 +7,17 @@
   import RouterProbe from './useRouter.probe.svelte';
   import type { useRouter } from './useRouter.svelte';
 
-  let { onrouter }: { onrouter: (r: ReturnType<typeof useRouter>) => void } = $props();
+  let { onrouter, outerBase }: {
+    onrouter: (r: ReturnType<typeof useRouter>) => void;
+    /** basepath внешнего роутера, внутри которого стоит VirtualRouter. */
+    outerBase?: string;
+  } = $props();
 </script>
 
-<Router>
+<Router basepath={outerBase}>
   <Route path="/accounts/chats/:id/chat" back="/accounts/chats">
     {#snippet children()}<span data-testid="outer-chat"></span>{/snippet}
   </Route>
-</Router>
 
 <VirtualRouter hashParam="panel" prefix="/accounts">
   <RouterProbe {onrouter} />
@@ -27,3 +30,4 @@
     </Route>
   </Router>
 </VirtualRouter>
+</Router>
