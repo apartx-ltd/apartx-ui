@@ -199,6 +199,62 @@ content fade. `'auto'` resolves by OS (iOS → `ios`, Android/other → `shared-
 Orthogonal to `mode`; ignored on desktop (always crossfades). Accepts a `() => SlideStyle`
 function, resolved lazily per navigation like `direction`.
 
+### VirtualRouter and `configureNav`
+
+`<VirtualRouter hashParam prefix?>` routes a **subtree** (a side panel, say) by the
+`#<hashParam>=<path>` pair of the real URL, while the rest of the app keeps routing by
+the real pathname. Nested `<Router>`/`<Route>`/`useRouter()` read the virtual path;
+`push`/`replace`/`back` rewrite only that fragment pair (other pairs and the pathname are
+untouched) and go through the real router. `prefix` is the base the subtree's routes are
+declared under (`/accounts`); it is not written into the fragment.
+
+Fragment format: `#key=value&key2=value2`. Values stay readable (`#panel=/accounts/42?tab=1`);
+only `%`, `&` and `#` are percent-escaped. Helpers: `parseHashParams`, `formatHashParams`,
+`splitUrl`, `withHashParams(url, { key: value | null })`.
+
+`configureNav({ keepHash, intercept })` is an optional, global hook on `navigate`/`replace`.
+Without a call, navigation behaves exactly as before.
+
+- `keepHash: string[]` — fragment pairs carried over from the current URL onto a target
+  that doesn't set them (so the panel survives ordinary page navigation).
+- `intercept(to, from) => string | null` — gets the address *after* `keepHash`; returns the
+  final address (possibly a different one) or `null` to cancel the navigation. `from` is
+  `{ pathname, search, hash, origin? }`.
+- Order: `keepHash`, then `intercept`. Both run when the target is resolved, i.e. *before*
+  the leave guard (`useNavigationGuard`); a guard-confirmed retry is not resolved twice.
+
+`origin` is the router scope the navigation started from: `VirtualRouter` renders
+`data-router-scope="<hashParam>"`, and `<Link>`, `use:link` and chat links pass the nearest
+scope as `from.origin` (absent in the main area), so `intercept` can e.g. redirect a link
+clicked inside the panel to the panel itself. `routerScopeOf(el)` reads it.
+
+`<Link to>` inside a `VirtualRouter` takes a virtual path but renders the **full real
+href** including the fragment, so ctrl/middle-click and copy-link work.
+
+Chat cards: `openLink(target, ctx?)` hands the registered link handler a `LinkOpenContext`
+(`{ origin? }`) as the second argument, with the scope of the clicked element; handlers
+that ignore it keep working.
+
+Host example:
+
+```svelte
+<script>
+  import { configureNav, VirtualRouter, Router, Route } from 'apartx-ui/router';
+
+  configureNav({
+    keepHash: ['panel'],
+    intercept: (to, from) =>
+      from.origin === 'panel' || !to.startsWith('/accounts') ? to : openInPanel(to), // or null to cancel
+  });
+</script>
+
+<VirtualRouter hashParam="panel" prefix="/accounts">
+  <Router>
+    <Route path="/accounts/:id">…</Route>
+  </Router>
+</VirtualRouter>
+```
+
 ## Scope
 
 Pure, standalone UI lives here. App-specific concerns intentionally **stay in
