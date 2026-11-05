@@ -213,15 +213,33 @@ only `%`, `&` and `#` are percent-escaped. Helpers: `parseHashParams`, `formatHa
 `splitUrl`, `withHashParams(url, { key: value | null })`.
 
 `configureNav({ keepHash, intercept })` is an optional, global hook on `navigate`/`replace`.
-Without a call, navigation behaves exactly as before.
+Without a call, navigation behaves exactly as before. Each call **replaces** the previous
+config wholesale (keys you omit are dropped, not kept).
 
 - `keepHash: string[]` — fragment pairs carried over from the current URL onto a target
-  that doesn't set them (so the panel survives ordinary page navigation).
+  that doesn't set them (so the panel survives ordinary page navigation). Per call, opt out
+  with `{ keepHash: false }`: `navigate(to, { keepHash: false })`,
+  `useRouter().push/replace(url, { keepHash: false })` — `intercept` still runs. Closing a
+  panel = navigate to an address without the pair and with `keepHash: false`.
 - `intercept(to, from) => string | null` — gets the address *after* `keepHash`; returns the
   final address (possibly a different one) or `null` to cancel the navigation. `from` is
-  `{ pathname, search, hash, origin? }`.
+  `{ pathname, search, hash, origin?, scopedTo? }`.
 - Order: `keepHash`, then `intercept`. Both run when the target is resolved, i.e. *before*
   the leave guard (`useNavigationGuard`); a guard-confirmed retry is not resolved twice.
+- `navigate` does not ask the leave guard when only the fragment changes (pathname and
+  search stay) — same as the browser history adapter. A dirty form inside the panel is
+  therefore not guarded on in-panel navigation.
+
+`intercept` sees two shapes of `to`:
+
+- **Raw navigation** (`navigate`, `use:link`, plain `<Link>`, chat links): `to` is the target
+  path with the current pairs carried over — `/accounts/bookings#panel=/properties/p1`;
+  `from.scopedTo` is `undefined`.
+- **From inside a `VirtualRouter`** (its `useRouter().push/replace`, scoped `<Link>`, the
+  scoped `Navigator`): `to` is the *current* path with the panel pair rewritten —
+  `/accounts/chats/c1#panel=/billing`; `from.scopedTo` is the full virtual target the subtree
+  asked for (`/accounts/billing`, with search). Return `from.scopedTo + from.hash` (or any
+  other URL) to send it to the main screen instead.
 
 `origin` is the router scope the navigation started from: `VirtualRouter` renders
 `data-router-scope="<hashParam>"`, and `<Link>`, `use:link` and chat links pass the nearest
@@ -229,11 +247,15 @@ scope as `from.origin` (absent in the main area), so `intercept` can e.g. redire
 clicked inside the panel to the panel itself. `routerScopeOf(el)` reads it.
 
 `<Link to>` inside a `VirtualRouter` takes a virtual path but renders the **full real
-href** including the fragment, so ctrl/middle-click and copy-link work.
+href** including the fragment, so ctrl/middle-click and copy-link work. An absolute/external
+`to` (`https://…`) stays a plain link. `VirtualRouter` also provides a scoped `Navigator`
+(`getNavigator()`) to its subtree, so kit components navigate inside the panel.
+Nested `VirtualRouter`s are not supported.
 
 Chat cards: `openLink(target, ctx?)` hands the registered link handler a `LinkOpenContext`
-(`{ origin? }`) as the second argument, with the scope of the clicked element; handlers
-that ignore it keep working.
+(`{ origin? }`) as the second argument when the clicked element sits in a router scope
+(no scope → called with one argument, as before). Chat links reach `from.origin` of
+`intercept` only if the host handler forwards it: `navigate(path, { origin: ctx?.origin })`.
 
 Host example:
 
@@ -244,7 +266,8 @@ Host example:
   configureNav({
     keepHash: ['panel'],
     intercept: (to, from) =>
-      from.origin === 'panel' || !to.startsWith('/accounts') ? to : openInPanel(to), // or null to cancel
+      // openInPanel(to) — host helper: the URL that opens `to` in the panel, or null to cancel
+      from.origin === 'panel' || !to.startsWith('/accounts') ? to : openInPanel(to),
   });
 </script>
 
