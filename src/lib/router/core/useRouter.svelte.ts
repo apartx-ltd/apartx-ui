@@ -1,4 +1,7 @@
+import { getContext } from 'svelte';
 import { getHistory } from '../history/registry';
+import { setRouteBack } from './active-route';
+import { ROUTER_LOCATION_CTX, type RouterLocationSource } from './location-source';
 import { goBack, currentHasParent } from './back';
 import { navigate } from './nav';
 import { resolveNavTarget } from './nav-config';
@@ -30,6 +33,13 @@ function snapshot(seed: RouterLocation | null): RouterState {
  * subscribes to history changes for SPA navigation.
  */
 export function useRouter() {
+  // Внутри <VirtualRouter> путь и переходы берутся из его источника (путь из фрагмента).
+  const source = getContext<RouterLocationSource | undefined>(ROUTER_LOCATION_CTX);
+  if (source) return fromSource(source);
+  return realRouter();
+}
+
+function realRouter() {
   const seed = getInitialLocation();
   const state = $state<{ current: RouterState }>({ current: snapshot(seed) });
 
@@ -63,11 +73,13 @@ export function useRouter() {
       // Сознательно НЕ overlay-aware: replace поверх открытого оверлея — легитимный
       // паттерн (spaces: property из шторки карты замещает её синтетическую запись,
       // шторка живёт в survival store). Автозакрытие оверлеев здесь сломало бы его.
+      // origin — только для resolveNavTarget; в опции записи истории не идёт.
+      const { origin, ...hOpts } = opts ?? {};
       const location = getHistory().location;
-      if (!location) { getHistory().replace(url, opts); return; }
-      const to = resolveNavTarget(url, { ...location, origin: opts?.origin });
+      if (!location) { getHistory().replace(url, hOpts); return; }
+      const to = resolveNavTarget(url, { ...location, origin });
       if (to === null) return;
-      getHistory().replace(to, opts);
+      getHistory().replace(to, hOpts);
     },
     back(href?: string) {
       // Есть куда вернуться в текущем стеке — всегда history-back (страница ИЛИ закрытие
@@ -86,5 +98,36 @@ export function useRouter() {
     get currentHasParent() {
       return currentHasParent();
     },
+    setRouteBack(v: string | null) {
+      setRouteBack(v);
+    },
+    /** Полный адрес для DOM-href; у реального роутера путь и есть адрес. */
+    resolveHref(url: string) {
+      return url;
+    },
+  };
+}
+
+/** Тот же объект, что у реального роутера, поверх источника пути VirtualRouter. */
+function fromSource(source: RouterLocationSource): ReturnType<typeof realRouter> {
+  return {
+    get current() {
+      return source.current;
+    },
+    get pathname() {
+      return source.current.pathname;
+    },
+    get action() {
+      return source.current.action;
+    },
+    push: (url, opts) => source.push(url, opts),
+    replace: (url, opts) => source.replace(url, opts),
+    back: (href) => source.back(href),
+    goBack: () => source.goBack(),
+    get currentHasParent() {
+      return source.currentHasParent;
+    },
+    setRouteBack: (v) => source.setRouteBack(v),
+    resolveHref: (url) => source.resolveHref(url),
   };
 }

@@ -3,7 +3,6 @@
   import { useRouter } from './useRouter.svelte';
   import { pick, stripBase, matchParams } from './match-route';
   import { ROUTER_CTX, type RouterContextValue, type RouteRecord } from './context';
-  import { setRouteBack } from './active-route';
   import { getCached, load } from './lazy';
 
   let {
@@ -73,9 +72,10 @@
 
   // Логический родитель активного роута → модульный сигнал (для router.back()
   // fallback и видимости нативной суперап-кнопки). Резолвим функцию-форму с params.
+  // Через router: внутри <VirtualRouter> цель «назад» своя и глобальную не трогает.
   $effect(() => {
     const b = active?.back;
-    setRouteBack(typeof b === 'function' ? b(params) : (b ?? null));
+    router.setRouteBack(typeof b === 'function' ? b(params) : (b ?? null));
   });
 </script>
 

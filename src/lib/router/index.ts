@@ -4,6 +4,8 @@ export { useRouter } from './core/useRouter.svelte';
 export { default as Router } from './core/Router.svelte';
 export { default as Route } from './core/Route.svelte';
 export { default as Link } from './core/Link.svelte';
+export { default as VirtualRouter } from './core/VirtualRouter.svelte';
+export { ROUTER_LOCATION_CTX, type RouterLocationSource } from './core/location-source';
 export { navigate, link } from './core/nav';
 export { goBack, canGoBack, currentHasParent } from './core/back';
 export {
