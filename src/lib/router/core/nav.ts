@@ -2,6 +2,7 @@ import { getHistory } from '../history/registry';
 import { overlayCount, dismissForNavigation } from '../overlay/overlay-stack';
 import type { Action } from '../history/adapter';
 import { isLeaveBlocked, requestLeave } from '../guard/leave-guard';
+import { resolveNavTarget, routerScopeOf } from './nav-config';
 
 /** Программная SPA-навигация. При открытых оверлеях (и без keepOverlays) закрывает их
  *  (флип open=false, без history.back) и заменяет верхнюю синтетическую overlay-запись
@@ -15,13 +16,24 @@ import { isLeaveBlocked, requestLeave } from '../guard/leave-guard';
  *  на страницу, где пользователь был до диплинка. Действует на всех трёх путях.
  *  `force` — мимо гардов ухода (router/guard). Без него при dirty-гарде навигация ждёт
  *  confirm хоста ДО закрытия оверлеев: иначе модалка закрылась бы, а навигация потом
- *  отменилась. Дальше адаптер получает `force: true` — гард уже спрошен. */
+ *  отменилась. Дальше адаптер получает `force: true` — гард уже спрошен.
+ *  `origin` — область, из которой начата навигация (см. configureNav); `resolved` —
+ *  адрес уже прошёл resolveNavTarget, второй раз keepHash/intercept не применяются. */
 export function navigate(
   to: string,
-  opts?: { replace?: boolean; keepOverlays?: boolean; action?: Action; root?: boolean; force?: boolean },
+  opts?: {
+    replace?: boolean; keepOverlays?: boolean; action?: Action; root?: boolean; force?: boolean;
+    origin?: string; resolved?: boolean;
+  },
 ): void {
+  const location = getHistory().location;
+  if (!opts?.resolved && location) {
+    const resolved = resolveNavTarget(to, { ...location, origin: opts?.origin });
+    if (resolved === null) return;
+    to = resolved;
+  }
   if (!opts?.force && isLeaveBlocked()) {
-    void requestLeave(() => navigate(to, { ...opts, force: true }));
+    void requestLeave(() => navigate(to, { ...opts, force: true, resolved: true }));
     return;
   }
   const h = getHistory();
@@ -71,7 +83,7 @@ export function link(node: HTMLAnchorElement) {
     const href = node.getAttribute('href');
     if (!href || /^[a-z]+:\/\//i.test(href)) return; // внешний/абсолютный → дефолт
     e.preventDefault();
-    navigate(href, { replace: node.hasAttribute('data-replace') });
+    navigate(href, { replace: node.hasAttribute('data-replace'), origin: routerScopeOf(node) });
   };
   node.addEventListener('click', onClick);
   return { destroy: () => node.removeEventListener('click', onClick) };

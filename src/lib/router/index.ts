@@ -14,6 +14,10 @@ export {
   matchRoute, matchParams, pick, rankRoute, stripBase, type MatchOptions,
 } from './core/match-route';
 export { parseHashParams, formatHashParams, splitUrl, withHashParams } from './core/hash-params';
+export {
+  configureNav, resetNavConfig, resolveNavTarget, routerScopeOf,
+  type NavConfig, type NavFrom,
+} from './core/nav-config';
 export { setRouteBack, getRouteBack, subscribeRouteBack } from './core/active-route';
 export type { RouteLoader } from './core/lazy';
 

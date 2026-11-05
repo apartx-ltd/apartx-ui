@@ -1,6 +1,7 @@
 import { getHistory } from '../history/registry';
 import { goBack, currentHasParent } from './back';
 import { navigate } from './nav';
+import { resolveNavTarget } from './nav-config';
 import { getInitialLocation, type RouterLocation } from './context';
 
 type Action = 'forward' | 'back' | 'none';
@@ -50,7 +51,7 @@ export function useRouter() {
     get action() {
       return state.current.action;
     },
-    push(url: string, opts?: { action?: Action; keepOverlays?: boolean; root?: boolean; force?: boolean }) {
+    push(url: string, opts?: { action?: Action; keepOverlays?: boolean; root?: boolean; force?: boolean; origin?: string }) {
       // Через navigate() — overlay-aware (вариант A). Прямой history.push при открытом
       // оверлее кладёт запись ПОВЕРХ синтетической, а guarded back закрывающегося
       // оверлея тут же её съедает: страница отрисована, URL откатился. navigate()
@@ -58,11 +59,15 @@ export function useRouter() {
       // по-прежнему доходит до history на пути без оверлеев.
       navigate(url, opts);
     },
-    replace(url: string, opts?: { action?: Action; root?: boolean; force?: boolean }) {
+    replace(url: string, opts?: { action?: Action; root?: boolean; force?: boolean; origin?: string }) {
       // Сознательно НЕ overlay-aware: replace поверх открытого оверлея — легитимный
       // паттерн (spaces: property из шторки карты замещает её синтетическую запись,
       // шторка живёт в survival store). Автозакрытие оверлеев здесь сломало бы его.
-      getHistory().replace(url, opts);
+      const location = getHistory().location;
+      if (!location) { getHistory().replace(url, opts); return; }
+      const to = resolveNavTarget(url, { ...location, origin: opts?.origin });
+      if (to === null) return;
+      getHistory().replace(to, opts);
     },
     back(href?: string) {
       // Есть куда вернуться в текущем стеке — всегда history-back (страница ИЛИ закрытие
