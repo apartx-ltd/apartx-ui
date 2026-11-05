@@ -1,8 +1,11 @@
 import { parseHashParams, splitUrl, withHashParams } from './hash-params';
 
 /** Откуда идёт навигация: текущий адрес и `origin` — область роутера, из которой она
- *  начата (`data-router-scope` ближайшего предка ссылки, `VirtualRouter`). */
-export interface NavFrom { pathname: string; search: string; hash: string; origin?: string }
+ *  начата (`data-router-scope` ближайшего предка ссылки, `VirtualRouter`). `scopedTo` —
+ *  только у переходов изнутри `VirtualRouter` (его push/replace, scoped `<Link>`, Navigator):
+ *  полный виртуальный путь, который запросило поддерево (`/accounts/billing?x=1`); `to` при этом
+ *  — реальный адрес с переписанной парой фрагмента. У прочих навигаций — undefined. */
+export interface NavFrom { pathname: string; search: string; hash: string; origin?: string; scopedTo?: string }
 
 export interface NavConfig {
   /** Пары фрагмента, которые переносятся на адрес без них. */
@@ -22,9 +25,10 @@ export function resetNavConfig(): void {
   config = {};
 }
 
-/** Чистое разрешение адреса: перенос пар keepHash из текущего фрагмента, затем intercept. */
-export function resolveNavTarget(to: string, from: NavFrom): string | null {
-  const carried = carryHash(to, from.hash);
+/** Чистое разрешение адреса: перенос пар keepHash из текущего фрагмента, затем intercept.
+ *  `keepHash: false` — без переноса для этого вызова (закрыть панель); intercept всё равно идёт. */
+export function resolveNavTarget(to: string, from: NavFrom, opts?: { keepHash?: boolean }): string | null {
+  const carried = opts?.keepHash === false ? to : carryHash(to, from.hash);
   if (!config.intercept) return carried;
   return config.intercept(carried, from);
 }

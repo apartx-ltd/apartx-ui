@@ -7,8 +7,8 @@ export const ROUTER_LOCATION_CTX = Symbol('apartx-router-location');
 
 export interface RouterLocationSource {
   readonly current: RouterLocation & { action: Action };
-  push(url: string, opts?: { action?: Action; keepOverlays?: boolean; root?: boolean; force?: boolean }): void;
-  replace(url: string, opts?: { action?: Action; root?: boolean; force?: boolean }): void;
+  push(url: string, opts?: { action?: Action; keepOverlays?: boolean; root?: boolean; force?: boolean; keepHash?: boolean }): void;
+  replace(url: string, opts?: { action?: Action; root?: boolean; force?: boolean; keepHash?: boolean }): void;
   back(href?: string): void;
   goBack(): void;
   readonly currentHasParent: boolean;

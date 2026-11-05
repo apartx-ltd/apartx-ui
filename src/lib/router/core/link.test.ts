@@ -28,7 +28,7 @@ function fakeAdapter(url: string) {
   return { adapter, calls };
 }
 
-function mountProbe(props: { to: string; replace?: boolean; virtual?: boolean }) {
+function mountProbe(props: { to: string; replace?: boolean; virtual?: boolean; onclick?: (e: MouseEvent) => void }) {
   const target = document.createElement('div');
   document.body.appendChild(target);
   const handle = mount(Probe, { target, props });
@@ -89,6 +89,32 @@ describe('<Link>', () => {
     const { a, dispose } = mountProbe({ to: '/accounts/properties/p1/info', replace: true, virtual: true });
     click(a);
     expect(f.calls).toEqual(['replace:/a#panel=/properties/p1/info']);
+    dispose();
+  });
+
+  it('Link under VirtualRouter is cancelled by a host onclick preventDefault', () => {
+    const f = fakeAdapter('/a#panel=/x');
+    setHistoryAdapter(f.adapter);
+    let called = 0;
+    const { a, dispose } = mountProbe({
+      to: '/accounts/properties/p1/info',
+      virtual: true,
+      onclick: (e) => { called++; e.preventDefault(); },
+    });
+    click(a);
+    expect(called).toBe(1);
+    expect(f.calls).toEqual([]);
+    dispose();
+  });
+
+  it('Link under VirtualRouter with an absolute to behaves like a plain link', () => {
+    const f = fakeAdapter('/a#panel=/x');
+    setHistoryAdapter(f.adapter);
+    const { a, dispose } = mountProbe({ to: 'https://example.com/x', virtual: true });
+    expect(a.getAttribute('href')).toBe('https://example.com/x');
+    const e = click(a);
+    expect(e.defaultPrevented).toBe(false);
+    expect(f.calls).toEqual([]);
     dispose();
   });
 

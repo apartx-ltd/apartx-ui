@@ -3,6 +3,7 @@ import { overlayCount, dismissForNavigation } from '../overlay/overlay-stack';
 import type { Action } from '../history/adapter';
 import { isLeaveBlocked, requestLeave } from '../guard/leave-guard';
 import { resolveNavTarget, routerScopeOf } from './nav-config';
+import { splitUrl } from './hash-params';
 
 /** Программная SPA-навигация. При открытых оверлеях (и без keepOverlays) закрывает их
  *  (флип open=false, без history.back) и заменяет верхнюю синтетическую overlay-запись
@@ -17,22 +18,29 @@ import { resolveNavTarget, routerScopeOf } from './nav-config';
  *  `force` — мимо гардов ухода (router/guard). Без него при dirty-гарде навигация ждёт
  *  confirm хоста ДО закрытия оверлеев: иначе модалка закрылась бы, а навигация потом
  *  отменилась. Дальше адаптер получает `force: true` — гард уже спрошен.
- *  `origin` — область, из которой начата навигация (см. configureNav); `resolved` —
- *  адрес уже прошёл resolveNavTarget, второй раз keepHash/intercept не применяются. */
+ *  `origin`/`scopedTo` — область и виртуальная цель навигации (см. configureNav, NavFrom);
+ *  `keepHash: false` — без переноса пар keepHash; `resolved` — адрес уже прошёл
+ *  resolveNavTarget, второй раз keepHash/intercept не применяются.
+ *  Гард ухода не спрашивается, если меняется только фрагмент (pathname+search те же) — как
+ *  pageKey в history/browser.ts. */
 export function navigate(
   to: string,
   opts?: {
     replace?: boolean; keepOverlays?: boolean; action?: Action; root?: boolean; force?: boolean;
-    origin?: string; resolved?: boolean;
+    origin?: string; scopedTo?: string; keepHash?: boolean; resolved?: boolean;
   },
 ): void {
   const location = getHistory().location;
   if (!opts?.resolved && location) {
-    const resolved = resolveNavTarget(to, { ...location, origin: opts?.origin });
+    const resolved = resolveNavTarget(
+      to,
+      { ...location, origin: opts?.origin, scopedTo: opts?.scopedTo },
+      { keepHash: opts?.keepHash },
+    );
     if (resolved === null) return;
     to = resolved;
   }
-  if (!opts?.force && isLeaveBlocked()) {
+  if (!opts?.force && !isHashOnly(to, location) && isLeaveBlocked()) {
     void requestLeave(() => navigate(to, { ...opts, force: true, resolved: true }));
     return;
   }
@@ -62,6 +70,13 @@ export function navigate(
     return;
   }
   h.push(to, hOpts);
+}
+
+// Тот же адрес целиком (повторный переход на текущую страницу) по-прежнему спрашивает гард.
+function isHashOnly(to: string, location: { pathname: string; search: string; hash: string } | null | undefined): boolean {
+  if (!location) return false;
+  const target = splitUrl(to);
+  return target.pathname === location.pathname && target.search === location.search && target.hash !== location.hash;
 }
 
 /** Обычный левый клик без модификаторов в своё окно — его перехватывает SPA-навигация. */

@@ -10,6 +10,8 @@
   import { parseHashParams, splitUrl, withHashParams } from './hash-params';
   import { ROUTER_LOCATION_CTX, type RouterLocationSource } from './location-source';
   import { ROUTER_CTX, type RouterContextValue } from './context';
+  import { setNavigator } from '../../navigation/context';
+  import { createNavigatorFromRouter } from '../navigator';
 
   let {
     hashParam,
@@ -27,16 +29,19 @@
   const real = useRouter();
   let routeBack = $state<string | null>(null);
 
-  const current = $derived.by(() => {
-    const value = parseHashParams(real.current.hash)[hashParam];
-    const parts = value ? splitUrl(value) : null;
-    return {
-      pathname: prefix + (parts?.pathname || '/'),
-      search: parts?.search ?? '',
-      hash: '',
-      action: real.current.action,
-    };
-  });
+  /** Значение пары (путь без префикса) → полный виртуальный путь: пусто → `prefix || '/'`
+   *  без хвостового слэша, путь без ведущего `/` его получает. */
+  function virtualLocation(value: string | undefined): { pathname: string; search: string } {
+    const { pathname, search } = splitUrl(value ?? '');
+    const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
+    return { pathname: path === '/' ? prefix || '/' : prefix + path, search };
+  }
+
+  const current = $derived.by(() => ({
+    ...virtualLocation(parseHashParams(real.current.hash)[hashParam]),
+    hash: '',
+    action: real.current.action,
+  }));
 
   function stripPrefix(url: string): string {
     if (!prefix || !url.startsWith(prefix)) return url;
@@ -51,15 +56,22 @@
     return withHashParams(pathname + search + hash, { [hashParam]: stripPrefix(url) });
   }
 
+  // scopedTo — то, что запросило поддерево, полным виртуальным путём: хост в intercept
+  // отличает такой переход от сырого и может отправить его на главный экран.
+  function scopedTo(url: string): string {
+    const { pathname, search } = virtualLocation(stripPrefix(url));
+    return pathname + search;
+  }
+
   const source: RouterLocationSource = {
     get current() {
       return current;
     },
     push(url, opts) {
-      real.push(resolveHref(url), { ...opts, origin: hashParam });
+      real.push(resolveHref(url), { ...opts, origin: hashParam, scopedTo: scopedTo(url) });
     },
     replace(url, opts) {
-      real.replace(resolveHref(url), { ...opts, origin: hashParam });
+      real.replace(resolveHref(url), { ...opts, origin: hashParam, scopedTo: scopedTo(url) });
     },
     back(href) {
       if (getHistory().canGoBack) {
@@ -82,6 +94,9 @@
   };
 
   setContext(ROUTER_LOCATION_CTX, source);
+  // Kit-компоненты поддерева (Navigator) ходят через виртуальный роутер: useRouter() здесь
+  // уже видит собственный источник.
+  setNavigator(createNavigatorFromRouter(useRouter()));
   // Отрезаем base внешнего <Router>: путь поддерева — свой, вложенный <Router> без basepath
   // начинает от '/'. Сам VirtualRouter роутов не держит — регистрация в пустоту.
   setContext<RouterContextValue>(ROUTER_CTX, { base: '/', register: () => {}, unregister: () => {} });

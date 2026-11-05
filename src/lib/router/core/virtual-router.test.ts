@@ -8,7 +8,8 @@ import { setHistoryAdapter } from '../history/registry';
 import { configureNav, resetNavConfig } from './nav-config';
 import { getRouteBack, setRouteBack } from './active-route';
 import type { HistoryAdapter, Action } from '../history/adapter';
-import type { RouteSnapshot } from '../../navigation/context';
+import type { RouteSnapshot, Navigator } from '../../navigation/context';
+import type { NavFrom } from './nav-config';
 
 type Router = ReturnType<typeof import('./useRouter.svelte').useRouter>;
 
@@ -39,11 +40,15 @@ function fakeAdapter(url: string) {
 
 function mountProbe(outerBase?: string) {
   let router: Router | undefined;
+  let navigator: Navigator | undefined;
   const target = document.createElement('div');
   document.body.appendChild(target);
-  const handle = mount(Probe, { target, props: { outerBase, onrouter: (r: Router) => { router = r; } } });
+  const handle = mount(Probe, {
+    target,
+    props: { outerBase, onrouter: (r: Router) => { router = r; }, onnavigator: (n?: Navigator) => { navigator = n; } },
+  });
   flushSync();
-  return { router: router!, target, dispose: () => { unmount(handle); target.remove(); } };
+  return { router: router!, navigator, target, dispose: () => { unmount(handle); target.remove(); } };
 }
 
 describe('<VirtualRouter>', () => {
@@ -139,6 +144,69 @@ describe('<VirtualRouter>', () => {
     expect(booking!.getAttribute('data-id')).toBe('p2');
     expect(router.pathname).toBe('/accounts/properties/p2/booking/new');
     expect(router.current.search).toBe('?x=1');
+    dispose();
+  });
+
+  it('push passes the intended virtual target as from.scopedTo', () => {
+    const f = fakeAdapter('/accounts/chats/c1/chat#panel=/properties/p1/info');
+    setHistoryAdapter(f.adapter);
+    const seen: NavFrom[] = [];
+    configureNav({ intercept: (to, from) => { seen.push(from); return to; } });
+    const { router, dispose } = mountProbe();
+    router.push('/accounts/properties/p1/general?x=1');
+    router.replace('/billing');
+    expect(seen.map((s) => [s.origin, s.scopedTo])).toEqual([
+      ['panel', '/accounts/properties/p1/general?x=1'],
+      ['panel', '/accounts/billing'],
+    ]);
+    expect(f.calls).toEqual([
+      'push:/accounts/chats/c1/chat#panel=/properties/p1/general?x=1',
+      'replace:/accounts/chats/c1/chat#panel=/billing:none',
+    ]);
+    dispose();
+  });
+
+  it('host intercept can send a scoped navigation to the main screen', () => {
+    const f = fakeAdapter('/accounts/chats/c1/chat#panel=/properties/p1/info');
+    setHistoryAdapter(f.adapter);
+    configureNav({ intercept: (to, from) => (from.scopedTo?.startsWith('/accounts/billing') ? from.scopedTo + from.hash : to) });
+    const { router, dispose } = mountProbe();
+    router.push('/accounts/billing');
+    expect(f.calls).toEqual(['push:/accounts/billing#panel=/properties/p1/info']);
+    dispose();
+  });
+
+  it('provides a scoped Navigator to the subtree', () => {
+    const f = fakeAdapter('/accounts/chats/c1/chat#panel=/properties/p1/info');
+    setHistoryAdapter(f.adapter);
+    const origins: (string | undefined)[] = [];
+    configureNav({ intercept: (to, from) => { origins.push(from.origin); return to; } });
+    const { navigator, dispose } = mountProbe();
+    expect(navigator).toBeDefined();
+    expect(navigator!.current.pathname).toBe('/accounts/properties/p1/info');
+    expect(navigator!.isActive('/accounts/properties/p1')).toBe(true);
+    navigator!.push('/accounts/x');
+    expect(f.calls).toEqual(['push:/accounts/chats/c1/chat#panel=/x']);
+    expect(origins).toEqual(['panel']);
+    dispose();
+  });
+
+  it('missing or empty value → the prefix without a trailing slash', () => {
+    for (const url of ['/accounts/chats/c1/chat', '/accounts/chats/c1/chat#panel=', '/accounts/chats/c1/chat#panel=/']) {
+      const f = fakeAdapter(url);
+      setHistoryAdapter(f.adapter);
+      const { router, dispose } = mountProbe();
+      expect(router.pathname).toBe('/accounts');
+      dispose();
+    }
+  });
+
+  it('a value without a leading slash gets one', () => {
+    const f = fakeAdapter('/accounts/chats/c1/chat#panel=properties/p1/info');
+    setHistoryAdapter(f.adapter);
+    const { router, target, dispose } = mountProbe();
+    expect(router.pathname).toBe('/accounts/properties/p1/info');
+    expect(target.querySelector('[data-testid="info"]')).not.toBeNull();
     dispose();
   });
 

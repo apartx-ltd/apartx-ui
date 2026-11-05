@@ -61,7 +61,10 @@ function realRouter() {
     get action() {
       return state.current.action;
     },
-    push(url: string, opts?: { action?: Action; keepOverlays?: boolean; root?: boolean; force?: boolean; origin?: string }) {
+    push(url: string, opts?: {
+      action?: Action; keepOverlays?: boolean; root?: boolean; force?: boolean;
+      origin?: string; scopedTo?: string; keepHash?: boolean;
+    }) {
       // Через navigate() — overlay-aware (вариант A). Прямой history.push при открытом
       // оверлее кладёт запись ПОВЕРХ синтетической, а guarded back закрывающегося
       // оверлея тут же её съедает: страница отрисована, URL откатился. navigate()
@@ -69,15 +72,17 @@ function realRouter() {
       // по-прежнему доходит до history на пути без оверлеев.
       navigate(url, opts);
     },
-    replace(url: string, opts?: { action?: Action; root?: boolean; force?: boolean; origin?: string }) {
+    replace(url: string, opts?: {
+      action?: Action; root?: boolean; force?: boolean; origin?: string; scopedTo?: string; keepHash?: boolean;
+    }) {
       // Сознательно НЕ overlay-aware: replace поверх открытого оверлея — легитимный
       // паттерн (spaces: property из шторки карты замещает её синтетическую запись,
       // шторка живёт в survival store). Автозакрытие оверлеев здесь сломало бы его.
-      // origin — только для resolveNavTarget; в опции записи истории не идёт.
-      const { origin, ...hOpts } = opts ?? {};
+      // origin/scopedTo/keepHash — только для resolveNavTarget; в опции записи истории не идут.
+      const { origin, scopedTo, keepHash, ...hOpts } = opts ?? {};
       const location = getHistory().location;
       if (!location) { getHistory().replace(url, hOpts); return; }
-      const to = resolveNavTarget(url, { ...location, origin });
+      const to = resolveNavTarget(url, { ...location, origin, scopedTo }, { keepHash });
       if (to === null) return;
       getHistory().replace(to, hOpts);
     },

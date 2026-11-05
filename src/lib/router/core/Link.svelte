@@ -20,8 +20,10 @@
 
   // Внутри <VirtualRouter> путь виртуальный: href — полный реальный адрес (для ctrl/middle-клика
   // в новую вкладку), обычный клик идёт через роутер поддерева. Снаружи — как всегда, use:link.
+  // Абсолютный/внешний `to` — как у обычной ссылки: без переписывания фрагмента, дефолт браузера.
   const scoped = getContext(ROUTER_LOCATION_CTX) != null;
-  const router = scoped ? useRouter() : null;
+  const scopedRouter = scoped ? useRouter() : null;
+  const router = $derived(/^[a-z]+:\/\//i.test(to) ? null : scopedRouter);
 
   // onclick хоста зовём первым: его preventDefault отменяет переход (shouldHandle), как у use:link.
   function onScopedClick(e: MouseEvent) {

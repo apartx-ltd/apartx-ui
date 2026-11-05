@@ -3,13 +3,18 @@
   import Link from './Link.svelte';
   import VirtualRouter from './VirtualRouter.svelte';
 
-  let { to, replace = false, virtual = false }: { to: string; replace?: boolean; virtual?: boolean } = $props();
+  let { to, replace = false, virtual = false, onclick }: {
+    to: string;
+    replace?: boolean;
+    virtual?: boolean;
+    onclick?: (e: MouseEvent) => void;
+  } = $props();
 </script>
 
 {#if virtual}
   <VirtualRouter hashParam="panel" prefix="/accounts">
-    <Link {to} {replace} data-testid="link">go</Link>
+    <Link {to} {replace} {onclick} data-testid="link">go</Link>
   </VirtualRouter>
 {:else}
-  <Link {to} {replace} data-testid="link">go</Link>
+  <Link {to} {replace} {onclick} data-testid="link">go</Link>
 {/if}
