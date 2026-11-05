@@ -13,6 +13,7 @@ export {
 export {
   matchRoute, matchParams, pick, rankRoute, stripBase, type MatchOptions,
 } from './core/match-route';
+export { parseHashParams, formatHashParams, splitUrl, withHashParams } from './core/hash-params';
 export { setRouteBack, getRouteBack, subscribeRouteBack } from './core/active-route';
 export type { RouteLoader } from './core/lazy';
 
