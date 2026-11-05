@@ -10,8 +10,12 @@
   let { href = '', children }: { href?: string; children?: any } = $props();
   // Область роутера, где стоит ссылка (чат в боковой панели — `data-router-scope`): хост по ней
   // решает, где открыть цель. Читаем в момент клика — DOM-предки могут смениться.
+  // Вне области — undefined: обработчик хоста зовётся, как раньше, с одним аргументом.
   let anchor = $state<HTMLAnchorElement>();
-  const ctx = () => ({ origin: routerScopeOf(anchor) });
+  const ctx = () => {
+    const origin = routerScopeOf(anchor);
+    return origin ? { origin } : undefined;
+  };
 </script>
 
 <a
