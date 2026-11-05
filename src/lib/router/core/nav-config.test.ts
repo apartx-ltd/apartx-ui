@@ -112,8 +112,20 @@ describe('navigate with nav config', () => {
 describe('navigate leave guard on hash-only navigations', () => {
   beforeEach(() => { setHistoryAdapter(null); resetNavConfig(); });
   afterEach(() => { setHistoryAdapter(null); resetNavConfig(); });
-  it('a hash-only target pushes immediately; a pathname change still asks', () => {
+  it('without configureNav a hash-only target still asks', () => {
     const f = fakeAdapter(); setHistoryAdapter(f.adapter);
+    let asked = 0;
+    let answer!: (v: boolean) => void;
+    const dispose = addLeaveGuard({ when: () => true, confirm: () => { asked++; return new Promise((r) => { answer = r; }); } });
+    navigate('/accounts/chats/c1/chat?tab=all#panel=/properties/p2/info');
+    expect(asked).toBe(1);
+    expect(f.calls).toEqual([]);
+    answer(false);
+    dispose();
+  });
+  it('with configureNav a hash-only target pushes immediately; a pathname change still asks', () => {
+    const f = fakeAdapter(); setHistoryAdapter(f.adapter);
+    configureNav({});
     let asked = 0;
     let answer!: (v: boolean) => void;
     const dispose = addLeaveGuard({ when: () => true, confirm: () => { asked++; return new Promise((r) => { answer = r; }); } });

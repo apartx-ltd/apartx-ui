@@ -226,9 +226,10 @@ config wholesale (keys you omit are dropped, not kept).
   `{ pathname, search, hash, origin?, scopedTo? }`.
 - Order: `keepHash`, then `intercept`. Both run when the target is resolved, i.e. *before*
   the leave guard (`useNavigationGuard`); a guard-confirmed retry is not resolved twice.
-- `navigate` does not ask the leave guard when only the fragment changes (pathname and
-  search stay) — same as the browser history adapter. A dirty form inside the panel is
-  therefore not guarded on in-panel navigation.
+- Once `configureNav` has been called, `navigate` does not ask the leave guard when only the
+  fragment changes (pathname and search stay) — same as the browser history adapter. A dirty
+  form inside the panel is therefore not guarded on in-panel navigation. Without a
+  `configureNav` call the guard is asked as before.
 
 `intercept` sees two shapes of `to`:
 

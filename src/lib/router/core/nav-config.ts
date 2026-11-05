@@ -15,14 +15,22 @@ export interface NavConfig {
 }
 
 let config: NavConfig = {};
+let configured = false;
 
 /** Замещает предыдущую конфигурацию целиком. Без вызова navigate/replace ведут себя как раньше. */
 export function configureNav(next: NavConfig): void {
   config = next;
+  configured = true;
 }
 
 export function resetNavConfig(): void {
   config = {};
+  configured = false;
+}
+
+/** configureNav вызван и не сброшен — включены новые правила navigate (гард на смене фрагмента). */
+export function isNavConfigured(): boolean {
+  return configured;
 }
 
 /** Чистое разрешение адреса: перенос пар keepHash из текущего фрагмента, затем intercept.

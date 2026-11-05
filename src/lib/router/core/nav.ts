@@ -2,7 +2,7 @@ import { getHistory } from '../history/registry';
 import { overlayCount, dismissForNavigation } from '../overlay/overlay-stack';
 import type { Action } from '../history/adapter';
 import { isLeaveBlocked, requestLeave } from '../guard/leave-guard';
-import { resolveNavTarget, routerScopeOf } from './nav-config';
+import { isNavConfigured, resolveNavTarget, routerScopeOf } from './nav-config';
 import { splitUrl } from './hash-params';
 
 /** Программная SPA-навигация. При открытых оверлеях (и без keepOverlays) закрывает их
@@ -21,8 +21,8 @@ import { splitUrl } from './hash-params';
  *  `origin`/`scopedTo` — область и виртуальная цель навигации (см. configureNav, NavFrom);
  *  `keepHash: false` — без переноса пар keepHash; `resolved` — адрес уже прошёл
  *  resolveNavTarget, второй раз keepHash/intercept не применяются.
- *  Гард ухода не спрашивается, если меняется только фрагмент (pathname+search те же) — как
- *  pageKey в history/browser.ts. */
+ *  При активном configureNav гард ухода не спрашивается, если меняется только фрагмент
+ *  (pathname+search те же) — как pageKey в history/browser.ts. */
 export function navigate(
   to: string,
   opts?: {
@@ -72,9 +72,10 @@ export function navigate(
   h.push(to, hOpts);
 }
 
+// Только при активном configureNav: без него navigate ведёт себя байт-в-байт как раньше.
 // Тот же адрес целиком (повторный переход на текущую страницу) по-прежнему спрашивает гард.
 function isHashOnly(to: string, location: { pathname: string; search: string; hash: string } | null | undefined): boolean {
-  if (!location) return false;
+  if (!location || !isNavConfigured()) return false;
   const target = splitUrl(to);
   return target.pathname === location.pathname && target.search === location.search && target.hash !== location.hash;
 }
