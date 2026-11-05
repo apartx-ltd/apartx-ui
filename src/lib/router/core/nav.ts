@@ -64,7 +64,8 @@ export function navigate(
   h.push(to, hOpts);
 }
 
-function shouldHandle(e: MouseEvent, target: string | null): boolean {
+/** Обычный левый клик без модификаторов в своё окно — его перехватывает SPA-навигация. */
+export function shouldHandle(e: MouseEvent, target: string | null): boolean {
   return (
     e.button === 0 &&
     !e.defaultPrevented &&

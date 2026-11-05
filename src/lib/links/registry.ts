@@ -21,9 +21,15 @@ export interface AppLink {
   href: string;
 }
 
+/** Where the link was opened from. `origin` — the router scope of the clicked element
+ *  (`data-router-scope`, e.g. a `<VirtualRouter>` side panel); absent in the main area. */
+export interface LinkOpenContext {
+  origin?: string;
+}
+
 export interface LinkHandler {
   /** Open the target: navigate, open a modal, … */
-  open: (link: AppLink) => void | Promise<void>;
+  open: (link: AppLink, ctx?: LinkOpenContext) => void | Promise<void>;
   /** Public URL for "Copy link" / share. Default — the raw href. */
   shareUrl?: (link: AppLink) => string | Promise<string>;
 }
@@ -71,11 +77,12 @@ function toLink(target: string | AppLink): AppLink {
  * for the type — the caller decides the fallback (chat: confirm + `window.open` for
  * external, no-op for unknown app links).
  */
-export function openLink(target: string | AppLink): boolean {
+export function openLink(target: string | AppLink, ctx?: LinkOpenContext): boolean {
   const link = toLink(target);
   const handler = registry[link.type];
   if (!handler) return false;
-  void handler.open(link);
+  // Без контекста — вызов ровно как раньше, с одним аргументом.
+  void (ctx ? handler.open(link, ctx) : handler.open(link));
   return true;
 }
 
