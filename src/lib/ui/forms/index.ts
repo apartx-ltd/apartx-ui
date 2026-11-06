@@ -19,3 +19,4 @@ export { default as RangeCalendar } from './RangeCalendar.svelte';
 export { createForm } from './createForm.svelte';
 export { sanitizePhone, normalizePastedPhone, splitPhone, countryChipLabel } from './phone-country';
 export type { PhoneCountry, TrunkRule, PhoneSplit } from './phone-country';
+export * from './color-picker';
