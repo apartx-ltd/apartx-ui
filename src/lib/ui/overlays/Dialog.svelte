@@ -7,6 +7,7 @@
   import { dialogBodyClass, type DialogLayout } from './dialog-layout';
   import { safeTopViewport, safeBottomViewport } from '../utils/safe-area';
   import { useOverlay } from '../../hooks/useOverlay.svelte';
+  import { provideChromeClaim } from '../structure/chrome-claim.svelte';
   import { faXmark } from '@fortawesome/free-solid-svg-icons';
   import Button from '../display/Button.svelte';
   import Icon from '../display/Icon.svelte';
@@ -98,6 +99,9 @@
   const layer = getOverlayLayer();
   // exitMs = длительность contentTransition (motion.ts: sheet 260 / dialogPop 220) — overlay-aware
   // navigate ждёт столько, чтобы уходящая анимация диалога проиграла до смены роута.
+  // Тулбары оверлея на хром хоста (setHostChrome) не претендуют — в т.ч. во вложенной Page.
+  provideChromeClaim(null);
+
   const overlay = useOverlay(() => open, () => { open = false; }, { respectBack, exitMs: fullScreen ? 260 : 220, onBackRequest });
   const zBand = $derived(layer ? layer.z : overlay.z);
   const scrimZ = $derived(zBand != null ? `z-index:${zBand};` : '');

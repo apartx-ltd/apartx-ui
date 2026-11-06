@@ -1,8 +1,12 @@
 <script>
   import { cn } from '../utils/cn';
   import { safeBottomStrip } from '../utils/safe-area';
+  import { provideChromeClaim } from './chrome-claim.svelte';
 
   let { children, class: className, ...restProps } = $props();
+
+  // Тулбар футера на хром хоста не претендует.
+  provideChromeClaim(null);
 </script>
 
 <!-- Bottom action-bar container. `pb-[var(--safe-area-inset-bottom)]` reserves the bottom

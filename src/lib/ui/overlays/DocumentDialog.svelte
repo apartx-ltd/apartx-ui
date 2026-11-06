@@ -13,6 +13,7 @@
   import Toolbar from '../structure/Toolbar.svelte';
   import Title from '../structure/Title.svelte';
   import BackButton from '../structure/BackButton.svelte';
+  import { provideChromeClaim } from '../structure/chrome-claim.svelte';
   import { faDownload } from '@fortawesome/free-solid-svg-icons';
 
   let {
@@ -61,6 +62,9 @@
       downloading = false;
     }
   }
+
+  // Шапка читалки — не хром хоста: её BackButton закрывает диалог и виден всегда.
+  provideChromeClaim(null);
 </script>
 
 <Dialog bind:open fullScreen showCloseButton={false} layout="form" {onclose} data-testid="document-dialog" {...restProps}>

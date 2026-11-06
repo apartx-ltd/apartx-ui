@@ -1,4 +1,4 @@
-import { getContext, setContext } from 'svelte';
+import { getContext, setContext, type Snippet } from 'svelte';
 
 /**
  * Router-agnostic navigation for the UI Kit.
@@ -109,6 +109,30 @@ export function setBackVisibility(get: BackVisibilityGetter): void {
 /** Read the back-visibility getter, if a `<VirtualRouter backAtRoot="hide">` provided one. */
 export function getBackVisibility(): BackVisibilityGetter | undefined {
   return getContext<BackVisibilityGetter | undefined>(BACK_VISIBILITY);
+}
+
+const HOST_CHROME = Symbol('apartx-ui:host-chrome');
+
+/** Host-owned chrome the kit splices into the owning toolbar of each `<Page>`. */
+export interface HostChrome {
+  /** Rendered after the owning toolbar's own `end` (e.g. the side panel's close ✕). */
+  end?: Snippet;
+}
+
+/**
+ * Call once in the host (e.g. the cabinet's side panel) above its pages: the first-ranked
+ * kit `<Toolbar>` of each `<Page>` (one inside `<Header>` beats a plain one) renders
+ * `chrome.end` after its own `end`, and a `<BackButton>` in that toolbar honours
+ * `setBackVisibility`. Toolbars in overlays, footers or outside a `<Page>` never claim.
+ * Absent → toolbars render exactly as without a host.
+ */
+export function setHostChrome(chrome: HostChrome): void {
+  setContext(HOST_CHROME, chrome);
+}
+
+/** Read the host chrome, if a host provided one. */
+export function getHostChrome(): HostChrome | undefined {
+  return getContext<HostChrome | undefined>(HOST_CHROME);
 }
 
 /**
