@@ -65,6 +65,13 @@ describe('openLink', () => {
     expect(open).toHaveBeenCalledWith(expect.objectContaining({ type: 'external', href: 'https://example.com/x' }));
   });
 
+  it('openLink passes the context to the handler', () => {
+    const seen: unknown[] = [];
+    setLinkRegistry({ booking: { open: (_link, ctx) => { seen.push(ctx); } } });
+    expect(openLink('#/booking/b1', { origin: 'panel' })).toBe(true);
+    expect(seen).toEqual([{ origin: 'panel' }]);
+  });
+
   it('an async handler is claimed at once, its work continues in the background', async () => {
     let done = false;
     setLinkRegistry({ booking: { open: async () => { await Promise.resolve(); done = true; } } });

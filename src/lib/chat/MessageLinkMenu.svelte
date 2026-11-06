@@ -11,7 +11,7 @@
   import { copyText } from '../ui/utils/clipboard';
   import { chatT } from './i18n';
   import { getSlotContext } from './registry.svelte';
-  import { linkShareUrl } from '../links/registry';
+  import { linkShareUrl, type LinkOpenContext } from '../links/registry';
   import {
     getLinkMenu, closeLinkMenu, openChatLink,
     getExternalConfirm, resolveExternalConfirm,
@@ -30,7 +30,8 @@
   let anchor = $state<any>(null);
   $effect.pre(() => { if (menu) anchor = { getBoundingClientRect: () => new DOMRect(menu.x, menu.y, 0, 0) }; });
   let link = $state<any>(null);
-  $effect.pre(() => { if (menu?.link) link = menu.link; });
+  let linkCtx = $state<LinkOpenContext | undefined>(undefined);
+  $effect.pre(() => { if (menu?.link) { link = menu.link; linkCtx = menu.ctx; } });
 
   let copied = $state(false);
   $effect.pre(() => { if (menu) copied = false; });
@@ -38,7 +39,7 @@
   function onOpen() {
     const href = link?.href;
     closeLinkMenu();
-    if (href) void openChatLink(href);
+    if (href) void openChatLink(href, linkCtx);
   }
 
   async function onCopy() {

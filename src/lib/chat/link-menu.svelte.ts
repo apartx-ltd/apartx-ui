@@ -5,9 +5,9 @@
 // after a successful "Copy link".
 // The external-open confirm is self-contained (rendered by MessageLinkMenu.svelte),
 // deliberately NOT the global overlays/confirm service — cabinet does not mount it.
-import { parseLink, openLink, type AppLink } from '../links/registry';
+import { parseLink, openLink, type AppLink, type LinkOpenContext } from '../links/registry';
 
-let menu = $state<{ link: AppLink; x: number; y: number } | null>(null);
+let menu = $state<{ link: AppLink; x: number; y: number; ctx?: LinkOpenContext } | null>(null);
 let externalConfirm = $state<{ link: AppLink } | null>(null);
 let confirmResolver: ((ok: boolean) => void) | null = null;
 
@@ -18,8 +18,9 @@ export function closeLinkMenu(): void {
   menu = null;
 }
 
-export function openLinkMenu(href: string, x: number, y: number): void {
-  menu = { link: parseLink(href), x, y };
+/** `ctx` — where the link sits (router scope); the menu's "Open" passes it on to `openChatLink`. */
+export function openLinkMenu(href: string, x: number, y: number, ctx?: LinkOpenContext): void {
+  menu = { link: parseLink(href), x, y, ctx };
 }
 
 export function getExternalConfirm() {
@@ -41,9 +42,9 @@ export function resolveExternalConfirm(ok: boolean): void {
   confirmResolver = null;
 }
 
-export async function openChatLink(href: string): Promise<void> {
+export async function openChatLink(href: string, ctx?: LinkOpenContext): Promise<void> {
   const link = parseLink(href);
-  if (openLink(link)) return;
+  if (openLink(link, ctx)) return;
   if (link.type !== 'external') return; // app link without a host handler — nothing to open
   if (!(await confirmExternalOpen(link))) return;
   window.open(link.href, '_blank');

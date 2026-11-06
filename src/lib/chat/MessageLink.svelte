@@ -5,11 +5,21 @@
   // oncontextmenu here or the menu opens twice on desktop.
   import { longpress } from '../hooks/useLongPress.svelte';
   import { openChatLink, openLinkMenu } from './link-menu.svelte';
+  import { routerScopeOf } from '../router/core/nav-config';
 
   let { href = '', children }: { href?: string; children?: any } = $props();
+  // Область роутера, где стоит ссылка (чат в боковой панели — `data-router-scope`): хост по ней
+  // решает, где открыть цель. Читаем в момент клика — DOM-предки могут смениться.
+  // Вне области — undefined: обработчик хоста зовётся, как раньше, с одним аргументом.
+  let anchor = $state<HTMLAnchorElement>();
+  const ctx = () => {
+    const origin = routerScopeOf(anchor);
+    return origin ? { origin } : undefined;
+  };
 </script>
 
 <a
+  bind:this={anchor}
   {href}
   class="cursor-pointer break-words text-inherit underline underline-offset-2"
   data-testid="message-link"
@@ -18,8 +28,8 @@
     // click dispatch lets the SAME click reach the freshly-mounted overlay's outside-click
     // listener, which closes it again and pops the overlay stack — which navigates BACK, off the
     // chat. Handing the open to the next task breaks that same-tick race.
-    onClick: () => { setTimeout(() => { void openChatLink(href); }, 0); },
-    onTrigger: ({ clientX, clientY }) => openLinkMenu(href, clientX, clientY),
+    onClick: () => { const c = ctx(); setTimeout(() => { void openChatLink(href, c); }, 0); },
+    onTrigger: ({ clientX, clientY }) => openLinkMenu(href, clientX, clientY, ctx()),
   }}
   onclick={(e) => { e.preventDefault(); e.stopPropagation(); }}
 >{@render children?.()}</a>

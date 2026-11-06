@@ -2,6 +2,8 @@ import { getHistory } from '../history/registry';
 import { overlayCount, dismissForNavigation } from '../overlay/overlay-stack';
 import type { Action } from '../history/adapter';
 import { isLeaveBlocked, requestLeave } from '../guard/leave-guard';
+import { isNavConfigured, resolveNavTarget, routerScopeOf } from './nav-config';
+import { splitUrl } from './hash-params';
 
 /** Программная SPA-навигация. При открытых оверлеях (и без keepOverlays) закрывает их
  *  (флип open=false, без history.back) и заменяет верхнюю синтетическую overlay-запись
@@ -15,13 +17,31 @@ import { isLeaveBlocked, requestLeave } from '../guard/leave-guard';
  *  на страницу, где пользователь был до диплинка. Действует на всех трёх путях.
  *  `force` — мимо гардов ухода (router/guard). Без него при dirty-гарде навигация ждёт
  *  confirm хоста ДО закрытия оверлеев: иначе модалка закрылась бы, а навигация потом
- *  отменилась. Дальше адаптер получает `force: true` — гард уже спрошен. */
+ *  отменилась. Дальше адаптер получает `force: true` — гард уже спрошен.
+ *  `origin`/`scopedTo` — область и виртуальная цель навигации (см. configureNav, NavFrom);
+ *  `keepHash: false` — без переноса пар keepHash; `resolved` — адрес уже прошёл
+ *  resolveNavTarget, второй раз keepHash/intercept не применяются.
+ *  При активном configureNav гард ухода не спрашивается, если меняется только фрагмент
+ *  (pathname+search те же) — как pageKey в history/browser.ts. */
 export function navigate(
   to: string,
-  opts?: { replace?: boolean; keepOverlays?: boolean; action?: Action; root?: boolean; force?: boolean },
+  opts?: {
+    replace?: boolean; keepOverlays?: boolean; action?: Action; root?: boolean; force?: boolean;
+    origin?: string; scopedTo?: string; keepHash?: boolean; resolved?: boolean;
+  },
 ): void {
-  if (!opts?.force && isLeaveBlocked()) {
-    void requestLeave(() => navigate(to, { ...opts, force: true }));
+  const location = getHistory().location;
+  if (!opts?.resolved && location) {
+    const resolved = resolveNavTarget(
+      to,
+      { ...location, origin: opts?.origin, scopedTo: opts?.scopedTo },
+      { keepHash: opts?.keepHash },
+    );
+    if (resolved === null) return;
+    to = resolved;
+  }
+  if (!opts?.force && !isHashOnly(to, location) && isLeaveBlocked()) {
+    void requestLeave(() => navigate(to, { ...opts, force: true, resolved: true }));
     return;
   }
   const h = getHistory();
@@ -52,7 +72,16 @@ export function navigate(
   h.push(to, hOpts);
 }
 
-function shouldHandle(e: MouseEvent, target: string | null): boolean {
+// Только при активном configureNav: без него navigate ведёт себя байт-в-байт как раньше.
+// Тот же адрес целиком (повторный переход на текущую страницу) по-прежнему спрашивает гард.
+function isHashOnly(to: string, location: { pathname: string; search: string; hash: string } | null | undefined): boolean {
+  if (!location || !isNavConfigured()) return false;
+  const target = splitUrl(to);
+  return target.pathname === location.pathname && target.search === location.search && target.hash !== location.hash;
+}
+
+/** Обычный левый клик без модификаторов в своё окно — его перехватывает SPA-навигация. */
+export function shouldHandle(e: MouseEvent, target: string | null): boolean {
   return (
     e.button === 0 &&
     !e.defaultPrevented &&
@@ -71,7 +100,7 @@ export function link(node: HTMLAnchorElement) {
     const href = node.getAttribute('href');
     if (!href || /^[a-z]+:\/\//i.test(href)) return; // внешний/абсолютный → дефолт
     e.preventDefault();
-    navigate(href, { replace: node.hasAttribute('data-replace') });
+    navigate(href, { replace: node.hasAttribute('data-replace'), origin: routerScopeOf(node) });
   };
   node.addEventListener('click', onClick);
   return { destroy: () => node.removeEventListener('click', onClick) };

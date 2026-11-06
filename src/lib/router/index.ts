@@ -4,6 +4,8 @@ export { useRouter } from './core/useRouter.svelte';
 export { default as Router } from './core/Router.svelte';
 export { default as Route } from './core/Route.svelte';
 export { default as Link } from './core/Link.svelte';
+export { default as VirtualRouter } from './core/VirtualRouter.svelte';
+export { ROUTER_LOCATION_CTX, type RouterLocationSource } from './core/location-source';
 export { navigate, link } from './core/nav';
 export { goBack, canGoBack, currentHasParent } from './core/back';
 export {
@@ -13,6 +15,11 @@ export {
 export {
   matchRoute, matchParams, pick, rankRoute, stripBase, type MatchOptions,
 } from './core/match-route';
+export { parseHashParams, formatHashParams, splitUrl, withHashParams } from './core/hash-params';
+export {
+  configureNav, resetNavConfig, resolveNavTarget, routerScopeOf,
+  type NavConfig, type NavFrom,
+} from './core/nav-config';
 export { setRouteBack, getRouteBack, subscribeRouteBack } from './core/active-route';
 export type { RouteLoader } from './core/lazy';
 
