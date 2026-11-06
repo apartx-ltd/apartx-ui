@@ -26,7 +26,7 @@
     prefix?: string;
     /** `'hide'` — поддерево получает геттер видимости «назад» (= currentHasParent):
      *  кнопка «назад» тулбара хоста прячется, пока возвращаться некуда. */
-    backAtRoot?: 'show' |// read once at mount // read once at mount| 'hide';
+    backAtRoot?: 'show' | 'hide'; // read once at mount
     children: Snippet;
   } = $props();
 
