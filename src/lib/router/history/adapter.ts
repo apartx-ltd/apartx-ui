@@ -37,6 +37,8 @@ export interface HistoryAdapter {
   readonly canGoBack: boolean;
   /** True when the CURRENT entry is a synthetic overlay entry. */
   readonly onOverlayEntry: boolean;
+  /** Index of the current history entry (browser adapter: `history.state.idx`, 0 on the first entry). */
+  readonly position?: number;
   listen(cb: () => void): () => void;
   push(url: string, opts?: HistoryEntryOpts): void;
   replace(url: string, opts?: HistoryEntryOpts): void;
