@@ -10,7 +10,7 @@
   import { parseHashParams, splitUrl, withHashParams } from './hash-params';
   import { ROUTER_LOCATION_CTX, type RouterLocationSource } from './location-source';
   import { ROUTER_CTX, type RouterContextValue } from './context';
-  import { setNavigator } from '../../navigation/context';
+  import { setNavigator, setRouteKey } from '../../navigation/context';
   import { createNavigatorFromRouter } from '../navigator';
 
   let {
@@ -59,6 +59,11 @@
   // scopedTo — то, что запросило поддерево, полным виртуальным путём: хост в intercept
   // отличает такой переход от сырого и может отправить его на главный экран.
   function scopedTo(url: string): string {
+    // Адрес вне префикса поддерево не «достраивает»: цель — он сам.
+    if (prefix && stripPrefix(url) === url && !url.startsWith(prefix)) {
+      const { pathname, search } = splitUrl(url);
+      return pathname + search;
+    }
     const { pathname, search } = virtualLocation(stripPrefix(url));
     return pathname + search;
   }
@@ -97,6 +102,8 @@
   // Kit-компоненты поддерева (Navigator) ходят через виртуальный роутер: useRouter() здесь
   // уже видит собственный источник.
   setNavigator(createNavigatorFromRouter(useRouter()));
+  // <Content> поддерева запоминает скролл по виртуальному пути, а не по pathname главного экрана.
+  setRouteKey(() => current.pathname);
   // Отрезаем base внешнего <Router>: путь поддерева — свой, вложенный <Router> без basepath
   // начинает от '/'. Сам VirtualRouter роутов не держит — регистрация в пустоту.
   setContext<RouterContextValue>(ROUTER_CTX, { base: '/', register: () => {}, unregister: () => {} });

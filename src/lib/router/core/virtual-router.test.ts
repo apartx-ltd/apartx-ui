@@ -8,7 +8,7 @@ import { setHistoryAdapter } from '../history/registry';
 import { configureNav, resetNavConfig } from './nav-config';
 import { getRouteBack, setRouteBack } from './active-route';
 import type { HistoryAdapter, Action } from '../history/adapter';
-import type { RouteSnapshot, Navigator } from '../../navigation/context';
+import type { RouteSnapshot, Navigator, RouteKeyGetter } from '../../navigation/context';
 import type { NavFrom } from './nav-config';
 
 type Router = ReturnType<typeof import('./useRouter.svelte').useRouter>;
@@ -41,14 +41,20 @@ function fakeAdapter(url: string) {
 function mountProbe(outerBase?: string) {
   let router: Router | undefined;
   let navigator: Navigator | undefined;
+  let routeKey: RouteKeyGetter | undefined;
   const target = document.createElement('div');
   document.body.appendChild(target);
   const handle = mount(Probe, {
     target,
-    props: { outerBase, onrouter: (r: Router) => { router = r; }, onnavigator: (n?: Navigator) => { navigator = n; } },
+    props: {
+      outerBase,
+      onrouter: (r: Router) => { router = r; },
+      onnavigator: (n?: Navigator) => { navigator = n; },
+      onroutekey: (g?: RouteKeyGetter) => { routeKey = g; },
+    },
   });
   flushSync();
-  return { router: router!, navigator, target, dispose: () => { unmount(handle); target.remove(); } };
+  return { router: router!, navigator, routeKey, target, dispose: () => { unmount(handle); target.remove(); } };
 }
 
 describe('<VirtualRouter>', () => {
@@ -154,7 +160,7 @@ describe('<VirtualRouter>', () => {
     configureNav({ intercept: (to, from) => { seen.push(from); return to; } });
     const { router, dispose } = mountProbe();
     router.push('/accounts/properties/p1/general?x=1');
-    router.replace('/billing');
+    router.replace('/accounts/billing');
     expect(seen.map((s) => [s.origin, s.scopedTo])).toEqual([
       ['panel', '/accounts/properties/p1/general?x=1'],
       ['panel', '/accounts/billing'],
@@ -163,6 +169,32 @@ describe('<VirtualRouter>', () => {
       'push:/accounts/chats/c1/chat#panel=/properties/p1/general?x=1',
       'replace:/accounts/chats/c1/chat#panel=/billing:none',
     ]);
+    dispose();
+  });
+
+  it('a url outside the prefix is its own scopedTo, not prefixed', () => {
+    const f = fakeAdapter('/accounts/chats/c1/chat#panel=/properties/p1/info');
+    setHistoryAdapter(f.adapter);
+    const seen: NavFrom[] = [];
+    configureNav({ intercept: (to, from) => { seen.push(from); return to; } });
+    const { router, dispose } = mountProbe();
+    router.push('/show/42?x=1');
+    expect(seen).toHaveLength(1);
+    expect(seen[0].scopedTo).toBe('/show/42?x=1');
+    expect(seen[0].origin).toBe('panel');
+    dispose();
+  });
+
+  it('provides the virtual pathname as the route key to the subtree', () => {
+    const f = fakeAdapter('/accounts/chats/c1/chat#panel=/properties/p1/info');
+    setHistoryAdapter(f.adapter);
+    const { routeKey, dispose } = mountProbe();
+    expect(routeKey).toBeDefined();
+    expect(routeKey!()).toBe('/accounts/properties/p1/info');
+    f.state.location = { pathname: '/accounts/chats/c1/chat', search: '', hash: '#panel=/properties/p2/booking/new' };
+    f.notify();
+    flushSync();
+    expect(routeKey!()).toBe('/accounts/properties/p2/booking/new');
     dispose();
   });
 

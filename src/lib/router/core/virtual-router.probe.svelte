@@ -7,11 +7,12 @@
   import RouterProbe from './useRouter.probe.svelte';
   import type { useRouter } from './useRouter.svelte';
 
-  import type { Navigator } from '../../navigation/context';
+  import type { Navigator, RouteKeyGetter } from '../../navigation/context';
 
-  let { onrouter, onnavigator, outerBase }: {
+  let { onrouter, onnavigator, onroutekey, outerBase }: {
     onrouter: (r: ReturnType<typeof useRouter>) => void;
     onnavigator?: (n: Navigator | undefined) => void;
+    onroutekey?: (g: RouteKeyGetter | undefined) => void;
     /** basepath внешнего роутера, внутри которого стоит VirtualRouter. */
     outerBase?: string;
   } = $props();
@@ -23,7 +24,7 @@
   </Route>
 
 <VirtualRouter hashParam="panel" prefix="/accounts">
-  <RouterProbe {onrouter} {onnavigator} />
+  <RouterProbe {onrouter} {onnavigator} {onroutekey} />
   <Router>
     <Route path="/accounts/properties/:id/info" back={(p) => `/accounts/properties/${p.id}`}>
       {#snippet children(params)}<span data-testid="info" data-id={params.id}></span>{/snippet}

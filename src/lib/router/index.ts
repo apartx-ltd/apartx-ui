@@ -40,4 +40,5 @@ export { createNavigatorFromRouter } from './navigator';
 
 // Leave guards (несохранённые правки)
 export { useNavigationGuard } from './guard/useNavigationGuard.svelte';
+export { requestLeave, isLeaveBlocked } from './guard/leave-guard';
 export type { LeaveGuard } from './guard/leave-guard';
