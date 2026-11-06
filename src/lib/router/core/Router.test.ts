@@ -157,6 +157,22 @@ describe('<Router outlet>: leaving page keeps its own params', () => {
     p.dispose();
   });
 
+  it('lazy route, cold first visit: a param change inside the key does not remount the page', async () => {
+    // The first visit renders through `{#await load()}`; once the chunk is cached a re-evaluated
+    // `getCached()` would flip the branch to `<Cached>` and REMOUNT the page (with everything in
+    // it — a gate PageTransition lost its slide in cabinet). Params alone must not re-evaluate it.
+    const p = mountProbe('/l/1', { keyByMatch: true });
+    await vi.runAllTimersAsync();
+    flushSync();
+    expect(p.mounts.map((m) => m.route)).toEqual(['l']);
+    p.go('/l/2');
+    p.go('/l/3');
+    expect(p.mounts.map((m) => m.route)).toEqual(['l']);
+    expect(p.mounts[0].read()).toEqual({ id: '3' });
+    expect(p.target.textContent?.trim()).toBe('3');
+    p.dispose();
+  });
+
   it('no outlet: the rendered page follows the live params', () => {
     const p = mountProbe('/a/1', { outlet: 'none' });
     p.go('/a/2');

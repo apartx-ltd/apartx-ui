@@ -18,10 +18,14 @@
     keyByMatch?: boolean;
     onmount: (route: string, read: () => Record<string, string>) => void;
   } = $props();
+  // Lazy route: a fresh loader per probe instance, so the module-level chunk cache (./lazy) starts
+  // cold in every test — the first visit renders through `{#await load()}`.
+  const lazyPage = () => Promise.resolve({ default: Page });
 </script>
 
 {#snippet routes()}
   <Route path="/a/:id" exact component={Page} props={{ onmount: (r: () => Record<string, string>) => onmount('a', r) }} />
+  <Route path="/l/:id" exact loader={lazyPage} props={{ onmount: (r: () => Record<string, string>) => onmount('l', r) }} />
   <Route path="/b/:id" exact component={Page} props={{ onmount: (r: () => Record<string, string>) => onmount('b', r) }} />
 {/snippet}
 
