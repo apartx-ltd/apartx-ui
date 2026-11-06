@@ -5,6 +5,7 @@
   import { ROUTER_CTX, type RouterContextValue, type RouteRecord } from './context';
   import { setRouteBack } from './active-route';
   import { getCached, load } from './lazy';
+  import RouteView from './RouteView.svelte';
 
   let {
     basepath,
@@ -79,30 +80,45 @@
   });
 </script>
 
-{#snippet activeRender()}
-  {#if active?.loader}
+{#snippet routeBody(route: RouteRecord | null, params: Record<string, string>)}
+  {#if route?.loader}
     <!-- Lazy chunk: render synchronously once cached (no flicker on repeat
          visits / back-forward); otherwise show `loading` while it resolves. -->
-    {@const Cached = getCached(active.loader)}
+    {@const Cached = getCached(route.loader)}
     {#if Cached}
-      <Cached {params} {...(active.props ?? {})} />
+      <Cached {params} {...(route.props ?? {})} />
     {:else}
-      {#await load(active.loader)}
+      {#await load(route.loader)}
         {@render loading?.()}
       {:then Component}
-        <Component {params} {...(active.props ?? {})} />
+        <Component {params} {...(route.props ?? {})} />
       {:catch}
         {@render error?.()}
       {/await}
     {/if}
-  {:else if active?.component}
-    {@const Component = active.component}
-    <Component {params} {...(active.props ?? {})} />
-  {:else if active?.snippet}
-    {@render active.snippet(params)}
+  {:else if route?.component}
+    {@const Component = route.component}
+    <Component {params} {...(route.props ?? {})} />
+  {:else if route?.snippet}
+    {@render route.snippet(params)}
   {:else if fallback}
     {@render fallback()}
   {/if}
+{/snippet}
+
+<!-- Без outlet — один живой рендер. -->
+{#snippet activeRender()}
+  {@render routeBody(active, params)}
+{/snippet}
+
+<!-- Под outlet — через RouteView: слой, ушедший с key (доигрывает outro PageTransition),
+     держит запись и params момента ухода, а не читает живой роут. -->
+{#snippet outletRender()}
+  <RouteView {key} {active} {params}>
+    {#snippet children(route: RouteRecord | null, params: Record<string, string>)}
+      {@render routeBody(route, params)}
+    {/snippet}
+  </RouteView>
 {/snippet}
 
 <!-- Декларации <Route> регистрируются здесь (рендерят пусто). ДОЛЖНЫ идти ПЕРЕД outlet,
@@ -110,7 +126,7 @@
 {@render children?.()}
 
 {#if outlet}
-  {@render outlet({ render: activeRender, key })}
+  {@render outlet({ render: outletRender, key })}
 {:else}
   {@render activeRender()}
 {/if}
