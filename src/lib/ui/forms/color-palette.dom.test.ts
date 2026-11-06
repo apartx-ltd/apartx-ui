@@ -27,7 +27,8 @@ describe('ColorPalette', () => {
     setup({ value: '#1e88e5' });
     expect(target.querySelectorAll('[data-swatch]')).toHaveLength(16);
     expect(sw('#1e88e5').getAttribute('aria-pressed')).toBe('true');
-    expect(sw('#9c27b0').getAttribute('aria-pressed')).toBeNull();
+    expect(sw('#9c27b0').getAttribute('aria-pressed')).toBe('false');
+    expect(q('[role="group"]')!.getAttribute('aria-label')).toBe('Palette');
   });
 
   it('marks defaultValue when value is null', () => {
@@ -74,6 +75,27 @@ describe('ColorPalette', () => {
       target.remove();
     }
     comp = null;
+  });
+
+  it('picking the default swatch emits null', () => {
+    const onChange = vi.fn();
+    setup({ value: '#1e88e5', defaultValue: '#9c27b0', onChange });
+    sw('#9c27b0').click();
+    flushSync();
+    expect(onChange).toHaveBeenCalledWith(null);
+  });
+
+  it('typing the default hex emits null', () => {
+    const onChange = vi.fn();
+    setup({ value: '#1e88e5', defaultValue: '#9c27b0', onChange });
+    q('[data-color-custom]')!.click();
+    flushSync();
+    const hex = q('[data-color-hex]') as HTMLInputElement;
+    hex.value = '9C27B0';
+    hex.dispatchEvent(new Event('input', { bubbles: true }));
+    hex.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    flushSync();
+    expect(onChange).toHaveBeenCalledWith(null);
   });
 
   it('updates a bound value', () => {

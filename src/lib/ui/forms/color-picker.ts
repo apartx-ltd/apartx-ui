@@ -3,6 +3,17 @@ export const DEFAULT_COLOR_PALETTE: readonly string[] = [
   '#003580', '#5e35b1', '#7e57c2', '#9c27b0', '#d81b60', '#6d4c41', '#607d8b', '#455a64',
 ];
 
+/** Texts of ColorPalette / ColorPicker (the kit has no i18n). */
+export type ColorLabels = {
+  custom?: string;
+  backToPalette?: string;
+  reset?: string;
+  hex?: string;
+  default?: string;
+  palette?: string;
+};
+
+/** Accepts only 6-digit hex (`#rrggbb` or `rrggbb`); 3-digit shorthand is rejected. */
 export function normalizeHex(input: string): string | null {
   const m = /^#?([0-9a-f]{6})$/i.exec(input.trim());
   return m ? `#${m[1].toLowerCase()}` : null;

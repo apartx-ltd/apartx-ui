@@ -8,6 +8,7 @@
 
 * **Зачем.** Кабинету нужен выбор цвета источника и брони на шахматке (план `docs/plans/2026-11-06-calendar-booking-colors`).
 * **Что.** `ColorPalette` (инлайн), `ColorPicker` (в поповере, `variant` `swatch` | `field`), `DEFAULT_COLOR_PALETTE`, `normalizeHex`, `contrastTextColor`, `mutedHex` (+ `relativeLuminance`, `contrastRatio`). Аддитивно, контракт кита не меняется.
+* **Штатный цвет.** Выбор цвета, равного `defaultValue` (свотч или HEX), отдаёт `null` («по умолчанию»), а не hex. a11y: `aria-pressed` всегда `true|false`, сетка свотчей — `role="group"`, тип `ColorLabels` экспортируется (+ `palette`).
 * **Палитра.** 16 цветов, каждый держит белый текст при контрасте ≥ 3:1 — проверяется тестом.
 
 ### Версия 0.23.2

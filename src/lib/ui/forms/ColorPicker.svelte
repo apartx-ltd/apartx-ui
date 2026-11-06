@@ -4,7 +4,7 @@
   import Icon from '../display/Icon.svelte';
   import Popover from '../display/Popover.svelte';
   import ColorPalette from './ColorPalette.svelte';
-  import { DEFAULT_COLOR_PALETTE, normalizeHex } from './color-picker';
+  import { DEFAULT_COLOR_PALETTE, normalizeHex, type ColorLabels } from './color-picker';
 
   /**
    * `ColorPalette` in a kit Popover. `variant="swatch"` — a round swatch trigger (rows, legends);
@@ -14,6 +14,10 @@
    * The trigger is our own button anchored via `customAnchor` (kit Popover forwards attributes
    * to its content, not to its bits trigger); the modal scrim covers it while open, so a second
    * click on the trigger closes the popover through the scrim.
+   *
+   * Picking the `defaultValue` colour emits `null`. `normalizeHex` accepts only 6-digit hex.
+   * After a pick `value` is overridden locally until the parent's value changes: a parent that
+   * may reject a change should `bind:value` and revert it, or re-key the component.
    */
   let {
     value = $bindable(null),
@@ -36,7 +40,7 @@
     defaultValue: string;
     palette?: readonly string[];
     disabled?: boolean;
-    labels?: { custom?: string; backToPalette?: string; reset?: string; hex?: string; default?: string };
+    labels?: ColorLabels;
     onChange?: (value: string | null) => void;
     variant?: 'swatch' | 'field';
     label?: string;
@@ -74,7 +78,7 @@
     bind:this={anchor}
     type="button"
     data-color-trigger
-    aria-label={label || shown}
+    aria-label={label ? `${label}: ${shown}` : shown}
     aria-haspopup="dialog"
     aria-expanded={open}
     {disabled}
@@ -85,7 +89,7 @@
       variant === 'swatch'
         ? cn('shrink-0 rounded-full border border-outline-variant', size === 'sm' ? 'h-5 w-5' : 'h-7 w-7')
         : cn(
-            'flex items-center gap-3 px-3 h-12 rounded-xs border bg-transparent text-left transition-colors',
+            'flex min-w-0 items-center gap-3 px-3 h-12 rounded-xs border bg-transparent text-left transition-colors',
             error ? 'border-error' : 'border-outline focus-within:border-primary hover:border-on-surface',
           ),
     )}
@@ -93,7 +97,7 @@
   >
     {#if variant === 'field'}
       <span class="h-6 w-6 shrink-0 rounded-full border border-outline-variant" style="background:{shown}"></span>
-      <span class="text-body-lg text-on-surface font-mono">{shown}</span>
+      <span class="min-w-0 truncate text-body-lg text-on-surface font-mono">{shown}</span>
       {#if isDefault}
         <span class="text-label-md text-on-surface-variant">{labels.default ?? 'default'}</span>
       {/if}

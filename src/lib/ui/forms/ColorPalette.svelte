@@ -2,12 +2,17 @@
   import { cn } from '../utils/cn';
   import { faArrowLeft, faRotateLeft, faPlus } from '@fortawesome/free-solid-svg-icons';
   import Icon from '../display/Icon.svelte';
-  import { DEFAULT_COLOR_PALETTE, normalizeHex } from './color-picker';
+  import { DEFAULT_COLOR_PALETTE, normalizeHex, type ColorLabels } from './color-picker';
 
   /**
    * Inline color palette: a grid of swatches, a switch to a free color (native picker + HEX
    * field) and a reset to the default. Value is `#rrggbb` or `null` ("default" — `defaultValue`
    * is shown as selected). The kit has no i18n: texts come in `labels`.
+   *
+   * Choosing the swatch / HEX equal to `defaultValue` commits `null` ("use default"), so the
+   * value never sticks on an explicit copy of the default. `normalizeHex` accepts only 6-digit
+   * hex. After a pick `value` is overridden locally until the parent's value changes: a parent
+   * that may reject a change should `bind:value` and revert it, or re-key the component.
    */
   let {
     value = $bindable(null),
@@ -22,7 +27,7 @@
     defaultValue: string;
     palette?: readonly string[];
     disabled?: boolean;
-    labels?: { custom?: string; backToPalette?: string; reset?: string; hex?: string };
+    labels?: ColorLabels;
     onChange?: (value: string | null) => void;
     class?: string;
   } = $props();
@@ -44,7 +49,7 @@
 
   function pick(hex: string) {
     if (hex === current) return;
-    commit(hex);
+    commit(hex === defaultHex ? null : hex);
   }
 
   function openCustom() {
@@ -61,7 +66,7 @@
     }
     invalid = false;
     draft = hex;
-    if (hex !== current) commit(hex);
+    if (hex !== current) commit(hex === defaultHex ? null : hex);
   }
 
   function onNativeChange(e: Event) {
@@ -81,13 +86,13 @@
 
 <div data-color-palette class={cn('flex flex-col gap-2', className)}>
   {#if mode === 'palette'}
-    <div class="grid grid-cols-8 gap-1.5">
+    <div role="group" aria-label={labels.palette ?? 'Palette'} class="grid grid-cols-8 gap-1.5">
       {#each palette as hex (hex)}
         <button
           type="button"
           data-swatch={hex}
           aria-label={hex}
-          aria-pressed={hex === current ? 'true' : undefined}
+          aria-pressed={hex === current ? 'true' : 'false'}
           {disabled}
           style="background:{hex}"
           class={cn(
@@ -106,6 +111,7 @@
       <input
         type="color"
         data-color-input
+        aria-label={labels.custom ?? 'Custom color…'}
         value={normalizeHex(draft) ?? current}
         {disabled}
         class="h-10 w-10 shrink-0 cursor-pointer rounded-xs border border-outline bg-transparent p-0.5"
