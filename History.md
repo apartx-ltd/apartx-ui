@@ -2,6 +2,14 @@
 
 ## 2026-11-06
 
+### Версия 0.24.0
+
+### feat(forms): ColorPicker
+
+* **Зачем.** Кабинету нужен выбор цвета источника и брони на шахматке (план `docs/plans/2026-11-06-calendar-booking-colors`).
+* **Что.** `ColorPalette` (инлайн), `ColorPicker` (в поповере, `variant` `swatch` | `field`), `DEFAULT_COLOR_PALETTE`, `normalizeHex`, `contrastTextColor`, `mutedHex` (+ `relativeLuminance`, `contrastRatio`). Аддитивно, контракт кита не меняется.
+* **Палитра.** 16 цветов, каждый держит белый текст при контрасте ≥ 3:1 — проверяется тестом.
+
 ### Версия 0.23.2
 
 ### fix(router): смена params не ремаунтит ленивую страницу под тем же key

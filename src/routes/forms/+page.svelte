@@ -2,7 +2,7 @@
   import {
     TextField, Select, Checkbox, Switch, FormField, DatePicker,
     Label, FormSelect, FormCheckbox, FormDatePicker,
-    RadioGroup, Combobox, PhoneInput, DateRangePicker,
+    RadioGroup, Combobox, PhoneInput, DateRangePicker, ColorPicker, ColorPalette,
   } from '$lib/ui/forms';
   import { Button } from '$lib/ui/display';
   import { countryPhoneData } from 'phone';
@@ -20,6 +20,7 @@
   let comboFree = $state('');
   let phone = $state('');
   let phoneIntl = $state('');
+  let color = $state<string | null>(null);
   let range = $state({ start: '', end: '' });
 
   // Настоящая таблица стран из пакета `phone` — ровно то, что передаёт кабинет.
@@ -61,6 +62,13 @@
   <Switch bind:checked={on} label="Enabled" />
 
   <DatePicker bind:value={date} label="Date picker" placeholder="Pick a date" />
+
+  <div class="flex items-end gap-4">
+    <ColorPicker bind:value={color} defaultValue="#003580" label="Booking color" />
+    <ColorPicker variant="field" bind:value={color} defaultValue="#003580" label="Color" class="flex-1" />
+  </div>
+  <ColorPalette bind:value={color} defaultValue="#003580" />
+  <p class="text-body-sm text-on-surface-variant">Color value: {color ?? 'null (default)'}</p>
 
   <!-- FormField is a form-aware TextField wrapper (same props as TextField). -->
   <FormField label="FormField (TextField wrapper)" placeholder="Wrapped field" />
