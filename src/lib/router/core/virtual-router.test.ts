@@ -7,20 +7,27 @@ import Probe from './virtual-router.probe.svelte';
 import { setHistoryAdapter } from '../history/registry';
 import { configureNav, resetNavConfig } from './nav-config';
 import { getRouteBack, setRouteBack } from './active-route';
+import { resetPanelJournals } from './panel-journal';
 import type { HistoryAdapter, Action } from '../history/adapter';
-import type { RouteSnapshot, Navigator, RouteKeyGetter } from '../../navigation/context';
+import type { RouteSnapshot, Navigator, RouteKeyGetter, BackVisibilityGetter } from '../../navigation/context';
 import type { NavFrom } from './nav-config';
 
 type Router = ReturnType<typeof import('./useRouter.svelte').useRouter>;
 
-function fakeAdapter(url: string) {
-  const calls: string[] = [];
-  const listeners = new Set<() => void>();
+function snapshot(url: string): RouteSnapshot {
   const [rest, hashPart] = url.split('#');
   const [pathname, searchPart] = rest.split('?');
+  return { pathname, search: searchPart ? `?${searchPart}` : '', hash: hashPart ? `#${hashPart}` : '' };
+}
+
+/** `position` given → the adapter exposes a mutable `position` (journal on); omitted → no field. */
+function fakeAdapter(url: string, opts: { position?: number } = {}) {
+  const calls: string[] = [];
+  const listeners = new Set<() => void>();
   const state = {
-    location: { pathname, search: searchPart ? `?${searchPart}` : '', hash: hashPart ? `#${hashPart}` : '' } as RouteSnapshot,
+    location: snapshot(url),
     canGoBack: true,
+    position: opts.position ?? 0,
   };
   const adapter: HistoryAdapter = {
     get location() { return state.location; },
@@ -35,31 +42,170 @@ function fakeAdapter(url: string) {
     setBackInterceptor: () => {},
     goBack: () => { calls.push('goBack'); },
   };
-  return { adapter, calls, state, notify: () => listeners.forEach((f) => f()) };
+  if (opts.position !== undefined) Object.defineProperty(adapter, 'position', { get: () => state.position });
+  const notify = () => listeners.forEach((f) => f());
+  /** A navigation the adapter reports: new location at `position`, listeners notified. */
+  const visit = (u: string, position: number) => {
+    state.location = snapshot(u);
+    state.position = position;
+    notify();
+    flushSync();
+  };
+  return { adapter, calls, state, notify, visit };
 }
 
-function mountProbe(outerBase?: string) {
+function mountProbe(outerBase?: string, backAtRoot?: 'show' | 'hide') {
   let router: Router | undefined;
   let navigator: Navigator | undefined;
   let routeKey: RouteKeyGetter | undefined;
+  let backVisibility: BackVisibilityGetter | undefined;
   const target = document.createElement('div');
   document.body.appendChild(target);
   const handle = mount(Probe, {
     target,
     props: {
       outerBase,
+      backAtRoot,
+      onbackvisibility: (g?: BackVisibilityGetter) => { backVisibility = g; },
       onrouter: (r: Router) => { router = r; },
       onnavigator: (n?: Navigator) => { navigator = n; },
       onroutekey: (g?: RouteKeyGetter) => { routeKey = g; },
     },
   });
   flushSync();
-  return { router: router!, navigator, routeKey, target, dispose: () => { unmount(handle); target.remove(); } };
+  const hasParent = () => target.querySelector('[data-testid="has-parent"]')!.getAttribute('data-value');
+  return { router: router!, navigator, routeKey, backVisibility, hasParent, target, dispose: () => { unmount(handle); target.remove(); } };
 }
 
 describe('<VirtualRouter>', () => {
-  beforeEach(() => { setHistoryAdapter(null); resetNavConfig(); setRouteBack(null); });
-  afterEach(() => { setHistoryAdapter(null); resetNavConfig(); setRouteBack(null); });
+  beforeEach(() => { setHistoryAdapter(null); resetNavConfig(); setRouteBack(null); resetPanelJournals(); });
+  afterEach(() => { setHistoryAdapter(null); resetNavConfig(); setRouteBack(null); resetPanelJournals(); });
+
+  describe('back by the panel journal', () => {
+    it('back on a panel step goes through history.back', () => {
+      const f = fakeAdapter('/accounts/properties', { position: 0 });
+      setHistoryAdapter(f.adapter);
+      const { router, dispose } = mountProbe();
+      f.visit('/accounts/properties#panel=/properties/p1/info', 1);
+      f.visit('/accounts/properties#panel=/properties/p1/booking/new', 2);
+      router.goBack();
+      expect(f.calls).toEqual(['goBack']);
+      dispose();
+    });
+
+    it('back after a follow-me step replaces to the route parent, not history', () => {
+      const f = fakeAdapter('/accounts/properties#panel=/properties/p1/info', { position: 1 });
+      setHistoryAdapter(f.adapter);
+      const { router, dispose } = mountProbe();
+      f.visit('/accounts/chats#panel=/properties/p1/info', 2);
+      router.goBack();
+      expect(f.calls).not.toContain('goBack');
+      expect(f.calls.at(-1)).toBe('replace:/accounts/chats#panel=/properties/p1:back');
+      dispose();
+    });
+
+    it('back to an entry without the panel replaces to the route parent', () => {
+      const f = fakeAdapter('/accounts/properties', { position: 0 });
+      setHistoryAdapter(f.adapter);
+      const { router, dispose } = mountProbe();
+      f.visit('/accounts/properties#panel=/properties/p1/info', 1);
+      router.goBack();
+      expect(f.calls).toEqual(['replace:/accounts/properties#panel=/properties/p1:back']);
+      dispose();
+    });
+
+    it('an unknown previous entry (overlay, reload) is not a panel step', () => {
+      const f = fakeAdapter('/accounts/properties#panel=/properties/p1/info', { position: 5 });
+      setHistoryAdapter(f.adapter);
+      const { router, dispose } = mountProbe();
+      router.goBack();
+      expect(f.calls).toEqual(['replace:/accounts/properties#panel=/properties/p1:back']);
+      dispose();
+    });
+
+    it('route back wins over the href of the page inside the panel', () => {
+      const f = fakeAdapter('/accounts/properties#panel=/properties/p1/info', { position: 1 });
+      setHistoryAdapter(f.adapter);
+      const { router, dispose } = mountProbe();
+      f.visit('/accounts/chats#panel=/properties/p1/info', 2);
+      router.back('/accounts/chats');
+      expect(f.calls).toEqual(['replace:/accounts/chats#panel=/properties/p1:back']);
+      dispose();
+    });
+
+    it('href is the fallback when the route has no back; nothing at all → no-op', () => {
+      const f = fakeAdapter('/accounts/properties#panel=/properties/p1/booking/new', { position: 0 });
+      setHistoryAdapter(f.adapter);
+      const { router, dispose } = mountProbe();
+      router.back();
+      expect(f.calls).toEqual([]);
+      router.back('/accounts/chats');
+      expect(f.calls).toEqual(['replace:/accounts/properties#panel=/chats:back']);
+      dispose();
+    });
+
+    it('a panel step is not taken when history cannot go back', () => {
+      const f = fakeAdapter('/accounts/properties', { position: 0 });
+      setHistoryAdapter(f.adapter);
+      const { router, dispose } = mountProbe();
+      f.visit('/accounts/properties#panel=/properties/p1/info', 1);
+      f.visit('/accounts/properties#panel=/properties/p1/booking/new', 2);
+      f.state.canGoBack = false;
+      router.back('/accounts/chats');
+      expect(f.calls).toEqual(['replace:/accounts/properties#panel=/chats:back']);
+      dispose();
+    });
+
+    it('currentHasParent is reactive: false at the root, true after a panel push', () => {
+      const f = fakeAdapter('/accounts/properties', { position: 0 });
+      setHistoryAdapter(f.adapter);
+      const { router, hasParent, dispose } = mountProbe();
+      f.visit('/accounts/properties#panel=/properties/p1/booking/new', 1);
+      expect(router.currentHasParent).toBe(false);
+      expect(hasParent()).toBe('false');
+      f.visit('/accounts/properties#panel=/properties/p2/booking/new', 2);
+      expect(router.currentHasParent).toBe(true);
+      expect(hasParent()).toBe('true');
+      f.visit('/accounts/chats#panel=/properties/p2/booking/new', 3);
+      expect(hasParent()).toBe('false');
+      f.visit('/accounts/chats#panel=/properties/p2/info', 4);
+      expect(hasParent()).toBe('true');
+      dispose();
+    });
+
+    it('without adapter.position it behaves as before: history first, then route back', () => {
+      const f = fakeAdapter('/accounts/chats#panel=/properties/p1/info');
+      setHistoryAdapter(f.adapter);
+      const { router, dispose } = mountProbe();
+      expect(router.currentHasParent).toBe(true);
+      router.back('/accounts/chats');
+      expect(f.calls).toEqual(['goBack']);
+      f.state.canGoBack = false;
+      router.back('/accounts/chats');
+      expect(f.calls).toEqual(['goBack', 'replace:/accounts/chats#panel=/properties/p1:back']);
+      dispose();
+    });
+
+    it('backAtRoot="hide" provides a back-visibility getter equal to currentHasParent; default provides none', () => {
+      const d = fakeAdapter('/accounts/properties#panel=/properties/p1/booking/new', { position: 0 });
+      setHistoryAdapter(d.adapter);
+      const def = mountProbe();
+      expect(def.backVisibility).toBeUndefined();
+      def.dispose();
+      resetPanelJournals();
+
+      const f = fakeAdapter('/accounts/properties', { position: 0 });
+      setHistoryAdapter(f.adapter);
+      const { router, backVisibility, dispose } = mountProbe(undefined, 'hide');
+      expect(backVisibility).toBeDefined();
+      f.visit('/accounts/properties#panel=/properties/p1/booking/new', 1);
+      expect(backVisibility!()).toBe(false);
+      f.visit('/accounts/properties#panel=/properties/p2/booking/new', 2);
+      expect(backVisibility!()).toBe(true);
+      expect(backVisibility!()).toBe(router.currentHasParent);
+      dispose();
+    });
+  });
 
   it('routes the subtree by the fragment value, not the real pathname', () => {
     const f = fakeAdapter('/accounts/chats/c1/chat#panel=/properties/p1/info');

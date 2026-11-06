@@ -5,14 +5,17 @@
   import Route from './Route.svelte';
   import VirtualRouter from './VirtualRouter.svelte';
   import RouterProbe from './useRouter.probe.svelte';
+  import InnerProbe from './virtual-router-inner.probe.svelte';
   import type { useRouter } from './useRouter.svelte';
 
-  import type { Navigator, RouteKeyGetter } from '../../navigation/context';
+  import type { Navigator, RouteKeyGetter, BackVisibilityGetter } from '../../navigation/context';
 
-  let { onrouter, onnavigator, onroutekey, outerBase }: {
+  let { onrouter, onnavigator, onroutekey, onbackvisibility, outerBase, backAtRoot }: {
     onrouter: (r: ReturnType<typeof useRouter>) => void;
     onnavigator?: (n: Navigator | undefined) => void;
     onroutekey?: (g: RouteKeyGetter | undefined) => void;
+    onbackvisibility?: (g: BackVisibilityGetter | undefined) => void;
+    backAtRoot?: 'show' | 'hide';
     /** basepath внешнего роутера, внутри которого стоит VirtualRouter. */
     outerBase?: string;
   } = $props();
@@ -23,8 +26,9 @@
     {#snippet children()}<span data-testid="outer-chat"></span>{/snippet}
   </Route>
 
-<VirtualRouter hashParam="panel" prefix="/accounts">
+<VirtualRouter hashParam="panel" prefix="/accounts" {backAtRoot}>
   <RouterProbe {onrouter} {onnavigator} {onroutekey} />
+  <InnerProbe {onbackvisibility} />
   <Router>
     <Route path="/accounts/properties/:id/info" back={(p) => `/accounts/properties/${p.id}`}>
       {#snippet children(params)}<span data-testid="info" data-id={params.id}></span>{/snippet}

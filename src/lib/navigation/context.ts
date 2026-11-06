@@ -92,6 +92,25 @@ export function getRouteKey(): RouteKeyGetter | undefined {
   return getContext<RouteKeyGetter | undefined>(ROUTE_KEY);
 }
 
+const BACK_VISIBILITY = Symbol('apartx-ui:back-visibility');
+
+/** Reactive accessor: whether the subtree's back control should be shown. */
+export type BackVisibilityGetter = () => boolean;
+
+/**
+ * Provided by `<VirtualRouter backAtRoot="hide">`: a getter for "the subtree has somewhere
+ * to go back to" (its `currentHasParent`). The kit's back control of the host toolbar
+ * hides itself while the getter is false. Absent → back controls behave as usual.
+ */
+export function setBackVisibility(get: BackVisibilityGetter): void {
+  setContext(BACK_VISIBILITY, get);
+}
+
+/** Read the back-visibility getter, if a `<VirtualRouter backAtRoot="hide">` provided one. */
+export function getBackVisibility(): BackVisibilityGetter | undefined {
+  return getContext<BackVisibilityGetter | undefined>(BACK_VISIBILITY);
+}
+
 /**
  * Default `isActive` matcher — useful when writing a custom `Navigator`.
  * Prefix-matches by path segment so `/users` is active on `/users/42`.
