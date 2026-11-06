@@ -63,8 +63,9 @@
 
   <DatePicker bind:value={date} label="Date picker" placeholder="Pick a date" />
 
-  <div class="flex items-end gap-4">
-    <ColorPicker bind:value={color} defaultValue="#003580" label="Booking color" />
+  <ColorPicker bind:value={color} defaultValue="#003580" label="Booking color" />
+  <div class="flex items-start gap-4">
+    <TextField bind:value={text} label="Text field" placeholder="Next to the field variant" class="flex-1" />
     <ColorPicker variant="field" bind:value={color} defaultValue="#003580" label="Color" class="flex-1" />
   </div>
   <ColorPalette bind:value={color} defaultValue="#003580" />

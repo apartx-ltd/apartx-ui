@@ -128,7 +128,6 @@
         )}
         oninput={() => (invalid = false)}
         onkeydown={onHexKey}
-        onblur={() => draft && applyDraft()}
       />
     </div>
     <button type="button" data-color-back class={actionClass} {disabled} onclick={() => (mode = 'palette')}>

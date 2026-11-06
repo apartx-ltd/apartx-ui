@@ -65,9 +65,15 @@ describe('ColorPalette', () => {
     expect(onChange).toHaveBeenCalledWith(null);
   });
 
-  it('treats an uppercase default as equal to its lowercase value', () => {
-    setup({ value: '#003580', defaultValue: '#003580'.toUpperCase().replace('#', '#') });
-    expect(q('[data-color-reset]')).toBeNull();
+  it('treats default and value as equal across case and a missing #', () => {
+    for (const [value, defaultValue] of [['#1e88e5', '#1E88E5'], ['1E88E5', '#1e88e5'], ['#1E88E5', '1e88e5']]) {
+      setup({ value, defaultValue });
+      expect(q('[data-color-reset]'), `${value} vs ${defaultValue}`).toBeNull();
+      expect(sw('#1e88e5').getAttribute('aria-pressed')).toBe('true');
+      unmount(comp);
+      target.remove();
+    }
+    comp = null;
   });
 
   it('updates a bound value', () => {
@@ -100,5 +106,19 @@ describe('ColorPalette', () => {
     q('[data-color-back]')!.click();
     flushSync();
     expect(q('[data-color-hex]')).toBeNull();
+  });
+
+  it('does not apply a typed hex on blur or when going back', () => {
+    const onChange = vi.fn();
+    setup({ onChange });
+    q('[data-color-custom]')!.click();
+    flushSync();
+    const hex = q('[data-color-hex]') as HTMLInputElement;
+    hex.value = '#ff5a5f';
+    hex.dispatchEvent(new Event('input', { bubbles: true }));
+    hex.dispatchEvent(new Event('blur'));
+    q('[data-color-back]')!.click();
+    flushSync();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

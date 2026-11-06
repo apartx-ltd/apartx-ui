@@ -111,6 +111,10 @@
     side="bottom"
     align="start"
     customAnchor={anchor}
+    onCloseAutoFocus={(e: Event) => {
+      e.preventDefault();
+      anchor?.focus();
+    }}
     contentClass={cn('p-3', variant === 'field' && 'min-w-(--bits-popover-anchor-width)')}
   >
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->

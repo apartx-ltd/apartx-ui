@@ -89,4 +89,12 @@ describe('ColorPicker', () => {
     const err = [...document.body.querySelectorAll('.text-error')].find((e) => e.textContent === 'Required');
     expect(err).toBeTruthy();
   });
+
+  it('returns focus to the trigger after a pick', async () => {
+    setup();
+    body('[data-swatch="#1e88e5"]')!.click();
+    await new Promise((r) => setTimeout(r, 50));
+    flushSync();
+    expect(document.activeElement).toBe(body('[data-color-trigger]'));
+  });
 });
