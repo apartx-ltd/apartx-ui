@@ -21,3 +21,4 @@ export { sanitizePhone, normalizePastedPhone, splitPhone, countryChipLabel } fro
 export type { PhoneCountry, TrunkRule, PhoneSplit } from './phone-country';
 export * from './color-picker';
 export { default as ColorPalette } from './ColorPalette.svelte';
+export { default as ColorPicker } from './ColorPicker.svelte';
