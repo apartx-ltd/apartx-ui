@@ -20,3 +20,4 @@ export { createForm } from './createForm.svelte';
 export { sanitizePhone, normalizePastedPhone, splitPhone, countryChipLabel } from './phone-country';
 export type { PhoneCountry, TrunkRule, PhoneSplit } from './phone-country';
 export * from './color-picker';
+export { default as ColorPalette } from './ColorPalette.svelte';
