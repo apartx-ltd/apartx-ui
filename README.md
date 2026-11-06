@@ -298,12 +298,15 @@ non-owning toolbars are unaffected. On SSR the host `end` appears after hydratio
 ```svelte
 <!-- side panel host -->
 <script>
-  import { setHostChrome, VirtualRouter } from 'apartx-ui';
+  import { Button, Icon } from 'apartx-ui/display';
+  import { setHostChrome } from 'apartx-ui/navigation';
+  import { VirtualRouter } from 'apartx-ui/router';
+  import { faXmark } from '@fortawesome/free-solid-svg-icons';
   setHostChrome({ end: closeButton });
 </script>
 
 {#snippet closeButton()}
-  <IconButton aria-label="Close" onclick={closePanel}><Icon name="close" /></IconButton>
+  <Button variant="icon" aria-label="Close" onclick={closePanel}><Icon icon={faXmark} /></Button>
 {/snippet}
 
 <VirtualRouter hashParam="panel" prefix="/accounts" backAtRoot="hide">

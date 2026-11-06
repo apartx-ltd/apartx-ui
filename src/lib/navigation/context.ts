@@ -124,7 +124,7 @@ export interface HostChrome {
  * kit `<Toolbar>` of each `<Page>` (one inside `<Header>` beats a plain one) renders
  * `chrome.end` after its own `end`, and a `<BackButton>` in that toolbar honours
  * `setBackVisibility`. Toolbars in overlays, footers or outside a `<Page>` never claim.
- * Absent → toolbars render exactly as without a host.
+ * Absent → toolbars render exactly as without a host. On SSR the host end appears after hydration.
  */
 export function setHostChrome(chrome: HostChrome): void {
   setContext(HOST_CHROME, chrome);

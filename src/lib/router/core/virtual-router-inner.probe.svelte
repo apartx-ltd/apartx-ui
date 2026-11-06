@@ -7,6 +7,7 @@
     onbackvisibility?: (g: BackVisibilityGetter | undefined) => void;
   } = $props();
   const router = useRouter();
+  // svelte-ignore state_referenced_locally -- read once at mount
   onbackvisibility?.(getBackVisibility());
 </script>
 

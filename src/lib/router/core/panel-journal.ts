@@ -19,7 +19,8 @@ export interface PanelJournal {
 const journals = new Map<string, { journal: PanelJournal; off: () => void }>();
 
 /** Журнал на hashParam: создаётся при первом обращении, подписывается на getHistory().listen
- *  навсегда и сразу записывает текущую запись. Повторный вызов — тот же объект. */
+ *  навсегда и сразу записывает текущую запись. Повторный вызов — тот же объект.
+ *  Binds to the adapter current at first call; not rebound if setHistoryAdapter swaps it. */
 export function ensurePanelJournal(hashParam: string): PanelJournal {
   const existing = journals.get(hashParam);
   if (existing) return existing.journal;

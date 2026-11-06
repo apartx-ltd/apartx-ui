@@ -26,7 +26,7 @@
     prefix?: string;
     /** `'hide'` — поддерево получает геттер видимости «назад» (= currentHasParent):
      *  кнопка «назад» тулбара хоста прячется, пока возвращаться некуда. */
-    backAtRoot?: 'show' | 'hide';
+    backAtRoot?: 'show' |// read once at mount // read once at mount| 'hide';
     children: Snippet;
   } = $props();
 
@@ -36,6 +36,7 @@
 
   // Журнал истории по hashParam (модульный, живёт дольше компонента). Позицию зеркалим в
   // $state, чтобы currentHasParent был реактивен.
+  // svelte-ignore state_referenced_locally -- read once at mount
   const journal = ensurePanelJournal(hashParam);
   let position = $state(journal.position);
   onDestroy(journal.subscribe(() => { position = journal.position; }));
@@ -131,6 +132,7 @@
   setNavigator(createNavigatorFromRouter(useRouter()));
   // <Content> поддерева запоминает скролл по виртуальному пути, а не по pathname главного экрана.
   setRouteKey(() => current.pathname);
+  // svelte-ignore state_referenced_locally -- read once at mount
   if (backAtRoot === 'hide') setBackVisibility(currentHasParent);
   // Отрезаем base внешнего <Router>: путь поддерева — свой, вложенный <Router> без basepath
   // начинает от '/'. Сам VirtualRouter роутов не держит — регистрация в пустоту.

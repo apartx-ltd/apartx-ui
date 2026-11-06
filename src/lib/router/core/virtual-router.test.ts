@@ -173,7 +173,7 @@ describe('<VirtualRouter>', () => {
       dispose();
     });
 
-    it('without adapter.position it behaves as before: history first, then route back', () => {
+    it('without adapter.position: history first, then route back (route back wins over href inside VirtualRouter)', () => {
       const f = fakeAdapter('/accounts/chats#panel=/properties/p1/info');
       setHistoryAdapter(f.adapter);
       const { router, dispose } = mountProbe();
