@@ -34,17 +34,24 @@
   } = $props();
 
   let ownKey = $state(untrack(() => key));
-  let snap = untrack(() => ({ active, params }));
-  // Order matters: a frozen view must not depend on the live route at all.
-  const view = $derived.by(() => (key === ownKey ? (snap = { active, params }) : snap));
+  let snapActive = untrack(() => active);
+  let snapParams = untrack(() => params);
+  // Record and params are SEPARATE deriveds, and a frozen view must not depend on the live route
+  // at all (hence the key check first). Separate matters: a param change must leave the record
+  // the same reference, so nothing downstream that depends only on the record re-evaluates — in
+  // Router's lazy branch a re-evaluated `getCached()` flips `{#await}` → `<Cached>` once the
+  // chunk is cached and REMOUNTS the page (cabinet lost the slide of its gate PageTransition).
+  const viewActive = $derived(key === ownKey ? (snapActive = active) : snapActive);
+  const viewParams = $derived(key === ownKey ? (snapParams = params) : snapParams);
 
   $effect.pre(() => {
     // Runs only while this view's branch is live: adopt a key the outlet did not re-key on.
     if (key !== ownKey) ownKey = key;
-    // Keep the snapshot current while live even if the page reads params only lazily (in a
-    // closure): leaving must freeze the LAST live params, not the ones of the last read.
-    view;
+    // Keep the snapshots current while live even if the page reads params only lazily (in a
+    // closure): leaving must freeze the LAST live values, not the ones of the last read.
+    viewActive;
+    viewParams;
   });
 </script>
 
-{@render children(view.active, view.params)}
+{@render children(viewActive, viewParams)}
