@@ -252,6 +252,8 @@ href** including the fragment, so ctrl/middle-click and copy-link work. An absol
 `to` (`https://…`) stays a plain link. `VirtualRouter` also provides a scoped `Navigator`
 (`getNavigator()`) to its subtree, so kit components navigate inside the panel.
 Nested `VirtualRouter`s are not supported.
+Hash-only navigations skip the leave guard; a host that wants to protect a dirty panel form
+on close calls `requestLeave(() => navigate(url, { keepHash: false }))` (`isLeaveBlocked()` tells whether a guard is dirty).
 
 Chat cards: `openLink(target, ctx?)` hands the registered link handler a `LinkOpenContext`
 (`{ origin? }`) as the second argument when the clicked element sits in a router scope
