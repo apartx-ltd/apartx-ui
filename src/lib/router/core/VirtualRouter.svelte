@@ -59,6 +59,11 @@
   // scopedTo — то, что запросило поддерево, полным виртуальным путём: хост в intercept
   // отличает такой переход от сырого и может отправить его на главный экран.
   function scopedTo(url: string): string {
+    // Адрес вне префикса поддерево не «достраивает»: цель — он сам.
+    if (prefix && stripPrefix(url) === url && !url.startsWith(prefix)) {
+      const { pathname, search } = splitUrl(url);
+      return pathname + search;
+    }
     const { pathname, search } = virtualLocation(stripPrefix(url));
     return pathname + search;
   }

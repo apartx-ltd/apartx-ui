@@ -154,7 +154,7 @@ describe('<VirtualRouter>', () => {
     configureNav({ intercept: (to, from) => { seen.push(from); return to; } });
     const { router, dispose } = mountProbe();
     router.push('/accounts/properties/p1/general?x=1');
-    router.replace('/billing');
+    router.replace('/accounts/billing');
     expect(seen.map((s) => [s.origin, s.scopedTo])).toEqual([
       ['panel', '/accounts/properties/p1/general?x=1'],
       ['panel', '/accounts/billing'],
@@ -163,6 +163,19 @@ describe('<VirtualRouter>', () => {
       'push:/accounts/chats/c1/chat#panel=/properties/p1/general?x=1',
       'replace:/accounts/chats/c1/chat#panel=/billing:none',
     ]);
+    dispose();
+  });
+
+  it('a url outside the prefix is its own scopedTo, not prefixed', () => {
+    const f = fakeAdapter('/accounts/chats/c1/chat#panel=/properties/p1/info');
+    setHistoryAdapter(f.adapter);
+    const seen: NavFrom[] = [];
+    configureNav({ intercept: (to, from) => { seen.push(from); return to; } });
+    const { router, dispose } = mountProbe();
+    router.push('/show/42?x=1');
+    expect(seen).toHaveLength(1);
+    expect(seen[0].scopedTo).toBe('/show/42?x=1');
+    expect(seen[0].origin).toBe('panel');
     dispose();
   });
 
