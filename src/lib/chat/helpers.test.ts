@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, isMediaProcessing, mediaBox, mediaBoxHeight, MEDIA_BOX_MAX_H, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX, messageAttachments, splitAttachments, albumBoxHeight, albumLayout, ALBUM_MAX_CELLS, DOC_ROW_H } from './helpers';
+import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, isMediaProcessing, mediaBox, mediaBoxHeight, MEDIA_BOX_MAX_H, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX, messageAttachments, splitAttachments, albumBoxHeight, albumLayout, ALBUM_MAX_CELLS, DOC_ROW_H, voiceBars, VOICE_BARS, VOICE_FLAT_LEVEL, voiceProgress, playedBarCount, seekFraction, voiceDuration, voiceTimeLabel, transcribeResultText, createExclusivePlayback } from './helpers';
 import type { Message } from './types';
 
 const m = (over: Partial<Message> = {}): Message => ({ _id: 'm', chatId: 'c', userId: 'u1', createdAt: new Date('2026-06-30T10:00:00Z'), ...over });
@@ -577,5 +577,88 @@ describe('cold-open height estimation', () => {
     expect(estimateMessageHeight(first, null, { mine: false })).to.equal(32 + 8 + 18 + 32);
     // unread divider adds 32
     expect(estimateMessageHeight(first, null, { mine: false, unreadAnchorId: 'x' })).to.equal(32 + 32 + 8 + 18 + 32);
+  });
+});
+
+describe('voice player helpers', () => {
+  it('voiceBars: no waveform → a flat low strip of VOICE_BARS', () => {
+    expect(voiceBars(null)).toEqual(new Array(VOICE_BARS).fill(VOICE_FLAT_LEVEL));
+    expect(voiceBars(undefined)).toHaveLength(48);
+    expect(voiceBars([])).toEqual(new Array(VOICE_BARS).fill(VOICE_FLAT_LEVEL));
+  });
+  it('voiceBars: 48 server levels map 1:1, normalised by the peak', () => {
+    const wf = Array.from({ length: 48 }, (_, i) => (i === 10 ? 31 : i === 20 ? 0 : 15.5));
+    const bars = voiceBars(wf);
+    expect(bars).toHaveLength(48);
+    expect(bars[10]).toBe(1);
+    expect(bars[20]).toBe(0);
+    expect(bars[0]).toBeCloseTo(0.5);
+  });
+  it('voiceBars: a quiet note still fills the strip (peak → 1)', () => {
+    expect(voiceBars([0, 4, 8], 3)).toEqual([0, 0.5, 1]);
+  });
+  it('voiceBars: resamples longer/shorter input by slice peak', () => {
+    expect(voiceBars([1, 9, 2, 3], 2)).toEqual([1, 3 / 9]);
+    expect(voiceBars([0, 10], 4)).toEqual([0, 0, 1, 1]);
+  });
+  it('voiceBars: all silent / junk → zeros (drawn as min dots)', () => {
+    expect(voiceBars([0, 0, 0], 3)).toEqual([0, 0, 0]);
+    expect(voiceBars([NaN, -3, 'x' as any], 3)).toEqual([0, 0, 0]);
+  });
+
+  it('voiceProgress clamps to 0..1 and is 0 without a duration', () => {
+    expect(voiceProgress(5, 10)).toBe(0.5);
+    expect(voiceProgress(15, 10)).toBe(1);
+    expect(voiceProgress(5, null)).toBe(0);
+    expect(voiceProgress(5, Infinity)).toBe(0);
+    expect(voiceProgress(-1, 10)).toBe(0);
+  });
+  it('playedBarCount rounds the progress onto bars', () => {
+    expect(playedBarCount(0)).toBe(0);
+    expect(playedBarCount(0.5)).toBe(24);
+    expect(playedBarCount(1)).toBe(48);
+    expect(playedBarCount(2, 10)).toBe(10);
+    expect(playedBarCount(NaN)).toBe(0);
+  });
+  it('seekFraction maps a pointer x onto the waveform, clamped', () => {
+    expect(seekFraction(150, 100, 200)).toBe(0.25);
+    expect(seekFraction(50, 100, 200)).toBe(0);
+    expect(seekFraction(400, 100, 200)).toBe(1);
+    expect(seekFraction(150, 100, 0)).toBe(0);
+  });
+  it('voiceDuration takes the first finite positive candidate', () => {
+    expect(voiceDuration(12, 13)).toBe(12);
+    expect(voiceDuration(null, 13)).toBe(13);
+    expect(voiceDuration(undefined, Infinity)).toBe(null);
+    expect(voiceDuration(0, NaN)).toBe(null);
+  });
+  it('voiceTimeLabel: total when stopped, elapsed while playing or paused mid-way', () => {
+    expect(voiceTimeLabel({ currentTime: 0, duration: 42, playing: false })).toBe('0:42');
+    expect(voiceTimeLabel({ currentTime: 0, duration: 42, playing: true })).toBe('0:00');
+    expect(voiceTimeLabel({ currentTime: 7.9, duration: 42, playing: false })).toBe('0:07');
+    expect(voiceTimeLabel({ currentTime: 0, duration: null })).toBe('');
+  });
+  it('transcribeResultText accepts a string or { text }', () => {
+    expect(transcribeResultText('hi')).toBe('hi');
+    expect(transcribeResultText({ text: 'hello' })).toBe('hello');
+    expect(transcribeResultText(undefined)).toBe('');
+    expect(transcribeResultText({ text: 3 })).toBe('');
+  });
+  it('createExclusivePlayback: a new claim stops the previous player; release only by the holder', () => {
+    const p = createExclusivePlayback();
+    const a = vi.fn();
+    const b = vi.fn();
+    p.claim(a);
+    p.claim(a); // re-claim by the same player doesn't stop it
+    expect(a).not.toHaveBeenCalled();
+    p.claim(b);
+    expect(a).toHaveBeenCalledTimes(1);
+    p.release(a); // not the holder — no-op
+    const c = vi.fn();
+    p.claim(c);
+    expect(b).toHaveBeenCalledTimes(1);
+    p.release(c);
+    p.claim(a);
+    expect(c).not.toHaveBeenCalled();
   });
 });

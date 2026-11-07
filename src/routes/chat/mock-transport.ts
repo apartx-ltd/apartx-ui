@@ -62,6 +62,12 @@ const VIDEO = {
   },
 };
 
+// Voice notes. Real attachment shape (mirrors the server): AudioMedia reads
+// meta.file.{url,duration,waveform,transcript}; `waveform` is 48 levels 0..31.
+const VOICE_URL = 'https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3';
+const WAVEFORM = Array.from({ length: 48 }, (_, i) => Math.round(16 + 15 * Math.sin(i / 2.3) * Math.cos(i / 7)));
+const voice = (file: Record<string, unknown>) => ({ file: { url: VOICE_URL, type: 'audio/mpeg', name: 'voice.mp3', ...file } });
+
 function buildHistory(): Message[] {
   const now = Date.now();
   const out: Message[] = [];
@@ -85,6 +91,21 @@ function buildHistory(): Message[] {
     }
     if (seq === 50) {
       out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: THEM, type: 'image', text: 'Here is the view from the balcony 🌇', createdAt, meta: { images: PHOTO_SETS[0] } });
+      continue;
+    }
+    if (seq === 52) {
+      // Voice note with a waveform, no transcript yet → the «→A» button calls the demo handler.
+      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: THEM, type: 'audio', text: '', createdAt, meta: voice({ duration: 3, waveform: WAVEFORM, transcript: null }) });
+      continue;
+    }
+    if (seq === 53) {
+      // Own voice note with a ready transcript → the button toggles it without a call.
+      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: ME, type: 'audio', text: '', createdAt, delivery: 'read', meta: voice({ duration: 3, waveform: WAVEFORM.slice().reverse(), transcript: 'Hi! I will be there around six, please leave the key in the lockbox.' }) });
+      continue;
+    }
+    if (seq === 55) {
+      // Legacy voice note: no waveform, no duration → flat bars, duration from the element's metadata.
+      out.push({ _id: `h${seq}`, chatId: CHAT_ID, seq, userId: THEM, type: 'audio', text: '', createdAt, meta: voice({ duration: null, waveform: null }) });
       continue;
     }
     if (seq === 54) {

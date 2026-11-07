@@ -134,3 +134,12 @@ export interface SlotSet {
 
 /** i18n seam — a translate function. */
 export type ChatT = (key: string, opts?: Record<string, any>) => string;
+
+/**
+ * Host handler behind the voice-note «Transcribe» button (AudioMedia). Reaches the slot through
+ * the slot context: `setSlotContext(() => ({ ..., onTranscribe }))`. Called with the message when
+ * its audio has no `file.transcript` yet; the host re-pushes the message with `file.transcript`
+ * set. It MAY resolve with the text (a string or `{ text }`) — shown until the re-push lands. A
+ * rejection shows the inline "couldn't transcribe" note. No handler → no button.
+ */
+export type AudioTranscribeHandler = (message: Message) => Promise<unknown>;
