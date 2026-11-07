@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import {
     createChatSession, registerChatDefaults, setMessageRendererRegistry, setChatI18n,
-    createLocalStorageDraftStore, ChatMessageList, MessageInput, VideoMedia, type Message,
+    createLocalStorageDraftStore, ChatMessageList, MessageInput, VideoMedia, AudioMedia, setSlotContext, type Message,
   } from '$lib/chat';
   import { createMockTransport } from './mock-transport';
   import SystemSlotBody from './demo-renderers/SystemSlotBody.svelte';
@@ -18,8 +18,16 @@
     booking: { body: BookingSlotBody },
     image: { media: MediaSlot },
     video: { media: VideoMedia },
+    audio: { media: AudioMedia },
     ai: { header: null, body: AiSlotBody },
   });
+
+  // The host's transcribe handler reaches AudioMedia through the slot context. A real host calls its
+  // server and re-pushes the message with `file.transcript`; the demo just resolves with the text.
+  setSlotContext(() => ({
+    onTranscribe: (m: { seq?: number }) =>
+      new Promise((resolve, reject) => setTimeout(() => (m.seq === 55 ? reject(new Error('demo')) : resolve({ text: 'Roar! (demo transcript)' })), 1200)),
+  }));
 
   const mock = createMockTransport();
   const session = createChatSession(mock.transport, {

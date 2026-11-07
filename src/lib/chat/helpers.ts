@@ -243,6 +243,92 @@ export function formatDuration(seconds?: number | null): string {
   return `${m}:${ss}`;
 }
 
+/** Bars in a voice-note waveform — the server stores `meta.waveform` as this many levels (0..31). */
+export const VOICE_BARS = 48;
+/** Height (0..1) of every bar when the voice note has no waveform: a flat, low strip. */
+export const VOICE_FLAT_LEVEL = 0.15;
+
+/**
+ * Voice-note bar heights as fractions 0..1, exactly `count` of them. The waveform is resampled to
+ * `count` (each bar takes the peak of its slice) and normalised by its own peak, so a quiet note
+ * still fills the strip; non-numbers count as silence. No waveform → `VOICE_FLAT_LEVEL` everywhere;
+ * an all-silent one → zeros (the player draws a minimal dot for each).
+ */
+export function voiceBars(waveform?: readonly number[] | null, count: number = VOICE_BARS): number[] {
+  const n = Math.max(0, Math.floor(count));
+  const src = Array.isArray(waveform) ? waveform.map((v) => (Number.isFinite(v) && v > 0 ? v : 0)) : [];
+  if (!src.length) return new Array(n).fill(VOICE_FLAT_LEVEL);
+  const bars: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const from = Math.floor((i * src.length) / n);
+    const to = Math.max(from + 1, Math.floor(((i + 1) * src.length) / n));
+    bars.push(Math.max(...src.slice(from, to)));
+  }
+  const peak = Math.max(...bars);
+  if (peak <= 0) return bars.map(() => 0);
+  return bars.map((v) => v / peak);
+}
+
+/** Playback position as a fraction 0..1; 0 while the duration is unknown. */
+export function voiceProgress(currentTime?: number | null, duration?: number | null): number {
+  if (!duration || !Number.isFinite(duration) || duration <= 0) return 0;
+  if (!currentTime || !Number.isFinite(currentTime) || currentTime <= 0) return 0;
+  return Math.min(1, currentTime / duration);
+}
+
+/** How many of `count` bars read as played at `progress` (0..1). */
+export function playedBarCount(progress: number, count: number = VOICE_BARS): number {
+  if (!Number.isFinite(progress) || progress <= 0) return 0;
+  return Math.min(count, Math.round(progress * count));
+}
+
+/** Seek target (0..1) for a pointer at `clientX` over a waveform spanning `left`…`left + width`. */
+export function seekFraction(clientX: number, left: number, width: number): number {
+  if (!(width > 0) || !Number.isFinite(clientX)) return 0;
+  return Math.min(1, Math.max(0, (clientX - left) / width));
+}
+
+/** First usable duration in seconds: the server's `file.duration`, then the media element's own
+ *  (webm/ogg without a duration header report `Infinity` — skipped). Null when neither is known. */
+export function voiceDuration(...candidates: (number | null | undefined)[]): number | null {
+  for (const d of candidates) if (typeof d === 'number' && Number.isFinite(d) && d > 0) return d;
+  return null;
+}
+
+/** Time under the waveform, Telegram-style: elapsed while playing or paused mid-way, the total
+ *  duration otherwise. `m:ss`; empty when nothing is known. */
+export function voiceTimeLabel(s: { currentTime?: number; duration?: number | null; playing?: boolean }): string {
+  if (s.playing || (s.currentTime ?? 0) > 0) return formatDuration(s.currentTime ?? 0);
+  return formatDuration(s.duration);
+}
+
+/** Text a transcribe handler resolved with: a string, or `{ text }`; anything else → ''. */
+export function transcribeResultText(result: unknown): string {
+  if (typeof result === 'string') return result;
+  const text = (result as { text?: unknown } | null)?.text;
+  return typeof text === 'string' ? text : '';
+}
+
+/**
+ * One player at a time (Telegram behaviour): `claim(stop)` when a player starts — the previous
+ * claimant's `stop` runs; `release(stop)` when it stops or unmounts (no-op if someone else holds it).
+ */
+export function createExclusivePlayback() {
+  let current: (() => void) | null = null;
+  return {
+    claim(stop: () => void): void {
+      if (current && current !== stop) current();
+      current = stop;
+    },
+    release(stop: () => void): void {
+      if (current === stop) current = null;
+    },
+  };
+}
+
+/** The kit-wide coordinator shared by every AudioMedia player. */
+export const voicePlayback = createExclusivePlayback();
+
 /**
  * The server is still preparing an attachment, so it isn't playable yet: a video or voice note
  * being transcoded (`'processing'`), or a file whose doc doesn't exist yet (`'pending'` — a video
