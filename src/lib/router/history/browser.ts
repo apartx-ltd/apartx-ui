@@ -146,6 +146,10 @@ export const browserHistoryAdapter: HistoryAdapter = {
   get action() {
     return action;
   },
+  /** Индекс текущей записи истории (history.state.idx). */
+  get position() {
+    return position;
+  },
   /** True when there is an in-app history entry to go back to (idx above the stack root). */
   get canGoBack() {
     return isBrowser && position > root;

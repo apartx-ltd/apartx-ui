@@ -2,6 +2,7 @@
   import { cn } from '../utils/cn';
   import { overlayFade, sheet } from '../utils/motion';
   import { useOverlay } from '../../hooks/useOverlay.svelte';
+  import { provideChromeClaim } from '../structure/chrome-claim.svelte';
   import { safeTopViewport, safeBottomViewport } from '../utils/safe-area';
 
   let {
@@ -24,6 +25,9 @@
   // Mirror `open` into the overlay-stack so a browser/native BACK routes through the
   // same `close()` (open=false + onclose) as a scrim tap / Escape. Leaves the
   // transition/positioning untouched; the drawer keeps its own z-50.
+  // Тулбары оверлея на хром хоста (setHostChrome) не претендуют — в т.ч. во вложенной Page.
+  provideChromeClaim(null);
+
   const overlay = useOverlay(() => open, close, { respectBack });
 
   function handleKeydown(e) {

@@ -4,30 +4,56 @@
   // Вложенные <Router>/useRouter() получают источник пути через ROUTER_LOCATION_CTX;
   // переходы переписывают только эту пару фрагмента и идут через реальный роутер с
   // `origin: hashParam`, чтобы intercept хоста видел, откуда начата навигация.
-  import { setContext, type Snippet } from 'svelte';
+  import { onDestroy, setContext, type Snippet } from 'svelte';
   import { useRouter } from './useRouter.svelte';
   import { getHistory } from '../history/registry';
   import { parseHashParams, splitUrl, withHashParams } from './hash-params';
   import { ROUTER_LOCATION_CTX, type RouterLocationSource } from './location-source';
   import { ROUTER_CTX, type RouterContextValue } from './context';
-  import { setNavigator, setRouteKey } from '../../navigation/context';
+  import { ensurePanelJournal } from './panel-journal';
+  import { setBackVisibility, setNavigator, setRouteKey } from '../../navigation/context';
   import { createNavigatorFromRouter } from '../navigator';
 
   let {
     hashParam,
     prefix = '',
+    backAtRoot = 'show',
     children,
   }: {
     /** Ключ пары фрагмента, в которой лежит путь поддерева. */
     hashParam: string;
     /** Префикс, под которым маршруты поддерева объявлены (`/accounts`); во фрагмент не пишется. */
     prefix?: string;
+    /** `'hide'` — поддерево получает геттер видимости «назад» (= currentHasParent):
+     *  кнопка «назад» тулбара хоста прячется, пока возвращаться некуда. */
+    backAtRoot?: 'show' | 'hide'; // read once at mount
     children: Snippet;
   } = $props();
 
   // Реальный роутер берём ДО setContext — иначе useRouter() увидел бы собственный источник.
   const real = useRouter();
   let routeBack = $state<string | null>(null);
+
+  // Журнал истории по hashParam (модульный, живёт дольше компонента). Позицию зеркалим в
+  // $state, чтобы currentHasParent был реактивен.
+  // svelte-ignore state_referenced_locally -- read once at mount
+  const journal = ensurePanelJournal(hashParam);
+  let position = $state(journal.position);
+  onDestroy(journal.subscribe(() => { position = journal.position; }));
+
+  /** Предыдущая запись истории — шаг этой же панели на том же главном экране: тогда «назад»
+   *  панели = «назад» браузера. Адаптер без position — прежнее правило: любая запись истории.
+   *  Неизвестная запись (оверлей, перезагрузка) — не шаг панели. */
+  const prevInJournal = $derived.by(() => {
+    if (position === -1) return true;
+    const prev = journal.get(position - 1);
+    const { pathname, search } = real.current;
+    return !!prev && prev.main === pathname + search && prev.value !== undefined;
+  });
+  // canGoBack адаптера не реактивен — читаем его на каждый вызов, а не кэшируем в $derived;
+  // реактивность (position, real.current, routeBack) потребитель получает через чтение $state.
+  const prevIsPanelStep = () => getHistory().canGoBack && prevInJournal;
+  const currentHasParent = () => prevIsPanelStep() || routeBack != null;
 
   /** Значение пары (путь без префикса) → полный виртуальный путь: пусто → `prefix || '/'`
    *  без хвостового слэша, путь без ведущего `/` его получает. */
@@ -79,18 +105,20 @@
       real.replace(resolveHref(url), { ...opts, origin: hashParam, scopedTo: scopedTo(url) });
     },
     back(href) {
-      if (getHistory().canGoBack) {
+      if (prevIsPanelStep()) {
         getHistory().goBack();
         return;
       }
-      const target = href ?? routeBack;
+      // <Route back> таблицы панели знает родителя внутри панели; href страницы — её запасной
+      // адрес на главном экране, поэтому routeBack главнее.
+      const target = routeBack ?? href;
       if (target) source.replace(target, { action: 'back' });
     },
     goBack() {
       source.back();
     },
     get currentHasParent() {
-      return getHistory().canGoBack || routeBack != null;
+      return currentHasParent();
     },
     setRouteBack(v) {
       routeBack = v;
@@ -104,6 +132,8 @@
   setNavigator(createNavigatorFromRouter(useRouter()));
   // <Content> поддерева запоминает скролл по виртуальному пути, а не по pathname главного экрана.
   setRouteKey(() => current.pathname);
+  // svelte-ignore state_referenced_locally -- read once at mount
+  if (backAtRoot === 'hide') setBackVisibility(currentHasParent);
   // Отрезаем base внешнего <Router>: путь поддерева — свой, вложенный <Router> без basepath
   // начинает от '/'. Сам VirtualRouter роутов не держит — регистрация в пустоту.
   setContext<RouterContextValue>(ROUTER_CTX, { base: '/', register: () => {}, unregister: () => {} });

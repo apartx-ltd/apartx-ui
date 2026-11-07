@@ -1,6 +1,7 @@
 <script>
   import { cn } from '../utils/cn';
   import { safeTopFlow, safeTopStrip, safeBottomFlow } from '../utils/safe-area';
+  import { createChromeClaim, getChromeClaim, provideChromeClaim } from './chrome-claim.svelte';
 
   /**
    * edgeToEdge — opt-out: Page не отступает на инсеты, не красит полоску под статус-баром и
@@ -10,6 +11,10 @@
    * отбивают `--safe-area-inset-*` сами. Вертикальный padding хоста при этом не вычищается.
    */
   let { children, class: className, edgeToEdge = false, ...restProps } = $props();
+
+  // Своя заявка на хром хоста (setHostChrome) — ✕ хоста берёт первый по рангу Toolbar этой
+  // страницы. Page внутри оверлея (заявка null) наследует запрет.
+  provideChromeClaim(getChromeClaim() === null ? null : createChromeClaim());
 </script>
 
 <!-- Page — контейнер у края экрана: отступает на --safe-area-inset-top/bottom и обнуляет

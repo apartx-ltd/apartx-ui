@@ -24,6 +24,19 @@ describe('browserHistoryAdapter', () => {
     off();
   });
 
+  it('exposes the current position: 0 on load, +1 per push, kept by replace, restored by popstate', () => {
+    const base = h.position as number;
+    h.push('/a');
+    expect(h.position).toBe(base + 1);
+    h.replace('/b');
+    expect(h.position).toBe(base + 1);
+    const at1 = window.history.state as { idx: number; root: number };
+    h.push('/c');
+    expect(h.position).toBe(base + 2);
+    window.dispatchEvent(new PopStateEvent('popstate', { state: at1 }));
+    expect(h.position).toBe(base + 1);
+  });
+
   it('replace keeps position and defaults action to none', () => {
     h.push('/a');
     const before = h.canGoBack;

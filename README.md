@@ -255,6 +255,65 @@ Nested `VirtualRouter`s are not supported.
 Hash-only navigations skip the leave guard; a host that wants to protect a dirty panel form
 on close calls `requestLeave(() => navigate(url, { keepHash: false }))` (`isLeaveBlocked()` tells whether a guard is dirty).
 
+#### Panel history
+
+A `VirtualRouter` keeps a journal of every navigation, per `hashParam` (module-level, so it
+keeps recording while the panel is closed; a page reload loses it). The journal needs the
+history adapter's index: `HistoryAdapter.position?: number` is the index of the current
+entry (the browser adapter exposes `history.state.idx`). Custom adapters should expose it;
+without `position` the old rule applies (any history entry counts as "back" — history first).
+
+`back(href?)` of the panel router:
+
+1. If the previous history entry is a step of the same panel at the same main address
+   (`pathname + search`), it calls `history.back()` — the browser Back and the panel's Back
+   agree.
+2. Otherwise it replaces to the route's `<Route back>`, which wins over the page's `href`
+   inside a `VirtualRouter` (the route knows the parent inside the panel, `href` is the page's
+   fallback on the main screen), else to `href`.
+3. Otherwise it does nothing.
+
+`currentHasParent` is reactive (rule 1 holds, or the route has a `back`).
+
+`<VirtualRouter backAtRoot="hide">` (`'show'` by default, read once at mount) makes the kit
+`BackButton` of the owning toolbar (see Host chrome) disappear while there is nothing to go
+back to. A `BackButton` with `href` is always shown.
+
+#### Host chrome
+
+A host that wraps a subtree (a side panel) can contribute a control to the subtree's pages
+— typically a close button — without the pages knowing about it:
+`setHostChrome({ end })` once above the subtree (`getHostChrome()` reads it).
+
+Per `Page`, exactly one kit `Toolbar` owns the host chrome and renders `end` after its own
+`end`. The first toolbar by rank owns it: a toolbar inside `Header` beats others; a `Header`
+toolbar mounted later takes over; after the owner unmounts, the remaining toolbars re-claim in
+tree order. `BackButton`s of the owning toolbar follow `backAtRoot`.
+
+Nothing claims in `Dialog`, `BottomSheet`, `Drawer`, `DocumentDialog` (and a `Page` inside
+them), in `Footer`, or in a `Toolbar` outside `Page`. `BackButton`s in overlays and in
+non-owning toolbars are unaffected. On SSR the host `end` appears after hydration. Without
+`setHostChrome` nothing changes.
+
+```svelte
+<!-- side panel host -->
+<script>
+  import { Button, Icon } from 'apartx-ui/display';
+  import { setHostChrome } from 'apartx-ui/navigation';
+  import { VirtualRouter } from 'apartx-ui/router';
+  import { faXmark } from '@fortawesome/free-solid-svg-icons';
+  setHostChrome({ end: closeButton });
+</script>
+
+{#snippet closeButton()}
+  <Button variant="icon" aria-label="Close" onclick={closePanel}><Icon icon={faXmark} /></Button>
+{/snippet}
+
+<VirtualRouter hashParam="panel" prefix="/accounts" backAtRoot="hide">
+  <Routes />
+</VirtualRouter>
+```
+
 Chat cards: `openLink(target, ctx?)` hands the registered link handler a `LinkOpenContext`
 (`{ origin? }`) as the second argument when the clicked element sits in a router scope
 (no scope → called with one argument, as before). Chat links reach `from.origin` of

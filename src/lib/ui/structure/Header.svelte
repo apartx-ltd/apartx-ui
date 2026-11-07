@@ -1,7 +1,12 @@
 <script>
+  import { setContext } from 'svelte';
   import { cn } from '../utils/cn';
+  import { IN_HEADER_KEY } from './chrome-claim.svelte';
 
   let { children, class: className, ...restProps } = $props();
+
+  // Toolbar в шапке претендует на хром хоста со старшим рангом.
+  setContext(IN_HEADER_KEY, true);
 </script>
 
 <!-- Top app-bar container. `pt-[var(--safe-area-inset-top)]` reserves the top safe-area inset

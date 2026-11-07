@@ -1,7 +1,37 @@
 <script>
+  import { getContext, setContext } from 'svelte';
   import { cn } from '../utils/cn';
+  import { getHostChrome } from '../../navigation/context';
+  import { getChromeClaim, HOST_TOOLBAR_KEY, IN_HEADER_KEY } from './chrome-claim.svelte';
 
   let { children, start, end, class: className, startClass, contentClass, endClass, ...restProps } = $props();
+
+  // Хром хоста (setHostChrome): претендует только тулбар внутри Page и вне оверлеев/Footer, и
+  // только если хост дал `end`. Владелец — первый по рангу (в Header — 2, иначе 1; при равенстве
+  // — смонтированный первым); при освобождении заявки оставшиеся претендуют заново.
+  const hostEnd = getHostChrome()?.end;
+  const claim = hostEnd ? getChromeClaim() : undefined;
+  const me = Symbol('toolbar');
+  const rank = getContext(IN_HEADER_KEY) ? 2 : 1;
+  const isOwner = $derived(!!claim && claim.owner === me);
+
+  if (claim) {
+    $effect(() => {
+      if (claim.owner === null || rank > claim.rank) {
+        claim.owner = me;
+        claim.rank = rank;
+      }
+    });
+    $effect(() => () => {
+      if (claim.owner === me) {
+        claim.owner = null;
+        claim.rank = 0;
+      }
+    });
+  }
+
+  // BackButton читает, в тулбаре-владельце ли он (геттер — владение меняется на лету).
+  setContext(HOST_TOOLBAR_KEY, () => isOwner);
 </script>
 
 <!-- The toolbar consumes the top safe-area inset (status bar / notch) via
@@ -28,9 +58,10 @@
     {@render children()}
   </div>
 
-  {#if end}
+  {#if end || isOwner}
     <div class={cn('shrink-0 flex items-center', endClass)}>
-      {@render end()}
+      {@render end?.()}
+      {#if isOwner}{@render hostEnd?.()}{/if}
     </div>
   {/if}
 </div>

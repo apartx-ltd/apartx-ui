@@ -16,6 +16,7 @@
   import { getPagePortalHost } from '../../navigation/context'
   import { getOverlayLayer } from './layer-context'
   import { useOverlay } from '../../hooks/useOverlay.svelte'
+  import { provideChromeClaim } from '../structure/chrome-claim.svelte'
 
   let {
     open = $bindable(false),
@@ -65,6 +66,9 @@
   // observes `open`; it never touches the drag/snap geometry or z (the sheet keeps its
   // own layer-based z above). The unmount seam drops the token without a stray history.back
   // if the host is navigated away while the sheet is still open.
+  // Тулбары оверлея на хром хоста (setHostChrome) не претендуют — в т.ч. во вложенной Page.
+  provideChromeClaim(null)
+
   const overlay = useOverlay(() => open, () => dismiss(), { respectBack })
 
   // Resolve the portal destination. For 'page', read the layer element from the

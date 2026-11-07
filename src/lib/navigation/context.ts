@@ -1,4 +1,4 @@
-import { getContext, setContext } from 'svelte';
+import { getContext, setContext, type Snippet } from 'svelte';
 
 /**
  * Router-agnostic navigation for the UI Kit.
@@ -90,6 +90,49 @@ export function setRouteKey(get: RouteKeyGetter): void {
 /** Read the route-key getter, if a host provided one. */
 export function getRouteKey(): RouteKeyGetter | undefined {
   return getContext<RouteKeyGetter | undefined>(ROUTE_KEY);
+}
+
+const BACK_VISIBILITY = Symbol('apartx-ui:back-visibility');
+
+/** Reactive accessor: whether the subtree's back control should be shown. */
+export type BackVisibilityGetter = () => boolean;
+
+/**
+ * Provided by `<VirtualRouter backAtRoot="hide">`: a getter for "the subtree has somewhere
+ * to go back to" (its `currentHasParent`). The kit's back control of the host toolbar
+ * hides itself while the getter is false. Absent → back controls behave as usual.
+ */
+export function setBackVisibility(get: BackVisibilityGetter): void {
+  setContext(BACK_VISIBILITY, get);
+}
+
+/** Read the back-visibility getter, if a `<VirtualRouter backAtRoot="hide">` provided one. */
+export function getBackVisibility(): BackVisibilityGetter | undefined {
+  return getContext<BackVisibilityGetter | undefined>(BACK_VISIBILITY);
+}
+
+const HOST_CHROME = Symbol('apartx-ui:host-chrome');
+
+/** Host-owned chrome the kit splices into the owning toolbar of each `<Page>`. */
+export interface HostChrome {
+  /** Rendered after the owning toolbar's own `end` (e.g. the side panel's close ✕). */
+  end?: Snippet;
+}
+
+/**
+ * Call once in the host (e.g. the cabinet's side panel) above its pages: the first-ranked
+ * kit `<Toolbar>` of each `<Page>` (one inside `<Header>` beats a plain one) renders
+ * `chrome.end` after its own `end`, and a `<BackButton>` in that toolbar honours
+ * `setBackVisibility`. Toolbars in overlays, footers or outside a `<Page>` never claim.
+ * Absent → toolbars render exactly as without a host. On SSR the host end appears after hydration.
+ */
+export function setHostChrome(chrome: HostChrome): void {
+  setContext(HOST_CHROME, chrome);
+}
+
+/** Read the host chrome, if a host provided one. */
+export function getHostChrome(): HostChrome | undefined {
+  return getContext<HostChrome | undefined>(HOST_CHROME);
 }
 
 /**
