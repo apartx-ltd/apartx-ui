@@ -17,7 +17,6 @@
   // the ready file, and the stub turns into the player.
   import { onDestroy } from 'svelte';
   import { faPlay, faPause, faArrowRight, faChevronUp, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
-  import Progress from '../../ui/display/Progress.svelte';
   import Button from '../../ui/display/Button.svelte';
   import Icon from '../../ui/display/Icon.svelte';
   import { chatT } from '../i18n';
@@ -187,10 +186,24 @@
 </script>
 
 {#if processing}
-  <div class="px-3 pt-2" data-testid="chat-audio-processing">
-    <div class="flex h-[54px] w-[260px] max-w-full flex-col justify-center gap-2 rounded-full bg-surface-container-high px-5">
-      <span class="text-body-sm text-on-surface-variant">{processingLabel}</span>
-      <Progress indeterminate />
+  <!-- The player's own skeleton (same row, same height), so the bubble doesn't change shape when
+       the transcode finishes: a spinner in place of play, still bars, the label in the time slot. -->
+  <div class="px-1 pt-1" role="status" data-testid="chat-audio-processing">
+    <div class="flex items-center gap-2.5">
+      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary" aria-hidden="true">
+        <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      </span>
+      <div class="flex min-w-0 flex-col gap-1">
+        <div class="flex h-5 animate-pulse items-end gap-px" aria-hidden="true">
+          {#each bars as level, i (i)}
+            <span class="w-[2px] shrink-0 rounded-full {barIdle}" style="height:{Math.max(BAR_MIN_H, Math.round(level * BAR_MAX_H))}px"></span>
+          {/each}
+        </div>
+        <span class="h-4 truncate text-[11px] leading-4 {timeTone}">{processingLabel}</span>
+      </div>
     </div>
   </div>
 {:else if file.url}

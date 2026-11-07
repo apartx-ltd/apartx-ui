@@ -131,6 +131,14 @@
   // orientation). virtua keeps the top offset in both cases, so a stick-to-bottom host would
   // silently drift off the bottom; it re-pins on this callback. Re-runs on `name` change (the
   // {#key} recreates the subtree, so hostEl rebinds).
+  //
+  // The rows are observed too, not just the content div. A row resizing (a transcript expanding)
+  // reaches virtua's own item observer first; virtua re-renders the content height in a microtask
+  // of that callback. The content div sits SHALLOWER in the DOM than the rows, and ResizeObserver
+  // delivers a shallower target's change in the NEXT frame — so a re-pin driven by the content
+  // div alone paints one frame late: the row grows past the bottom edge, then the list jumps.
+  // Observing the rows at their own depth runs this callback in the same pass, after virtua's
+  // (its observer is created first, by the first mounted row), so the re-pin lands before paint.
   $effect(() => {
     void listKey;
     if (!mounted || !hostEl || typeof ResizeObserver === 'undefined') return;
@@ -149,7 +157,18 @@
     });
     ro.observe(content);
     ro.observe(scroller);
-    return () => ro.disconnect();
+    for (const row of content.children) ro.observe(row);
+    const rowsWatch = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) if (node instanceof Element) ro.observe(node);
+        for (const node of record.removedNodes) if (node instanceof Element) ro.unobserve(node);
+      }
+    });
+    rowsWatch.observe(content, { childList: true });
+    return () => {
+      rowsWatch.disconnect();
+      ro.disconnect();
+    };
   });
 
   // Sizes cache to initialize VList with, read fresh whenever the key changes (the

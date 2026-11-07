@@ -62,6 +62,15 @@ describe('AudioMedia — player', () => {
     expect(q(el, 'chat-audio')).toBe(null);
   });
 
+  it('processing stub is the player skeleton: still bars, the label in the time slot, no controls', () => {
+    const { el } = render({ message: msg({ status: 'processing' }) });
+    const stub = q(el, 'chat-audio-processing')!;
+    expect(stub.getAttribute('role')).toBe('status');
+    expect(stub.querySelectorAll('.animate-pulse > span')).toHaveLength(48);
+    expect(stub.querySelector('button')).toBe(null);
+    expect(stub.textContent).toContain('Processing audio…');
+  });
+
   it('48 bars from the waveform, total duration shown, hidden <audio preload=metadata>', () => {
     const waveform = Array.from({ length: 48 }, (_, i) => (i === 0 ? 31 : 0));
     const { el } = render({ message: msg({ waveform }) });
