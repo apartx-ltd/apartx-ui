@@ -1,8 +1,11 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { faPaperPlane } from '@fortawesome/free-solid-svg-icons';
+  import { faPaperPlane, faMicrophone, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
   import Icon from '../ui/display/Icon.svelte';
   import type { ChatSession } from './session.svelte';
+  import type { VoiceRecorder } from './types';
+  import { formatDuration } from './helpers';
+  import { createVoiceGesture } from './voice-gesture.svelte';
 
   /** A host-opaque pending attachment for the default preview strip. */
   interface PendingAttachment { id: string; name: string; previewUrl?: string }
@@ -12,6 +15,9 @@
     replyToLabel = 'Reply to', cancelReplyLabel = 'Cancel reply', attachLabel = 'Attach',
     onTyping, onPickFiles, pendingAttachments = [], onRemoveAttachment,
     leading, gate,
+    voice = null,
+    voiceLabel = 'Record voice message', voiceCancelLabel = 'Cancel',
+    voiceHoldHint = 'Hold to record, release to send', voiceSlideHint = 'Slide to cancel',
   }:
     {
       session: ChatSession;
@@ -23,6 +29,14 @@
       onRemoveAttachment?: (id: string) => void;
       leading?: Snippet;
       gate?: Snippet;
+      /**
+       * Telegram-style voice notes: with a recorder and an empty draft the send button is a
+       * microphone — hold to record, release to send, slide left to cancel, slide up to keep
+       * recording hands-free. Typing swaps it back to the send button. The host records, uploads
+       * and sends (see `VoiceRecorder`); without a recorder the composer is text-only as before.
+       */
+      voice?: VoiceRecorder | null;
+      voiceLabel?: string; voiceCancelLabel?: string; voiceHoldHint?: string; voiceSlideHint?: string;
     } = $props();
 
   // Track the composer of the CURRENT session. If the host swaps the `session` prop (e.g. rebuilds it),
@@ -37,6 +51,14 @@
   const replyTo = $derived(composer.replyTo);
   let ta = $state<HTMLTextAreaElement | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
+
+  // The microphone takes the send button's place only while there is nothing to send as text.
+  const gesture = createVoiceGesture(() => voice);
+  const micInsteadOfSend = $derived(!!voice && !draftValue.trim());
+  const recordingRow = $derived(gesture.phase !== 'idle');
+  // The host's recorder ended on its own (auto-stop, chat left, denied microphone): back to idle.
+  $effect(() => { if (voice?.recording === false) gesture.sync(false); });
+  $effect(() => () => gesture.dispose());
 
   function autosize() {
     if (!ta) return;
@@ -93,30 +115,96 @@
     {/if}
 
     <div class="flex items-end gap-2">
-      {#if leading}
-        {@render leading()}
-      {:else if onPickFiles}
-        <button type="button" class="px-2 py-2 text-on-surface-variant" onclick={() => fileInput?.click()} aria-label={attachLabel}>📎</button>
-        <input bind:this={fileInput} type="file" multiple class="hidden" onchange={onPick} />
+      {#if recordingRow && voice}
+        <!-- Recording: the timer takes the field's place; while holding, the hint slides with the finger;
+             once locked, a Cancel button. -->
+        <div class="flex min-h-10 flex-1 items-center gap-2 rounded-2xl bg-surface-container px-3 py-2" data-testid="chat-composer-recording">
+          <span class="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-error" aria-hidden="true"></span>
+          <span class="tabular-nums" role="timer" data-testid="chat-composer-voice-seconds">{formatDuration(voice.seconds) || '0:00'}</span>
+          {#if gesture.phase === 'locked'}
+            <button
+              type="button"
+              class="ml-auto px-2 text-primary"
+              data-testid="chat-composer-voice-cancel"
+              onclick={() => gesture.cancel()}
+            >{voiceCancelLabel}</button>
+          {:else}
+            <span
+              class="ml-auto flex items-center gap-1 truncate text-sm text-on-surface-variant"
+              style="transform: translateX({gesture.dx}px); opacity: {1 + gesture.dx / 80}"
+              data-testid="chat-composer-voice-hint"
+            ><Icon icon={faChevronLeft} /> {voiceSlideHint}</span>
+          {/if}
+        </div>
+      {:else}
+        {#if leading}
+          {@render leading()}
+        {:else if onPickFiles}
+          <button type="button" class="px-2 py-2 text-on-surface-variant" onclick={() => fileInput?.click()} aria-label={attachLabel}>📎</button>
+          <input bind:this={fileInput} type="file" multiple class="hidden" onchange={onPick} />
+        {/if}
+        <textarea
+          bind:this={ta}
+          class="flex-1 resize-none rounded-2xl bg-surface-container px-3 py-2 outline-none"
+          rows="1"
+          {placeholder}
+          value={draftValue}
+          oninput={(e) => { composer.setDraft((e.target as HTMLTextAreaElement).value); autosize(); }}
+          onkeydown={onKeydown}
+        ></textarea>
       {/if}
-      <textarea
-        bind:this={ta}
-        class="flex-1 resize-none rounded-2xl bg-surface-container px-3 py-2 outline-none"
-        rows="1"
-        {placeholder}
-        value={draftValue}
-        oninput={(e) => { composer.setDraft((e.target as HTMLTextAreaElement).value); autosize(); }}
-        onkeydown={onKeydown}
-      ></textarea>
-      <button
-        type="button"
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary"
-        onclick={submit}
-        aria-label={sendLabel}
-        title={sendLabel}
-      >
-        <Icon icon={faPaperPlane} />
-      </button>
+
+      {#if (micInsteadOfSend || recordingRow) && voice}
+        {#if gesture.phase === 'locked' || gesture.sending}
+          <button
+            type="button"
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-50"
+            onclick={() => gesture.send()}
+            disabled={gesture.sending}
+            aria-label={sendLabel}
+            title={sendLabel}
+            data-testid="chat-composer-send"
+          >
+            <Icon icon={faPaperPlane} />
+          </button>
+        {:else}
+          <!-- touch-action/select/callout off: a held finger must not scroll, select text or open the
+               long-press menu; the gesture owns the pointer. -->
+          <button
+            type="button"
+            class="flex h-10 w-10 shrink-0 touch-none select-none items-center justify-center rounded-full bg-primary text-on-primary transition-transform {gesture.phase === 'holding' ? 'scale-125' : ''}"
+            style="-webkit-touch-callout: none"
+            onpointerdown={gesture.onpointerdown}
+            onpointermove={gesture.onpointermove}
+            onpointerup={gesture.onpointerup}
+            onpointercancel={gesture.onpointercancel}
+            onkeydown={gesture.onkeydown}
+            onclick={gesture.onclick}
+            oncontextmenu={(e) => e.preventDefault()}
+            aria-label={voiceLabel}
+            title={voiceLabel}
+            aria-pressed={gesture.phase === 'holding'}
+            data-testid="chat-composer-voice"
+          >
+            <Icon icon={faMicrophone} />
+          </button>
+        {/if}
+      {:else}
+        <button
+          type="button"
+          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary"
+          onclick={submit}
+          aria-label={sendLabel}
+          title={sendLabel}
+          data-testid="chat-composer-send"
+        >
+          <Icon icon={faPaperPlane} />
+        </button>
+      {/if}
     </div>
+
+    {#if gesture.hint}
+      <div class="text-right text-xs text-on-surface-variant" role="status" data-testid="chat-composer-voice-hold-hint">{voiceHoldHint}</div>
+    {/if}
   </div>
 {/if}

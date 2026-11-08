@@ -15,6 +15,8 @@ export interface MockController {
   injectVideo(): void;
   /** Push an AI assistant message: shows "typing…" then live-upserts the answer. */
   injectAi(): void;
+  /** Push an own voice note of `seconds` (what the demo recorder "recorded"). */
+  injectVoice(seconds: number): void;
   /** When true, the next sendMessage() rejects (to demo failed → retry). */
   failNextSend: boolean;
   /** When true, the next fetchOlder() rejects (to demo olderStatus 'error'). */
@@ -207,6 +209,15 @@ export function createMockTransport(): MockController {
       emit({
         type: 'upsert',
         message: { _id: id, chatId: CHAT_ID, seq, userId: THEM, type: 'video', text: 'Sending a short clip 🎬', createdAt: new Date(), meta: VIDEO },
+      });
+    },
+    injectVoice(seconds: number) {
+      const seq = ++maxSeq;
+      const id = `in${seq}`;
+      liveIds.push(id);
+      emit({
+        type: 'upsert',
+        message: { _id: id, chatId: CHAT_ID, seq, userId: ME, type: 'audio', text: '', createdAt: new Date(), delivery: 'sent', meta: voice({ duration: Math.max(seconds, 1), waveform: WAVEFORM, transcript: null }) },
       });
     },
     injectAi() {

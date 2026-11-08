@@ -143,3 +143,26 @@ export type ChatT = (key: string, opts?: Record<string, any>) => string;
  * rejection shows the inline "couldn't transcribe" note. No handler → no button.
  */
 export type AudioTranscribeHandler = (message: Message) => Promise<unknown>;
+
+/**
+ * Host voice recorder behind the composer's microphone (MessageInput `voice`). The kit only drives
+ * the gesture (hold → record, release → send, slide left → cancel, slide up → lock) and shows
+ * `recording`/`seconds`; capturing, uploading and sending the note are the host's.
+ *
+ * - `start()` MUST flip `recording` synchronously (the composer switches to the recording row on
+ *   the same tick); it never throws — the host reports a denied microphone itself.
+ * - `stop()` ends the recording and sends it; it never rejects — the host reports upload errors.
+ * - `cancel()` drops the recording, nothing is sent.
+ * - `recording` going back to `false` on its own (auto-stop, chat left) returns the composer to
+ *   the idle state.
+ * - `interaction: 'tap'` for recorders that cannot follow a held pointer (a native modal recorder):
+ *   a tap starts, the recording row shows Cancel/Send buttons. Default `'hold'`.
+ */
+export interface VoiceRecorder {
+  readonly recording: boolean;
+  readonly seconds: number;
+  readonly interaction?: 'hold' | 'tap';
+  start(): void;
+  stop(): Promise<void>;
+  cancel(): void;
+}
