@@ -155,6 +155,9 @@
       {/if}
 
       {#if (micInsteadOfSend || recordingRow) && voice}
+        <!-- The mic and its hint share an anchor: the hint is a tooltip bubble above the button, out of
+             the flow — a hint in the flow grew the composer and shifted the whole page for 1.5 s. -->
+        <div class="relative flex shrink-0">
         {#if gesture.phase === 'locked' || gesture.sending}
           <button
             type="button"
@@ -189,6 +192,14 @@
             <Icon icon={faMicrophone} />
           </button>
         {/if}
+        {#if gesture.hint}
+          <div
+            class="pointer-events-none absolute bottom-full right-0 z-50 mb-2 whitespace-nowrap rounded-xs bg-inverse-surface px-2 py-1 text-label-sm text-inverse-on-surface"
+            role="status"
+            data-testid="chat-composer-voice-hold-hint"
+          >{voiceHoldHint}</div>
+        {/if}
+        </div>
       {:else}
         <button
           type="button"
@@ -202,9 +213,5 @@
         </button>
       {/if}
     </div>
-
-    {#if gesture.hint}
-      <div class="text-right text-xs text-on-surface-variant" role="status" data-testid="chat-composer-voice-hold-hint">{voiceHoldHint}</div>
-    {/if}
   </div>
 {/if}
