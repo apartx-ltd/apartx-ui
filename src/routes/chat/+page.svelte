@@ -66,6 +66,32 @@
     }
   }
   function onRemoveAttachment(id: string) { pending = pending.filter((a) => a.id !== id); }
+
+  // Demo voice recorder: hold the mic to "record" (a ticking timer), release to send a fake note.
+  let voiceRecording = $state(false);
+  let voiceSeconds = $state(0);
+  let voiceTick: ReturnType<typeof setInterval> | null = null;
+  const voice = {
+    get recording() { return voiceRecording; },
+    get seconds() { return voiceSeconds; },
+    start() {
+      voiceRecording = true;
+      voiceSeconds = 0;
+      voiceTick = setInterval(() => { voiceSeconds += 1; }, 1000);
+    },
+    async stop() {
+      const seconds = voiceSeconds;
+      voice.cancel();
+      await new Promise((r) => setTimeout(r, 600));
+      mock.injectVoice(seconds);
+    },
+    cancel() {
+      if (voiceTick) clearInterval(voiceTick);
+      voiceTick = null;
+      voiceRecording = false;
+      voiceSeconds = 0;
+    },
+  };
 </script>
 
 <div class="mx-auto flex h-full max-w-5xl gap-6">
@@ -87,7 +113,7 @@
       </div>
     {/if}
 
-    <MessageInput {session} placeholder="Type a message…" sendLabel="Send" {onPickFiles} pendingAttachments={pending} {onRemoveAttachment} />
+    <MessageInput {session} placeholder="Type a message…" sendLabel="Send" {onPickFiles} pendingAttachments={pending} {onRemoveAttachment} {voice} />
   </div>
 
   <aside class="hidden w-64 shrink-0 flex-col gap-2 sm:flex">
