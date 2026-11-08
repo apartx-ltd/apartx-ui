@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import { faPaperPlane, faMicrophone, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
   import Icon from '../ui/display/Icon.svelte';
+  import Tooltip from '../ui/overlays/Tooltip.svelte';
   import type { ChatSession } from './session.svelte';
   import type { VoiceRecorder } from './types';
   import { formatDuration } from './helpers';
@@ -155,9 +156,9 @@
       {/if}
 
       {#if (micInsteadOfSend || recordingRow) && voice}
-        <!-- The mic and its hint share an anchor: the hint is a tooltip bubble above the button, out of
-             the flow — a hint in the flow grew the composer and shifted the whole page for 1.5 s. -->
-        <div class="relative flex shrink-0">
+        <!-- The "hold to record" hint is the kit Tooltip over the mic, driven by the gesture (`open`), not
+             by hover — a hint in the flow grew the composer and shifted the whole page for 1.5 s. -->
+        <Tooltip text={voiceHoldHint} open={gesture.hint} align="end" testid="chat-composer-voice-hold-hint" class="shrink-0">
         {#if gesture.phase === 'locked' || gesture.sending}
           <button
             type="button"
@@ -192,14 +193,7 @@
             <Icon icon={faMicrophone} />
           </button>
         {/if}
-        {#if gesture.hint}
-          <div
-            class="pointer-events-none absolute bottom-full right-0 z-50 mb-2 whitespace-nowrap rounded-xs bg-inverse-surface px-2 py-1 text-label-sm text-inverse-on-surface"
-            role="status"
-            data-testid="chat-composer-voice-hold-hint"
-          >{voiceHoldHint}</div>
-        {/if}
-        </div>
+        </Tooltip>
       {:else}
         <button
           type="button"
