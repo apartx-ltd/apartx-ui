@@ -142,3 +142,14 @@ describe('createDeliveredAcker', () => {
     expect(ack).not.toHaveBeenCalled();
   });
 });
+
+describe('createDeliveredAcker meIds', () => {
+  it('does not ack when the newest message is from my alias', () => {
+    const t = makeTimers();
+    const ack = vi.fn();
+    const a = createDeliveredAcker({ ack, debounceMs: 400, setTimeoutFn: t.set, clearTimeoutFn: t.clear });
+    a.note([dialog('c1', 7, 'tenant:c1')], 'me', ['tenant:c1']);
+    t.fire();
+    expect(ack).not.toHaveBeenCalled();
+  });
+});

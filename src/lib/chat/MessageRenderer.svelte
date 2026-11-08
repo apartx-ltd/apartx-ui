@@ -1,12 +1,13 @@
 <script lang="ts">
   import type { Message } from './types';
   import { resolveComponents, getSlotContext } from './registry.svelte';
+  import { isOwnMessage } from './helpers';
 
-  let { message, meUserId, authorName = '', timeLabel = '', isGroupStart = false, isGroupEnd = false, fullBleed = false }:
-    { message: Message; meUserId?: string; authorName?: string; timeLabel?: string; isGroupStart?: boolean; isGroupEnd?: boolean; fullBleed?: boolean } = $props();
+  let { message, meUserId, meIds, authorName = '', timeLabel = '', isGroupStart = false, isGroupEnd = false, fullBleed = false }:
+    { message: Message; meUserId?: string; meIds?: string[]; authorName?: string; timeLabel?: string; isGroupStart?: boolean; isGroupEnd?: boolean; fullBleed?: boolean } = $props();
 
   const slots = $derived(resolveComponents(message.type));
-  const me = $derived(!!meUserId && message.userId === meUserId);
+  const me = $derived(!!meUserId && isOwnMessage(message, meUserId, meIds));
   const hasCaption = $derived(!!message.text && message.text.trim().length > 0);
   // Full-bleed media with no caption/footer → the time floats over the media corner; otherwise it
   // rides the end of the (caption or plain) text via `floatBody`, telegram-style. Business cards and
@@ -20,7 +21,7 @@
   // Uniform prop set for every slot: host slot-context spread first, then the kit props. `me` and the
   // group-run flags are per-message so they can't live in the static slot context — the renderer
   // computes/forwards them here. Extra props a given slot doesn't read are harmless (Svelte ignores them).
-  const slotProps = $derived({ ...getSlotContext(), message, meUserId, me, authorName, timeLabel, isGroupStart, isGroupEnd, fullBleed });
+  const slotProps = $derived({ ...getSlotContext(), message, meUserId, meIds, me, authorName, timeLabel, isGroupStart, isGroupEnd, fullBleed });
 </script>
 
 <!-- Telegram-style running text with the time floated onto the last line, bottom-aligned. `flow-root`

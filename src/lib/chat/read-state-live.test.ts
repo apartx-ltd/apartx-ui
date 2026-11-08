@@ -65,3 +65,12 @@ describe('legacy fallback (lastReadSeq undefined/null)', () => {
     expect(firstUnreadId(msgs, ME)).toBe(null);
   });
 });
+
+import { isReadByMe } from './replication/read-state';
+describe('isReadByMe with meIds alias', () => {
+  it('alias-authored message is own: reads by receipts array, not watermark', () => {
+    const msg = { userId: 'tenant:c1', seq: 9, read: [] } as any;
+    expect(isReadByMe(msg, 'u1', 100)).toBe(true);                 // treated as incoming, seq<=wm
+    expect(isReadByMe(msg, 'u1', 100, ['tenant:c1'])).toBe(false); // own, nobody read it
+  });
+});

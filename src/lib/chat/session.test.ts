@@ -296,3 +296,12 @@ describe('ChatSession', () => {
     expect(s.unreadAnchorId).to.equal(s.messages[0]!._id); // divider anchors at the top of the loaded window
   });
 });
+
+describe('meIds', () => {
+  it('alias-authored messages never become the unread anchor', async () => {
+    const { transport } = fakeTransport({ fetchOlder: async () => [{ ...m('a', 1), userId: 'tenant:c1' }, { ...m('b', 2), userId: 'them' }] });
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', meIds: ['tenant:c1'], lastReadSeq: () => 0, lastMessageSeq: () => 2 });
+    await s.open();
+    expect(s.unreadAnchorId).to.equal('b');
+  });
+});

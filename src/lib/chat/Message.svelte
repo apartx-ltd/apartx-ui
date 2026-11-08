@@ -1,17 +1,17 @@
 <script lang="ts">
   import type { Message } from './types';
   import MessageRenderer from './MessageRenderer.svelte';
-  import { groupStart, groupEnd, showDate, isFullBleedMedia } from './helpers';
+  import { groupStart, groupEnd, showDate, isFullBleedMedia, isOwnMessage } from './helpers';
   import { resolveComponents } from './registry.svelte';
 
   let {
-    message, prev = null, next = null, meUserId,
+    message, prev = null, next = null, meUserId, meIds,
     authorName = '', timeLabel = '', dateLabel = '', serviceLabel = '',
     deletedLabel = 'Message deleted', unreadLabel = 'Unread messages',
     isUnread = false, onContextMenu, menuOnClick = false, onRead, readByMe = false,
   }:
     {
-      message: Message; prev?: Message | null; next?: Message | null; meUserId?: string;
+      message: Message; prev?: Message | null; next?: Message | null; meUserId?: string; meIds?: string[];
       authorName?: string; timeLabel?: string; dateLabel?: string;
       /** Host-translated text for a `type==='service'` system note (rendered centered). Falls back to message.text. */
       serviceLabel?: string;
@@ -22,7 +22,7 @@
       readByMe?: boolean;
     } = $props();
 
-  const mine = $derived(!!meUserId && message.userId === meUserId);
+  const mine = $derived(!!meUserId && isOwnMessage(message, meUserId, meIds));
   const removed = $derived(!!message.removedAt);
   const isService = $derived(message.type === 'service');
   const isGroupStart = $derived(groupStart(message, prev));
@@ -95,7 +95,7 @@
       class="max-w-[80%] {bubbleRadius} {fullBleed ? 'overflow-hidden' : 'px-2 py-1.5'} {mine ? 'bg-primary-container' : 'bg-surface-container'}"
       oncontextmenu={onContextMenu ? openMenu : undefined}
     >
-      <MessageRenderer {message} {meUserId} {authorName} {timeLabel} {isGroupStart} {isGroupEnd} {fullBleed} />
+      <MessageRenderer {message} {meUserId} {meIds} {authorName} {timeLabel} {isGroupStart} {isGroupEnd} {fullBleed} />
     </div>
   {/if}
 </div>

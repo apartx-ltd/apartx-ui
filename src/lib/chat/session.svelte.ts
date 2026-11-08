@@ -58,7 +58,7 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
   const unreadAnchorId = $derived.by(() => {
     if (!entrySet) return null;
     if (entryMaxSeq == null) return frozenAnchor; // legacy frozen-at-open (no ceiling)
-    return unreadAnchor(win.messages, opts.meUserId, entryLrs, entryMaxSeq);
+    return unreadAnchor(win.messages, opts.meUserId, entryLrs, entryMaxSeq, opts.meIds);
   });
   let unsub: (() => void) | null = null;
 
@@ -107,7 +107,7 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
       // we freeze it now to preserve the legacy contract. Re-open (a fresh session) re-captures both.
       entryLrs = lrs;
       entryMaxSeq = opts.lastMessageSeq?.() ?? null;
-      frozenAnchor = unreadAnchor(win.messages, opts.meUserId, lrs, entryMaxSeq);
+      frozenAnchor = unreadAnchor(win.messages, opts.meUserId, lrs, entryMaxSeq, opts.meIds);
       entrySet = true;
       status = 'ready';
     } catch {

@@ -7,14 +7,14 @@
   import Loading from '../ui/display/Loading.svelte';
   import Message from './Message.svelte';
   import { chatT } from './i18n';
-  import { countUnread, createReadFlusher, estimateMessageHeight } from './helpers';
+  import { isOwnMessage, countUnread, createReadFlusher, estimateMessageHeight } from './helpers';
   import { resolveComponents } from './registry.svelte';
   import { isReadByMe } from './replication/read-state';
   import type { ChatSession } from './session.svelte';
   import type { Message as ChatMessage } from './types';
 
   let {
-    session, meUserId, lastReadSeq = null, labelFor,
+    session, meUserId, meIds, lastReadSeq = null, labelFor,
     deletedLabel = chatT('chat.message_deleted', { defaultValue: 'Message deleted' }),
     unreadLabel = chatT('chat.unread_messages', { defaultValue: 'Unread messages' }),
     scrollToBottomLabel = chatT('chat.scroll_to_bottom', { defaultValue: 'Scroll to bottom' }),
@@ -24,6 +24,7 @@
     {
       session: ChatSession;
       meUserId?: string;
+      meIds?: string[];
       lastReadSeq?: number | null;
       labelFor?: (m: ChatMessage) => { timeLabel?: string; dateLabel?: string; authorName?: string; serviceLabel?: string };
       deletedLabel?: string;
@@ -50,7 +51,7 @@
   // Divider anchor is FROZEN at open() by the session — it marks where you left off on entry and
   // does not chase live messages (which get read on render). See ChatSession.unreadAnchorId.
   const unreadId = $derived(session.unreadAnchorId);
-  const unreadCount = $derived(countUnread(messages, meUserId, lastReadSeq));
+  const unreadCount = $derived(countUnread(messages, meUserId, lastReadSeq, meIds));
   // Where MessagesList should land on first load: the unread divider if there is one, else −1
   // (MessagesList treats < 1 as "bottom"). This is the ONLY initial-scroll signal — MessagesList
   // owns the actual scroll so there is a single, race-free driver. (A saved position from a prior
@@ -68,7 +69,7 @@
     return estimateMessageHeight(m, messages[i - 1] ?? null, {
       unreadAnchorId: unreadId,
       isLast: i === messages.length - 1,
-      mine: !!meUserId && m.userId === meUserId,
+      mine: !!meUserId && isOwnMessage(m, meUserId, meIds),
       bubble: resolveComponents(m.type).estimateHeight?.(m),
     });
   }
@@ -128,6 +129,7 @@
         prev={messages[i - 1] ?? null}
         next={messages[i + 1] ?? null}
         {meUserId}
+        {meIds}
         authorName={labels.authorName ?? ''}
         timeLabel={labels.timeLabel ?? ''}
         dateLabel={labels.dateLabel ?? ''}
@@ -135,7 +137,7 @@
         {deletedLabel}
         {unreadLabel}
         isUnread={m._id === unreadId}
-        readByMe={isReadByMe(m as any, meUserId ?? '', lastReadSeq)}
+        readByMe={isReadByMe(m as any, meUserId ?? '', lastReadSeq, meIds)}
         {onContextMenu}
         {menuOnClick}
         onRead={noteRead}
