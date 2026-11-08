@@ -1,5 +1,5 @@
 import type { StoredMessage } from './chat-db';
-import { isOwnMessage } from '../helpers';
+import { isOwnMessage } from '../own';
 
 /** Read-by-me for the unread badge / read-on-render gate. Directional:
  *  - own message → whether recipients read it (receipts array) — unchanged;

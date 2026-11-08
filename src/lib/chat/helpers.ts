@@ -1,5 +1,8 @@
 import type { Message } from './types';
 import { isReadByMe } from './replication/read-state';
+import { isOwnMessage } from './own';
+
+export { isOwnMessage };
 
 export type DeliveryTick = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
 
@@ -42,11 +45,6 @@ export function createMediaTapGuard(openViewer: () => void) {
       openViewer();
     },
   };
-}
-
-/** True if the message was authored by me: my primary id or one of my alias ids (`meIds`). */
-export function isOwnMessage(message: { userId?: string }, meUserId?: string, meIds?: string[]): boolean {
-  return message.userId === meUserId || (meIds ?? []).includes(message.userId as string);
 }
 
 /** True if anyone OTHER than me (or my aliases) has read the message (legacy read[] / boolean). */

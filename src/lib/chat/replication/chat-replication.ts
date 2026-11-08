@@ -17,6 +17,8 @@ export interface ChatReplicationDeps {
    * set, the engine watches the background dialogs stream and acks `markDelivered({chatId, uptoSeq})`
    * for freshly received counterpart messages, driving the sender's `counterpartDeliveredSeq` tick.
    */
+  /** Getter for my alias author ids (`meIds`); a getter because aliases appear after a claim on a live chat. */
+  meIds?: () => string[];
   markDelivered?: (a: { chatId: string; uptoSeq: number }) => Promise<void> | void;
 }
 
@@ -56,7 +58,7 @@ export function createChatReplication(deps: ChatReplicationDeps) {
       dialogs.start();
       if (acker && !ackSub) {
         ackSub = liveQuery(() => db.chatDialogs.toArray()).subscribe({
-          next: (list) => acker.note(list, deps.userId),
+          next: (list) => acker.note(list, deps.userId, deps.meIds?.()),
           error: () => {},
         });
       }

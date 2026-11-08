@@ -298,10 +298,26 @@ describe('ChatSession', () => {
 });
 
 describe('meIds', () => {
-  it('alias-authored messages never become the unread anchor', async () => {
-    const { transport } = fakeTransport({ fetchOlder: async () => [{ ...m('a', 1), userId: 'tenant:c1' }, { ...m('b', 2), userId: 'them' }] });
+  const msgs = () => [{ ...m('a', 1), userId: 'tenant:c1' }, { ...m('b', 2), userId: 'them' }];
+  it('alias-authored messages never become the unread anchor (derived path)', async () => {
+    const { transport } = fakeTransport({ fetchOlder: async () => msgs() });
     const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', meIds: ['tenant:c1'], lastReadSeq: () => 0, lastMessageSeq: () => 2 });
     await s.open();
+    expect(s.unreadAnchorId).to.equal('b');
+  });
+  it('same on the frozen path (no lastMessageSeq ceiling)', async () => {
+    const { transport } = fakeTransport({ fetchOlder: async () => msgs() });
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', meIds: ['tenant:c1'], lastReadSeq: () => 0 });
+    await s.open();
+    expect(s.unreadAnchorId).to.equal('b');
+  });
+  it('meIds as a getter: a later claim updates the derived anchor', async () => {
+    let ids: string[] = [];
+    const { transport } = fakeTransport({ fetchOlder: async () => msgs() });
+    const s = createChatSession(transport, { chatId: 'c', meUserId: 'me', meIds: () => ids, lastReadSeq: () => 0, lastMessageSeq: () => 2 });
+    await s.open();
+    expect(s.unreadAnchorId).to.equal('a');
+    ids = ['tenant:c1'];
     expect(s.unreadAnchorId).to.equal('b');
   });
 });

@@ -11,7 +11,7 @@
  * delivered position is only meaningful for messages I RECEIVED from them). Per-chat monotonic:
  * never re-acks a seq already acked or already scheduled.
  */
-import { isOwnMessage } from '../helpers';
+import { isOwnMessage } from '../own';
 export interface DeliveredAcker {
   /** Feed the current dialogs snapshot; schedules acks for freshly received counterpart messages. */
   note(dialogs: readonly any[], meUserId?: string, meIds?: string[]): void;

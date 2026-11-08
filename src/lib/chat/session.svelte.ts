@@ -51,6 +51,7 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
   //    unread divider" bug.
   //  • WITHOUT ceiling (legacy hosts): FROZEN once at open() — preserves the original contract exactly
   //    (a live arrival must not conjure a divider) for callers that can't provide the newest-seq bound.
+  const getMeIds = (): string[] | undefined => (typeof opts.meIds === 'function' ? opts.meIds() : opts.meIds);
   let entryLrs = $state<number | null>(null);
   let entryMaxSeq = $state<number | null>(null);
   let frozenAnchor = $state<string | null>(null);
@@ -58,7 +59,7 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
   const unreadAnchorId = $derived.by(() => {
     if (!entrySet) return null;
     if (entryMaxSeq == null) return frozenAnchor; // legacy frozen-at-open (no ceiling)
-    return unreadAnchor(win.messages, opts.meUserId, entryLrs, entryMaxSeq, opts.meIds);
+    return unreadAnchor(win.messages, opts.meUserId, entryLrs, entryMaxSeq, getMeIds());
   });
   let unsub: (() => void) | null = null;
 
@@ -107,7 +108,7 @@ export function createChatSession(transport: ChatTransport, opts: ChatSessionOpt
       // we freeze it now to preserve the legacy contract. Re-open (a fresh session) re-captures both.
       entryLrs = lrs;
       entryMaxSeq = opts.lastMessageSeq?.() ?? null;
-      frozenAnchor = unreadAnchor(win.messages, opts.meUserId, lrs, entryMaxSeq, opts.meIds);
+      frozenAnchor = unreadAnchor(win.messages, opts.meUserId, lrs, entryMaxSeq, getMeIds());
       entrySet = true;
       status = 'ready';
     } catch {

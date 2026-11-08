@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { countUnread, firstUnreadId } from './helpers';
+import { isReadByMe } from './replication/read-state';
 
 // u1 is "me"; u2 is the other participant.
 const ME = 'u1';
@@ -66,11 +67,18 @@ describe('legacy fallback (lastReadSeq undefined/null)', () => {
   });
 });
 
-import { isReadByMe } from './replication/read-state';
 describe('isReadByMe with meIds alias', () => {
   it('alias-authored message is own: reads by receipts array, not watermark', () => {
     const msg = { userId: 'tenant:c1', seq: 9, read: [] } as any;
     expect(isReadByMe(msg, 'u1', 100)).toBe(true);                 // treated as incoming, seq<=wm
     expect(isReadByMe(msg, 'u1', 100, ['tenant:c1'])).toBe(false); // own, nobody read it
+  });
+});
+
+describe('isReadByMe legacy read[] fallback with alias', () => {
+  it('read[] holding my alias counts as read by me when seq/watermark absent', () => {
+    const msg = { userId: 'them', read: ['tenant:c1'] } as any;
+    expect(isReadByMe(msg, 'u1', null)).toBe(false);
+    expect(isReadByMe(msg, 'u1', null, ['tenant:c1'])).toBe(true);
   });
 });
