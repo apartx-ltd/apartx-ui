@@ -105,7 +105,11 @@ describe('MessageInput — microphone instead of send', () => {
     expect(h.calls.cancel).toBe(1);
     expect(h.calls.stop).toBe(0);
     expect(byTestId('chat-composer-recording')).toBeNull();
-    expect(byTestId('chat-composer-voice-hold-hint')!.textContent).toBe('Hold to record');
+    const hint = byTestId('chat-composer-voice-hold-hint')!;
+    expect(hint.textContent).toBe('Hold to record');
+    // A tooltip above the mic, out of the flow: the composer must not grow (the page shifted for 1.5 s).
+    expect(hint.classList.contains('absolute')).toBe(true);
+    expect(hint.parentElement!.contains(byTestId('chat-composer-voice'))).toBe(true);
   });
 
   it('sliding up locks: Cancel in the row and an enabled send button; Cancel drops it', () => {
