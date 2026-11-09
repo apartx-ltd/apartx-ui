@@ -1,5 +1,23 @@
 # История изменений — apartx-ui
 
+## 2026-11-09
+
+### Версия 0.27.0
+
+### feat(chat): `meIds` — алиасы «меня» в сравнениях авторства
+
+* **Зачем.** Чат OTA-брони без аккаунта гостя пишет сообщения гостя от виртуального автора
+  `tenant:<chatId>`; когда гость входит своим аккаунтом и забирает чат, прежние сообщения остаются за
+  алиасом. Без алиасов они рисовались чужими, считались непрочитанными и не получали галочек
+  (план `docs/plans/2026-11-04-ota-guest-chat/plan-phase-2.md`).
+* **`isOwnMessage(message, meUserId, meIds?)`** (`own.ts`, из барреля чата) — моё: основной id или один из
+  `meIds`. На нём стоят все сравнения авторства: `mine` в `ChatMessageList`, `countUnread`, `isReadByMe`,
+  `unreadAnchor`, `deliveryTick` (галочки в `MessageTimeDefault` и в строке `ChatListItem`), акер доставки.
+* **Пропы `meIds?: string[]`** у `ChatMessageList`, `Message`, `MessageRenderer`, `ChatListItem`;
+  сессия (`createChatSession`) принимает `meIds` массивом или геттером (алиасы появляются после клейма
+  на живом чате); `ChatReplicationDeps.meIds?: () => string[]` — алиасы для акера реплики.
+* Без `meIds` поведение прежнее — у консьюмеров ничего не меняется.
+
 ## 2026-11-08
 
 ### Версия 0.26.1
