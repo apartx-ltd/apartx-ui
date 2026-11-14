@@ -227,7 +227,7 @@ All take `bookingId`; shapes below were verified against a live server.
 | Landlord note | `POST /Landlord/Booking/setNote` | `{bookingId, note}` |
 | Payment summary | `GET /Landlord/Booking/getPaymentInfo` | returns `{count, units, price, subtotal, total, fee, currency, deposit}` |
 | Transactions | `GET /Landlord/Booking/Transaction/find?bookingId=…` | returns `{items}`; amounts are Decimal objects |
-| Record a payment | `POST /Landlord/Booking/addTransaction` | `{bookingId, fields: {direction, amount, account, comment}}` — **all four required**, `amount` is a **number** (a string fails with a 500 `Match error`), `direction` is e.g. `"in"` |
+| Record a payment | `POST /Landlord/Booking/addTransaction` | `{bookingId, fields: {direction, amount, account, comment}}` — **all four required**, `amount` is a **number** (a string fails with a 500 `Match error`), `direction` is `"debit"` (money received from the guest) or `"credit"` (money paid back to the guest, a refund) — any other value fails with a 400 |
 | Remove a transaction | `POST /Landlord/Booking/removeTransaction` | confirm before removing |
 | Access: passcode | `POST /Landlord/Booking/getPasscode` | fails `400 errors.property_have_no_lock` when the property has no smart lock |
 | Access: give / revoke key | `POST /Landlord/Booking/giveKey`, `…/revokeKey` | `{bookingId}` |
