@@ -1,5 +1,8 @@
 import type { Message } from './types';
 import { isReadByMe } from './replication/read-state';
+import { isOwnMessage } from './own';
+
+export { isOwnMessage };
 
 export type DeliveryTick = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
 
@@ -44,11 +47,11 @@ export function createMediaTapGuard(openViewer: () => void) {
   };
 }
 
-/** True if anyone OTHER than me has read the message (legacy read[] / boolean). */
-export function isReadByOther(message: Message, meUserId?: string): boolean {
+/** True if anyone OTHER than me (or my aliases) has read the message (legacy read[] / boolean). */
+export function isReadByOther(message: Message, meUserId?: string, meIds?: string[]): boolean {
   const read = message.read;
   if (read === true) return true;
-  if (Array.isArray(read)) return read.some((u) => u !== meUserId);
+  if (Array.isArray(read)) return read.some((u) => u !== meUserId && !(meIds ?? []).includes(u));
   return false;
 }
 
@@ -84,9 +87,10 @@ export function deliveryTick(
   meUserId?: string,
   counterpartReadSeq?: number,
   counterpartDeliveredSeq?: number,
+  meIds?: string[],
 ): DeliveryTick {
   if (message.delivery === 'failed' || message.sendState === 'failed') return 'failed';
-  if (meUserId && message.userId === meUserId) {
+  if (meUserId && isOwnMessage(message, meUserId, meIds)) {
     // Optimistic local echo, not yet accepted by the server.
     if (message.sendState === 'sending') return 'pending';
     // Confirmed own message: read > delivered > sent, each gated on the counterpart watermark
@@ -96,7 +100,7 @@ export function deliveryTick(
       if (typeof counterpartDeliveredSeq === 'number' && counterpartDeliveredSeq >= message.seq) return 'delivered';
     }
     // Until seq/watermarks replicate: legacy read[] lifts to read, else the server has it = sent.
-    return isReadByOther(message, meUserId) ? 'read' : 'sent';
+    return isReadByOther(message, meUserId, meIds) ? 'read' : 'sent';
   }
   // Incoming / pre-migration message: preserve prior behavior — `delivery` first, then read[].
   switch (message.delivery) {
@@ -104,7 +108,7 @@ export function deliveryTick(
     case 'delivered': return 'delivered';
     case 'queued':
     case 'sent': return 'sent';
-    default: return isReadByOther(message, meUserId) ? 'read' : 'sent';
+    default: return isReadByOther(message, meUserId, meIds) ? 'read' : 'sent';
   }
 }
 
@@ -362,11 +366,11 @@ export function showDate(message: Message, prev: Message | null): boolean {
  * skip own messages and `type==='service'`; unread = `read[]` without me, or boolean `read === false`
  * (an absent `read` counts as read — matches admin's `_updateUnreadIndex`).
  */
-export function firstUnreadId(messages: readonly Message[], meUserId?: string, lastReadSeq?: number | null): string | null {
+export function firstUnreadId(messages: readonly Message[], meUserId?: string, lastReadSeq?: number | null, meIds?: string[]): string | null {
   for (const msg of messages) {
-    if (msg.userId === meUserId) continue;
+    if (isOwnMessage(msg, meUserId, meIds)) continue;
     if (msg.type === 'service') continue;
-    if (!isReadByMe(msg as any, meUserId ?? '', lastReadSeq)) return msg._id;
+    if (!isReadByMe(msg as any, meUserId ?? '', lastReadSeq, meIds)) return msg._id;
   }
   return null;
 }
@@ -385,24 +389,25 @@ export function unreadAnchor(
   meUserId: string | undefined,
   entryLrs: number | null | undefined,
   entryMaxSeq: number | null | undefined,
+  meIds?: string[],
 ): string | null {
   for (const msg of messages) {
-    if (msg.userId === meUserId) continue;
+    if (isOwnMessage(msg, meUserId, meIds)) continue;
     if (msg.type === 'service') continue;
     if (entryMaxSeq != null && msg.seq != null && msg.seq > entryMaxSeq) continue; // arrived after entry
-    if (!isReadByMe(msg as any, meUserId ?? '', entryLrs)) return msg._id;
+    if (!isReadByMe(msg as any, meUserId ?? '', entryLrs, meIds)) return msg._id;
   }
   return null;
 }
 
 /** Count of incoming unread messages (skip own + `type==='service'`) — same predicate as
  *  `firstUnreadId`. Drives the unread badge on the scroll-to-bottom button. */
-export function countUnread(messages: readonly Message[], meUserId?: string, lastReadSeq?: number | null): number {
+export function countUnread(messages: readonly Message[], meUserId?: string, lastReadSeq?: number | null, meIds?: string[]): number {
   let n = 0;
   for (const msg of messages) {
-    if (msg.userId === meUserId) continue;
+    if (isOwnMessage(msg, meUserId, meIds)) continue;
     if (msg.type === 'service') continue;
-    if (!isReadByMe(msg as any, meUserId ?? '', lastReadSeq)) n++;
+    if (!isReadByMe(msg as any, meUserId ?? '', lastReadSeq, meIds)) n++;
   }
   return n;
 }

@@ -1,12 +1,12 @@
 import 'fake-indexeddb/auto';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createChatReplication } from './chat-replication';
 import { closeChatDb, type StoredDialog } from './chat-db';
 import type { Checkpoint, PullResult } from '../../sync';
 
 // Realistic dialogs-stream server fake: a fixed set with STATIC updatedAt, checkpoint-filtered
 // exactly like the real `pullByCheckpoint` (strict (updatedAt,_id) cursor).
-function makeServer(dialogCount: number) {
+function makeServer(dialogCount: number, lastAuthor = 'them') {
   const base = new Date('2026-07-01T00:00:00Z').getTime();
   const dialogs: StoredDialog[] = Array.from({ length: dialogCount }, (_, i) => ({
     _id: `d${i}`,
@@ -15,7 +15,7 @@ function makeServer(dialogCount: number) {
     unread: 1,
     updatedAt: new Date(base + i),
     lastDeliveredSeq: 0,
-    chat: { _id: `c${i}`, lastMessage: { seq: 5, userId: 'them' } },
+    chat: { _id: `c${i}`, lastMessage: { seq: 5, userId: lastAuthor } },
   })) as unknown as StoredDialog[];
 
   const seenCheckpoints: (Checkpoint | null)[] = [];
@@ -64,5 +64,31 @@ describe('dialogs checkpoint persistence (the loop hinge)', () => {
 
     repl.stop();
     closeChatDb(userId, 'test');
+  });
+});
+
+describe('createChatReplication meIds wiring', () => {
+  const run = async (userId: string, meIds?: () => string[]) => {
+    const server = makeServer(1, 'tenant:c0');
+    const markDelivered = vi.fn();
+    const repl = createChatReplication({
+      userId, appVariant: 'test', markDelivered, meIds,
+      pullMessages: async () => ({ documents: [], checkpoint: null, hasMore: false }),
+      pullDialogs: server.pullDialogs,
+    });
+    await repl.dialogs.executePull(null);
+    repl.startDialogs();
+    await new Promise((r) => setTimeout(r, 700)); // > acker debounce (400ms)
+    repl.stop();
+    closeChatDb(userId, 'test');
+    return markDelivered;
+  };
+
+  it('acks an alias-authored newest message when no meIds is given', async () => {
+    expect((await run('meids-wire-1')).mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it('does NOT ack it when meIds getter lists the alias', async () => {
+    expect((await run('meids-wire-2', () => ['tenant:c0'])).mock.calls.length).toBe(0);
   });
 });

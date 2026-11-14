@@ -98,6 +98,8 @@ export interface MessageWindow {
 export interface ChatSessionOptions {
   chatId: string;
   meUserId: string;
+  /** Extra ids that also count as "me" (alias authorship): messages with these `userId`s are treated as my own. */
+  meIds?: string[] | (() => string[]);
   /** Page size for fetchOlder. Default 25. */
   pageSize?: number;
   /** Draft persistence; omit to disable reload-survival (in-memory only). */

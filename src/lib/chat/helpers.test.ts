@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, isMediaProcessing, mediaBox, mediaBoxHeight, MEDIA_BOX_MAX_H, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX, messageAttachments, splitAttachments, albumBoxHeight, albumLayout, ALBUM_MAX_CELLS, DOC_ROW_H, voiceBars, VOICE_BARS, VOICE_FLAT_LEVEL, voiceProgress, playedBarCount, seekFraction, voiceDuration, voiceTimeLabel, transcribeResultText, createExclusivePlayback } from './helpers';
+import { isOwnMessage, unreadAnchor, deliveryTick, isReadByOther, groupStart, groupEnd, showDate, firstUnreadId, countUnread, newerWatermark, createReadFlusher, chatImageGallery, formatDuration, isMediaProcessing, mediaBox, mediaBoxHeight, MEDIA_BOX_MAX_H, textBlockHeight, estimateMessageHeight, MEDIA_BOX_MAX, messageAttachments, splitAttachments, albumBoxHeight, albumLayout, ALBUM_MAX_CELLS, DOC_ROW_H, voiceBars, VOICE_BARS, VOICE_FLAT_LEVEL, voiceProgress, playedBarCount, seekFraction, voiceDuration, voiceTimeLabel, transcribeResultText, createExclusivePlayback } from './helpers';
 import type { Message } from './types';
 
 const m = (over: Partial<Message> = {}): Message => ({ _id: 'm', chatId: 'c', userId: 'u1', createdAt: new Date('2026-06-30T10:00:00Z'), ...over });
@@ -660,5 +660,33 @@ describe('voice player helpers', () => {
     p.release(c);
     p.claim(a);
     expect(c).not.toHaveBeenCalled();
+  });
+});
+
+describe('meIds (alias authorship)', () => {
+  const ALIAS = 'tenant:c1';
+  it('isOwnMessage: own id, alias, other, no meIds', () => {
+    expect(isOwnMessage({ userId: 'u1' }, 'u1')).toBe(true);
+    expect(isOwnMessage({ userId: ALIAS }, 'u1', [ALIAS])).toBe(true);
+    expect(isOwnMessage({ userId: ALIAS }, 'u1')).toBe(false);
+    expect(isOwnMessage({ userId: 'x' }, 'u1', [ALIAS])).toBe(false);
+  });
+  it('unread helpers skip alias messages when meIds given', () => {
+    const msgs = [m({ _id: 'a', userId: ALIAS, seq: 1 }), m({ _id: 'b', userId: 'them', seq: 2 })];
+    expect(countUnread(msgs, 'u1', 0)).toBe(2);
+    expect(countUnread(msgs, 'u1', 0, [ALIAS])).toBe(1);
+    expect(firstUnreadId(msgs, 'u1', 0)).toBe('a');
+    expect(firstUnreadId(msgs, 'u1', 0, [ALIAS])).toBe('b');
+    expect(unreadAnchor(msgs, 'u1', 0, 5)).toBe('a');
+    expect(unreadAnchor(msgs, 'u1', 0, 5, [ALIAS])).toBe('b');
+  });
+  it('isReadByOther ignores my aliases in read[]', () => {
+    expect(isReadByOther(m({ read: [ALIAS] }), 'u1')).toBe(true);
+    expect(isReadByOther(m({ read: [ALIAS] }), 'u1', [ALIAS])).toBe(false);
+  });
+  it('deliveryTick treats alias message as own (watermark ticks)', () => {
+    const msg = m({ userId: ALIAS, seq: 5 });
+    expect(deliveryTick(msg, 'u1', 5, 5, [ALIAS])).toBe('read');
+    expect(deliveryTick(msg, 'u1', 5, 5)).toBe('sent');
   });
 });

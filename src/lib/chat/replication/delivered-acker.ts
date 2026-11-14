@@ -11,9 +11,10 @@
  * delivered position is only meaningful for messages I RECEIVED from them). Per-chat monotonic:
  * never re-acks a seq already acked or already scheduled.
  */
+import { isOwnMessage } from '../own';
 export interface DeliveredAcker {
   /** Feed the current dialogs snapshot; schedules acks for freshly received counterpart messages. */
-  note(dialogs: readonly any[], meUserId?: string): void;
+  note(dialogs: readonly any[], meUserId?: string, meIds?: string[]): void;
   /** Cancel any pending flush (teardown). */
   dispose(): void;
 }
@@ -43,7 +44,7 @@ export function createDeliveredAcker(opts: {
   };
 
   return {
-    note(dialogs, meUserId) {
+    note(dialogs, meUserId, meIds) {
       for (const d of dialogs) {
         const lm = d?.chat?.lastMessage ?? d?.lastMessage;
         const seq = lm?.seq;
@@ -58,7 +59,7 @@ export function createDeliveredAcker(opts: {
         // A "delivered" tick is meaningless for a broadcast anyway, so never ack one.
         if ((d?.kind ?? d?.chat?.subject?.kind) === 'channel') continue;
         // Only ack when the newest message is from the counterpart — a genuine receive event.
-        if (meUserId && lm?.userId === meUserId) continue;
+        if (meUserId && lm && isOwnMessage(lm, meUserId, meIds)) continue;
         // Skip when this message is already RECEIVED per a PERSISTED watermark — the acker's
         // in-memory `acked` map lives only for the page-load, so without this a fresh load re-acks
         // every already-handled chat → markDelivered storm (server self-push → dialog re-pull →

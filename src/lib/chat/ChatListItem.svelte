@@ -16,11 +16,12 @@
   } from '@fortawesome/free-solid-svg-icons';
   import { longpress } from '../hooks/useLongPress.svelte';
   import MessengerIcon from './slots/MessengerIcon.svelte';
-  import { deliveryTick } from './helpers';
+  import { deliveryTick, isOwnMessage } from './helpers';
 
   let {
     dialog,
     meUserId,
+    meIds,
     isSelected = false,
     displayName = '',
     senderLabel = '',
@@ -37,6 +38,7 @@
   }: {
     dialog: any;
     meUserId?: string;
+    meIds?: string[];
     isSelected?: boolean;
     displayName?: string;
     senderLabel?: string;
@@ -62,8 +64,8 @@
   // pending → clock, sent → single grey, delivered → double grey, read → double blue, failed →
   // warning. null for incoming messages (no receipt shown on the counterpart's message).
   const tick = $derived(
-    lastMessage && meUserId && lastMessage.userId === meUserId
-      ? deliveryTick(lastMessage, meUserId, dialog.counterpartReadSeq, dialog.counterpartDeliveredSeq)
+    lastMessage && meUserId && isOwnMessage(lastMessage, meUserId, meIds)
+      ? deliveryTick(lastMessage, meUserId, dialog.counterpartReadSeq, dialog.counterpartDeliveredSeq, meIds)
       : null,
   );
 </script>

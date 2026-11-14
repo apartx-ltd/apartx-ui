@@ -5,14 +5,14 @@
   import Icon from '../../ui/display/Icon.svelte';
   import MessengerIcon from './MessengerIcon.svelte';
   import type { Message } from '../types';
-  import { deliveryTick } from '../helpers';
+  import { deliveryTick, isOwnMessage } from '../helpers';
 
   // `overlay` = rendered over media (telegram-style media-only bubble): force legible white text on
   // the translucent scrim the renderer provides, instead of the on-surface palette used below a bubble.
-  let { message, meUserId, counterpartReadSeq, counterpartDeliveredSeq, timeLabel = '', overlay = false }: { message: Message; meUserId?: string; counterpartReadSeq?: number; counterpartDeliveredSeq?: number; timeLabel?: string; overlay?: boolean } = $props();
+  let { message, meUserId, meIds, counterpartReadSeq, counterpartDeliveredSeq, timeLabel = '', overlay = false }: { message: Message; meUserId?: string; meIds?: string[]; counterpartReadSeq?: number; counterpartDeliveredSeq?: number; timeLabel?: string; overlay?: boolean } = $props();
 
-  const isMine = $derived(!!meUserId && message.userId === meUserId);
-  const tick = $derived(isMine ? deliveryTick(message, meUserId, counterpartReadSeq, counterpartDeliveredSeq) : null);
+  const isMine = $derived(!!meUserId && isOwnMessage(message, meUserId, meIds));
+  const tick = $derived(isMine ? deliveryTick(message, meUserId, counterpartReadSeq, counterpartDeliveredSeq, meIds) : null);
 
   const CHANNEL_ICON: Record<string, any> = { whatsapp: faWhatsapp, telegram: faTelegram };
   const channelIcon = (c: string) => CHANNEL_ICON[c] ?? faComment;
